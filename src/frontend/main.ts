@@ -8,6 +8,8 @@ import { ShowDemoWindow } from "../../lib/imgui-js/imgui_demo";
 
 import { MemoryEditor } from "../../lib/imgui-js/imgui_memory_editor";
 
+let font: ImGui.ImFont | null = null;
+
 let show_demo_window: boolean = true;
 let show_another_window: boolean = false;
 const clear_color: ImVec4 = new ImVec4(0.45, 0.55, 0.60, 1.00);
@@ -179,14 +181,14 @@ function _loop(time: number): void {
         if (show_movie_window)
             ShowMovieWindow("Movie Window", (value = show_movie_window) => show_movie_window = value);
 
-        // if (font) {
-        //     ImGui.PushFont(font);
-        //     ImGui.Text(`${font.GetDebugName()}`);
-        //     if (font.FindGlyphNoFallback(0x5929)) {
-        //         ImGui.Text(`U+5929: \u5929`);
-        //     }
-        //     ImGui.PopFont();
-        // }
+        if (font) {
+            ImGui.PushFont(font);
+            ImGui.Text(`${font.GetDebugName()}`);
+            if (font.FindGlyphNoFallback(0x5929)) {
+                ImGui.Text(`U+5929: \u5929`);
+            }
+            ImGui.PopFont();
+        }
 
         ImGui.End();
     }

@@ -1,0 +1,6 @@
+{
+    "files.exclude": {
+        "src/core/**.js": true,
+        "src/frontend/**.js": true
+    }
+}
