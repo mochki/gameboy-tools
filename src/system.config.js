@@ -7,7 +7,7 @@ SystemJS.config({
             main: "imgui.js",
             defaultExtension: 'js'
         },
-        "frontend": {
+        ".": {
             defaultExtension: 'js'
         }
     }

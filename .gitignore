@@ -1,2 +1,3 @@
-src/frontend/*.js
-src/core/*.js
+src/frontend/**/*.js
+src/core/**/*.js
+roms/
