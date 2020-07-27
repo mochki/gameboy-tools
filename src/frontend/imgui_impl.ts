@@ -546,9 +546,9 @@ export function RenderDrawData(draw_data: ImGui.ImDrawData | null = ImGui.GetDra
         const pos = draw_data.DisplayPos;
         const idx_buffer_type: GLenum = ((ImGui.ImDrawIdxSize === 4) ? gli.UNSIGNED_INT : gli.UNSIGNED_SHORT) || 0;
         draw_data.IterateDrawLists((draw_list: ImGui.ImDrawList): void => {
-            gl || ctx || console.log(draw_list);
-            gl || ctx || console.log("VtxBuffer.length", draw_list.VtxBuffer.length);
-            gl || ctx || console.log("IdxBuffer.length", draw_list.IdxBuffer.length);
+            // gl || ctx || console.log(draw_list);
+            // gl || ctx || console.log("VtxBuffer.length", draw_list.VtxBuffer.length);
+            // gl || ctx || console.log("IdxBuffer.length", draw_list.IdxBuffer.length);
 
             let idx_buffer_offset: number = 0;
 
@@ -558,17 +558,17 @@ export function RenderDrawData(draw_data: ImGui.ImDrawData | null = ImGui.GetDra
             gl && gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, draw_list.IdxBuffer, gl.STREAM_DRAW);
 
             draw_list.IterateDrawCmds((draw_cmd: ImGui.ImDrawCmd): void => {
-                gl || ctx || console.log(draw_cmd);
-                gl || ctx || console.log("ElemCount", draw_cmd.ElemCount);
-                gl || ctx || console.log("ClipRect", draw_cmd.ClipRect.x, fb_height - draw_cmd.ClipRect.w, draw_cmd.ClipRect.z - draw_cmd.ClipRect.x, draw_cmd.ClipRect.w - draw_cmd.ClipRect.y);
-                gl || ctx || console.log("TextureId", draw_cmd.TextureId);
-                if (!gl && !ctx) {
-                    console.log("i: pos.x pos.y uv.x uv.y col");
-                    for (let i = 0; i < Math.min(3, draw_cmd.ElemCount); ++i) {
-                        const view: ImGui.ImDrawVert = new ImGui.ImDrawVert(draw_list.VtxBuffer.buffer, draw_list.VtxBuffer.byteOffset + i * ImGui.ImDrawVertSize);
-                        console.log(`${i}: ${view.pos[0].toFixed(2)} ${view.pos[1].toFixed(2)} ${view.uv[0].toFixed(5)} ${view.uv[1].toFixed(5)} ${("00000000" + view.col[0].toString(16)).substr(-8)}`);
-                    }
-                }
+                // gl || ctx || console.log(draw_cmd);
+                // gl || ctx || console.log("ElemCount", draw_cmd.ElemCount);
+                // gl || ctx || console.log("ClipRect", draw_cmd.ClipRect.x, fb_height - draw_cmd.ClipRect.w, draw_cmd.ClipRect.z - draw_cmd.ClipRect.x, draw_cmd.ClipRect.w - draw_cmd.ClipRect.y);
+                // gl || ctx || console.log("TextureId", draw_cmd.TextureId);
+                // if (!gl && !ctx) {
+                //     console.log("i: pos.x pos.y uv.x uv.y col");
+                //     for (let i = 0; i < Math.min(3, draw_cmd.ElemCount); ++i) {
+                //         const view: ImGui.ImDrawVert = new ImGui.ImDrawVert(draw_list.VtxBuffer.buffer, draw_list.VtxBuffer.byteOffset + i * ImGui.ImDrawVertSize);
+                //         console.log(`${i}: ${view.pos[0].toFixed(2)} ${view.pos[1].toFixed(2)} ${view.uv[0].toFixed(5)} ${view.uv[1].toFixed(5)} ${("00000000" + view.col[0].toString(16)).substr(-8)}`);
+                //     }
+                // }
 
                 if (draw_cmd.UserCallback !== null) {
                     // User callback (registered via ImDrawList::AddCallback)

@@ -21,6 +21,62 @@ export function LD_SP_U16(cpu: CPU) {
     cpu.sp = (upper << 8) | lower;
 }
 
+export function ADD_HL_BC(cpu: CPU) {
+    let r16Val = cpu.getBc();
+    let hlVal = cpu.getHl();
+    let newVal = hlVal + r16Val;
+    cpu.setHl(newVal & 0xFFFF);
+    cpu.negative = false;
+    cpu.halfCarry = (hlVal & 0xFFF) + (r16Val & 0xFFF) > 0xFFF;
+    cpu.carry = newVal > 0xFFFF;
+
+    cpu.tick(4);
+}
+export function ADD_HL_DE(cpu: CPU) {
+    let r16Val = cpu.getDe();
+    let hlVal = cpu.getHl();
+    let newVal = hlVal + r16Val;
+    cpu.setHl(newVal & 0xFFFF);
+    cpu.negative = false;
+    cpu.halfCarry = (hlVal & 0xFFF) + (r16Val & 0xFFF) > 0xFFF;
+    cpu.carry = newVal > 0xFFFF;
+
+    cpu.tick(4);
+}
+export function ADD_HL_HL(cpu: CPU) {
+    let r16Val = cpu.getHl();
+    let hlVal = cpu.getHl();
+    let newVal = hlVal + r16Val;
+    cpu.setHl(newVal & 0xFFFF);
+    cpu.negative = false;
+    cpu.halfCarry = (hlVal & 0xFFF) + (r16Val & 0xFFF) > 0xFFF;
+    cpu.carry = newVal > 0xFFFF;
+
+    cpu.tick(4);
+}
+export function ADD_HL_SP(cpu: CPU) {
+    let r16Val = cpu.sp;
+    let hlVal = cpu.getHl();
+    let newVal = hlVal + r16Val;
+    cpu.setHl(newVal & 0xFFFF);
+    cpu.negative = false;
+    cpu.halfCarry = (hlVal & 0xFFF) + (r16Val & 0xFFF) > 0xFFF;
+    cpu.carry = newVal > 0xFFFF;
+
+    cpu.tick(4);
+}
+
+
+export function LD_iU16_SP(cpu: CPU) {
+    let addr = cpu.read16PcInc();
+
+    let spLower = (cpu.sp >> 0) & 0xFF;
+    let spUpper = (cpu.sp >> 8) & 0xFF;
+
+    cpu.write8((addr + 0) & 0xFFFF, spLower);
+    cpu.write8((addr + 1) & 0xFFFF, spUpper);
+}
+
 export function LD_iBC_A(cpu: CPU) {
     cpu.write8(cpu.getBc(), cpu.a);
 }
@@ -50,12 +106,141 @@ export function LD_A_iHLdec(cpu: CPU) {
     cpu.setHl((cpu.getHl() - 1) & 0xFFFF);
 }
 
-export function XOR_R8_R8(cpu: CPU, opcode: number) {
+export function ADD_A_R8(cpu: CPU, opcode: number) {
+    let val = cpu.getReg(opcode & 0b111);
+
+    cpu.a = (cpu.a + val) & 0xFF;
+
+    cpu.zero = cpu.a == 0;
+    cpu.negative = false;
+    cpu.halfCarry = (cpu.a & 0xF) + (val & 0xF) > 0xF;
+    cpu.carry = (cpu.a + val) > 0xFF;
+}
+
+export function ADC_A_R8(cpu: CPU, opcode: number) {
+    let val = cpu.getReg(opcode & 0b111);
+
+    cpu.a = (cpu.a + val + (cpu.carry ? 1 : 0)) & 0xFF;
+
+    cpu.zero = cpu.a == 0;
+    cpu.negative = false;
+    cpu.halfCarry = (cpu.a & 0xF) + (val & 0xF) + (cpu.carry ? 1 : 0) > 0xF;
+    cpu.carry = (cpu.a + val + (cpu.carry ? 1 : 0)) > 0xFF;
+}
+
+export function AND_A_R8(cpu: CPU, opcode: number) {
+    let val = cpu.getReg(opcode & 0b111);
+
+    cpu.a = cpu.a & val;
+
+    cpu.zero = cpu.a == 0;
+    cpu.negative = false;
+    cpu.halfCarry = true;
+    cpu.carry = false;
+}
+
+export function SUB_A_R8(cpu: CPU, opcode: number) {
+    let val = cpu.getReg(opcode & 0b111);
+
+    cpu.a = (cpu.a - val) & 0xFF;
+
+    cpu.zero = cpu.a == 0;
+    cpu.negative = true;
+    cpu.halfCarry = (val & 0xF) > (cpu.a & 0xF);
+    cpu.carry = val > cpu.a;
+}
+
+export function XOR_A_R8(cpu: CPU, opcode: number) {
     cpu.a &= cpu.getReg(opcode & 0b111);
 
     cpu.zero = cpu.a == 0;
     cpu.negative = false;
     cpu.halfCarry = false;
+    cpu.carry = false;
+}
+
+export function OR_A_R8(cpu: CPU, opcode: number) {
+    let val = cpu.getReg(opcode & 0b111);
+
+    cpu.a = cpu.a | val;
+
+    cpu.zero = cpu.a == 0;
+    cpu.negative = false;
+    cpu.halfCarry = true;
+    cpu.carry = false;
+}
+
+export function CP_A_R8(cpu: CPU, opcode: number) {
+    let val = cpu.getReg(opcode & 0b111);
+    let res = (cpu.a - val) & 0xFF;
+
+    cpu.zero = res == 0;
+    cpu.negative = true;
+    cpu.halfCarry = (val & 0xF) > (cpu.a & 0xF); // If borrow from bit 4
+    cpu.carry = val > cpu.a;
+}
+export function ADD_A_U8(cpu: CPU, opcode: number) {
+    let imm = cpu.read8PcInc();
+
+    cpu.a = (cpu.a + imm) & 0xFF;
+
+    cpu.zero = cpu.a == 0;
+    cpu.negative = false;
+    cpu.halfCarry = (cpu.a & 0xF) + (imm & 0xF) > 0xF;
+    cpu.carry = (cpu.a + imm) > 0xFF;
+}
+export function ADC_A_U8(cpu: CPU, opcode: number) {
+    let imm = cpu.read8PcInc();
+
+    cpu.a = (cpu.a + imm + (cpu.carry ? 1 : 0)) & 0xFF;
+
+    cpu.zero = cpu.a == 0;
+    cpu.negative = false;
+    cpu.halfCarry = (cpu.a & 0xF) + (imm & 0xF) + (cpu.carry ? 1 : 0) > 0xF;
+    cpu.carry = (cpu.a + imm + (cpu.carry ? 1 : 0)) > 0xFF;
+}
+
+export function SUB_A_U8(cpu: CPU, opcode: number) {
+    let imm = cpu.read8PcInc();
+
+    cpu.a = (cpu.a - imm) & 0xFF;
+
+    cpu.zero = cpu.a == 0;
+    cpu.negative = true;
+    cpu.halfCarry = (imm & 0xF) > (cpu.a & 0xF);
+    cpu.carry = imm > cpu.a;
+}
+
+export function AND_A_U8(cpu: CPU, opcode: number) {
+    let imm = cpu.read8PcInc();
+
+    cpu.a = cpu.a & imm;
+
+    cpu.zero = cpu.a == 0;
+    cpu.negative = false;
+    cpu.halfCarry = true;
+    cpu.carry = false;
+}
+
+export function XOR_A_U8(cpu: CPU, opcode: number) {
+    let imm = cpu.read8PcInc();
+
+    cpu.a = cpu.a ^ imm;
+
+    cpu.zero = cpu.a == 0;
+    cpu.negative = false;
+    cpu.halfCarry = true;
+    cpu.carry = false;
+}
+
+export function OR_A_U8(cpu: CPU, opcode: number) {
+    let imm = cpu.read8PcInc();
+
+    cpu.a = cpu.a | imm;
+
+    cpu.zero = cpu.a == 0;
+    cpu.negative = false;
+    cpu.halfCarry = true;
     cpu.carry = false;
 }
 
@@ -102,8 +287,36 @@ export function CALL(cpu: CPU, opcode: number) {
     cpu.pc = target;
 }
 
+
+export function JP(cpu: CPU, opcode: number) {
+    let target = cpu.read16PcInc();
+    cpu.pc = target;
+}
+
 export function RET(cpu: CPU, opcode: number) {
     cpu.pc = cpu.pop();
+}
+
+export function RET_CC(cpu: CPU, opcode: number) {
+    let cond = false;
+    switch ((opcode >> 3) & 0b111) {
+        case 0:
+            cond = !cpu.zero;
+            break;
+        case 1:
+            cond = cpu.zero;
+            break;
+        case 2:
+            cond = !cpu.carry;
+            break;
+        case 3:
+            cond = cpu.carry;
+            break;
+    }
+
+    if (cond) {
+        cpu.pc = cpu.pop();
+    }
 }
 
 export function EI(cpu: CPU, opcode: number) {
@@ -226,3 +439,66 @@ export function RRA(cpu: CPU) {
     cpu.carry = bitTest(oldVal, 0);
 }
 
+export function RLCA(cpu: CPU, opcode: number) {
+    let oldVal = cpu.a;
+    let rotateBit = (oldVal & 0b10000000) >> 7;
+    let newVal = ((oldVal << 1) & 0xFF) | rotateBit;
+
+    cpu.a = newVal;
+
+    cpu.zero = false;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = bitTest(oldVal, 7);
+}
+export function RRCA(cpu: CPU, opcode: number) {
+    let oldVal = cpu.a;
+    let rotateBit = (oldVal & 0b00000001) << 7;
+    let newVal = ((oldVal >> 1) & 0xFF) | rotateBit;
+
+    cpu.a = newVal;
+
+    cpu.zero = false;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = bitTest(oldVal, 0);
+}
+
+
+export function NOP(cpu: CPU) { }
+
+export function CPL(cpu: CPU) {
+    cpu.a = cpu.a ^ 0xFF;
+}
+
+export function RST(cpu: CPU, opcode: number) {
+    let target = 8 * ((opcode >> 3) & 0b111);
+    cpu.push(cpu.pc);
+    cpu.pc = target;
+}
+
+export function JP_CC(cpu: CPU, opcode: number) {
+    let cond = false;
+
+    switch ((opcode >> 3) & 0b111) {
+        case 0:
+            cond = !cpu.zero;
+            break;
+        case 1:
+            cond = cpu.zero;
+            break;
+        case 2:
+            cond = !cpu.carry;
+            break;
+        case 3:
+            cond = cpu.carry;
+            break;
+    }
+
+    let target = cpu.read16PcInc();
+
+    if (cond) {
+        cpu.push(cpu.pc);
+        cpu.pc = target;
+    }
+}

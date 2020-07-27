@@ -31,6 +31,7 @@ export default async function main(): Promise<void> {
     await ImGui.default();
 
     LoadRomFromURL("../roms/dmg_boot.bin", true);
+    LoadRomFromURL("../roms/Tetris (World) (Rev A).gb", false);
 
     let romsDescUrl = "../roms/roms.txt";
     let client = new XMLHttpRequest();
@@ -100,7 +101,7 @@ function _loop(time: number): void {
     // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 
     if (frameStep) {
-        for (let i = 0; i < 1000; i++) {
+        for (let i = 0; i < 5000; i++) {
             if (mgr.gb.errored) break;
             mgr.gb.step();
         }
@@ -113,6 +114,7 @@ function _loop(time: number): void {
     DrawDebug();
     DrawRoms();
     DrawDisplay();
+    DrawSchedulerInfo();
 
     memoryEditor.DrawWindow("Memory Editor", new Uint8Array(32));
 
@@ -184,7 +186,7 @@ function DrawDebug() {
 
         ImGui.Text("Welcome to a new generation of Optime GB.");
         ImGui.Separator();
-        ImGui.Columns(2);
+        ImGui.Columns(3);
 
         ImGui.Text(`AF: ${hexN(mgr.gb.cpu.getAf(), 4)}`);
         ImGui.Text(`BC: ${hexN(mgr.gb.cpu.getBc(), 4)}`);
@@ -211,6 +213,14 @@ function DrawDebug() {
         ImGui.Checkbox("Half Carry", v => v = mgr.gb.cpu.halfCarry);
         ImGui.Checkbox("Carry", v => v = mgr.gb.cpu.carry);
 
+        ImGui.NextColumn();
+
+        ImGui.Checkbox("Enabled", v => v = mgr.gb.ppu.lcdDisplayEnable);
+
+        ImGui.Text(`LY: ${mgr.gb.ppu.ly}`);
+        ImGui.Text(`SCX: ${mgr.gb.ppu.scx}`);
+        ImGui.Text(`SCY: ${mgr.gb.ppu.scy}`);
+
         ImGui.Columns(1);
 
         ImGui.Separator();
@@ -220,6 +230,17 @@ function DrawDebug() {
             ImGui.Text(mgr.gb.infoText[mgr.gb.infoText.length - i - 1]);
         }
 
+        ImGui.End();
+    }
+}
+
+function DrawSchedulerInfo() {
+    if (ImGui.Begin("Scheduler")) {
+
+        ImGui.Text(`Current Ticks: ${mgr.gb.scheduler.currTicks}`);
+        ImGui.Text(`Next event at: ${mgr.gb.scheduler.currEventTicks}`);
+        ImGui.Text(`Events queued: ${mgr.gb.scheduler.heapSize}`);
+        
         ImGui.End();
     }
 }

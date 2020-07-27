@@ -1,19 +1,23 @@
+import { Interrupts } from './interrupts';
 import { PPU } from './ppu';
 import { GameBoy } from './gameboy';
 import { hex } from './util/misc';
+import { bitTest } from './util/bits';
 export class Bus {
     gb: GameBoy;
     ppu: PPU;
+    interrupts: Interrupts;
 
-    constructor(gb: GameBoy, ppu: PPU) {
+    constructor(gb: GameBoy, ppu: PPU, interrupts: Interrupts) {
         this.gb = gb;
         this.ppu = ppu;
+        this.interrupts = interrupts;
     }
 
     bootrom = new Uint8Array(0x100);
     bootromEnabled = true;
 
-    rom = new Uint8Array(2 ^ 23);
+    rom = new Uint8Array(8388608);
     romOffset = 0;
 
     hram = new Uint8Array(127);
@@ -60,13 +64,36 @@ export class Bus {
             case 0xE: // OAM - E###
                 break;
             case 0xF: // ZeroPage - F###
-                if (addr >= 0xFF00 && addr <= 0xFF7F) {
-                    return 0xFF;
+                switch (addr) {
+                    case 0xFF40: // LCDC
+                    case 0xFF41: // STAT
+                    case 0xFF42: // SCY
+                    case 0xFF43: // SCX
+                    case 0xFF44: // LY
+                    case 0xFF45: // LYC
+                    case 0xFF46: // DMA
+                    case 0xFF47: // BGP
+                    case 0xFF48: // OBP0
+                    case 0xFF49: // OBP1
+                    case 0xFF4A: // WY
+                    case 0xFF4B: // WX
+
+                    case 0xFF4F: // VBK
+
+                    case 0xFF68: // BCPS/BGPI
+                    case 0xFF69: // BCPD/BGPD
+                    case 0xFF6A: // OCPS/OBPI
+                    case 0xFF6B: // OCPD/OBPD
+                        return this.ppu.readHwio8(addr);
+
+                    case 0xFF0F: // IF
+                    case 0xFFFF: // IE
+                        return this.interrupts.readHwio8(addr);
                 }
-                else if (addr >= 0xFF80 && addr <= 0xFFFE) {
+                if (addr >= 0xFF80 && addr <= 0xFFFE) { // HRAM
                     return this.hram[addr - 0xFF80];
                 }
-                break;
+                return 0xFF;
         }
 
         this.gb.error(`Out of bounds read, addr: ${hex(addr, 4)}`);
@@ -101,14 +128,44 @@ export class Bus {
             case 0xE: // OAM - E###
                 break;
             case 0xF: // ZeroPage - F###
-                if (addr >= 0xFF00 && addr <= 0xFF7F) {
-                    return;
+                switch (addr) {
+                    case 0xFF40: // LCDC
+                    case 0xFF41: // STAT
+                    case 0xFF42: // SCY
+                    case 0xFF43: // SCX
+                    case 0xFF44: // LY
+                    case 0xFF45: // LYC
+                    case 0xFF46: // DMA
+                    case 0xFF47: // BGP
+                    case 0xFF48: // OBP0
+                    case 0xFF49: // OBP1
+                    case 0xFF4A: // WY
+                    case 0xFF4B: // WX
+
+                    case 0xFF4F: // VBK
+
+                    case 0xFF68: // BCPS/BGPI
+                    case 0xFF69: // BCPD/BGPD
+                    case 0xFF6A: // OCPS/OBPI
+                    case 0xFF6B: // OCPD/OBPD
+                        this.ppu.writeHwio8(addr, val);
+                        return;
+
+                    case 0xFF50: // Bootrom Disable
+                        if (bitTest(val, 0)) this.bootromEnabled = false;
+                        return;
+
+                    case 0xFF0F: // IF
+                    case 0xFFFF: // IE
+                        this.interrupts.writeHwio8(addr, val);
+                        return;
                 }
-                else if (addr >= 0xFF80 && addr <= 0xFFFE) {
+
+                if (addr >= 0xFF80 && addr <= 0xFFFE) { // HRAM
                     this.hram[addr - 0xFF80] = val;
                     return;
                 }
-                break;
+                return;
         }
 
         this.gb.error(`Out of bounds write, addr: ${hex(addr, 4)}`);

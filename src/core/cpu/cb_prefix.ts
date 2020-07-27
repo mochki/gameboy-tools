@@ -89,6 +89,24 @@ export function SRA(cpu: CPU, opcode: number) {
     cpu.carry = bitTest(oldVal, 0);
 }
 
+export function SWAP(cpu: CPU, opcode: number) {
+    let regIndex = opcode & 0b111;
+    let oldVal = cpu.getReg(regIndex);
+
+    let lower = (oldVal >> 0) & 0xF;
+    let upper = (oldVal >> 4) & 0xF;
+
+    let newVal = (lower << 4) | upper;
+ 
+    cpu.setReg(regIndex, newVal);
+
+    cpu.zero = newVal == 0;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = false
+}
+
+
 export function BIT(cpu: CPU, opcode: number) {
     let val = cpu.getReg(opcode & 0b111);
     let bitIndex = (opcode >> 3) & 0b111;
@@ -112,4 +130,8 @@ export function SET(cpu: CPU, opcode: number) {
     let bitIndex = (opcode >> 3) & 0b111;
 
     cpu.setReg(regIndex, bitSet(val, bitIndex));
+}
+
+export function JP_HL(cpu: CPU, opcode: number) {
+    cpu.pc = cpu.getHl();
 }

@@ -1,3 +1,5 @@
+import { Interrupts } from './interrupts';
+import { Scheduler } from './scheduler';
 import { GameBoyProvider } from './provider';
 import { Bus } from "./bus";
 import { CPU } from "./cpu/cpu";
@@ -7,13 +9,17 @@ export class GameBoy {
     bus: Bus;
     ppu: PPU;
     cpu: CPU;
+    interrupts: Interrupts;
 
     provider: GameBoyProvider | null = null;
 
+    scheduler: Scheduler;
+
     constructor(provider?: GameBoyProvider) {
-        this.cpu = new CPU(this);
         this.ppu = new PPU(this);
-        this.bus = new Bus(this, this.ppu);
+        this.interrupts = new Interrupts();
+        this.bus = new Bus(this, this.ppu, this.interrupts);
+        this.cpu = new CPU(this, this.bus, this.interrupts);
 
         if (provider) {
             for (let i = 0; i < provider.rom.length; i++) {
@@ -28,6 +34,8 @@ export class GameBoy {
             }
             this.provider = provider;
         }
+
+        this.scheduler = new Scheduler();
     }
 
     errored = false;
@@ -36,18 +44,28 @@ export class GameBoy {
         this.errored = true;
         this.infoText.unshift("ERROR:");
         this.infoText.unshift(text);
-        this.infoText = this.infoText.slice(0, 100);
+        this.infoText = this.infoText.slice(0, 10);
     }
-    info(text: string) {
-        this.infoText.unshift(text);
-        this.infoText = this.infoText.slice(0, 100);
-    }
+    // info(text: string) {
+    //     this.infoText.unshift(text);
+    //     this.infoText = this.infoText.slice(0, 10);
+    // }
     resetInfo() {
         this.infoText = [];
     }
 
-
     public step(): void {
         this.cpu.execute();
+    }
+
+    public tick(ticks: number): void {
+        this.scheduler.currTicks += ticks;
+        while (
+            this.scheduler.currTicks >= this.scheduler.currEventTicks &&
+            this.scheduler.heapSize > 0
+        ) {
+            let evt = this.scheduler.popFirstEvent();
+            evt.callback();
+        }
     }
 }
