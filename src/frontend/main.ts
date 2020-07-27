@@ -3,7 +3,7 @@ import { GameBoyManager } from './manager';
 import * as ImGui from "../../lib/imgui-js/imgui";
 import * as ImGui_Impl from "./imgui_impl";
 
-import { ImVec2 } from "../../lib/imgui-js/imgui";
+import { ImVec2, ImGuiCol } from "../../lib/imgui-js/imgui";
 import { ImVec4 } from "../../lib/imgui-js/imgui";
 import { ImGuiIO } from "../../lib/imgui-js/imgui";
 
@@ -30,7 +30,7 @@ let mgr = new GameBoyManager();
 export default async function main(): Promise<void> {
     await ImGui.default();
 
-    LoadRomFromURL("../roms/dmg_bootrom.bin", true);
+    LoadRomFromURL("../roms/dmg_boot.bin", true);
 
     let romsDescUrl = "../roms/roms.txt";
     let client = new XMLHttpRequest();
@@ -98,6 +98,13 @@ function _loop(time: number): void {
     // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application.
     // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application.
     // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
+
+    if (frameStep) {
+        for (let i = 0; i < 1000; i++) {
+            if (mgr.gb.errored) break;
+            mgr.gb.step();
+        }
+    }
 
     // Start the Dear ImGui frame
     ImGui_Impl.NewFrame(time);
@@ -170,6 +177,8 @@ class FastRNG {
 }
 const RNG = new FastRNG();
 
+let frameStep = false;
+
 function DrawDebug() {
     if (ImGui.Begin("Optime GB")) {
 
@@ -186,6 +195,11 @@ function DrawDebug() {
         ImGui.Text("");
         ImGui.Text(`PC: ${hexN(mgr.gb.cpu.pc, 4)}`);
 
+        ImGui.Checkbox("IME", v => v = mgr.gb.cpu.ime);
+
+        ImGuiColumnSeparator();
+
+        ImGui.Checkbox("Frame Step", (v = frameStep) => frameStep = v);
         if (ImGui.Button("Step")) {
             mgr.gb.step();
         }
@@ -201,10 +215,10 @@ function DrawDebug() {
 
         ImGui.Separator();
 
-        if (mgr.gb.errored) {
-            ImGui.Text("ERROR:");
+
+        for (let i= 0; i < mgr.gb.infoText.length; i++) {
+            ImGui.Text(mgr.gb.infoText[mgr.gb.infoText.length - i - 1]);
         }
-        ImGui.Text(mgr.gb.infoText);
 
         ImGui.End();
     }
@@ -309,4 +323,15 @@ async function _done(): Promise<void> {
     ImGui.DestroyContext();
 
     console.log("Total allocated space (uordblks) @ _done:", ImGui.bind.mallinfo().uordblks);
+}
+
+function ImGuiColumnSeparator() {
+    ImGui.Dummy(new ImVec2(0.0, 0.5));
+
+    // Draw separator within column
+    let drawList = ImGui.GetWindowDrawList();
+    let pos = ImGui.GetCursorScreenPos();
+    drawList.AddLine(new ImVec2(pos.x - 9999, pos.y), new ImVec2(pos.x + 9999, pos.y), ImGui.GetColorU32(ImGuiCol.Separator));
+
+    ImGui.Dummy(new ImVec2(0.0, 0.9));
 }
