@@ -1,13 +1,13 @@
 
 import { GameBoyManager } from './manager';
-import * as ImGui from "../../lib/imgui-js/imgui";
+import * as ImGui from "../lib/imgui-js/imgui";
 import * as ImGui_Impl from "./imgui_impl";
 
-import { ImVec2, ImGuiCol } from "../../lib/imgui-js/imgui";
-import { ImVec4 } from "../../lib/imgui-js/imgui";
-import { ImGuiIO } from "../../lib/imgui-js/imgui";
+import { ImVec2, ImGuiCol } from "../lib/imgui-js/imgui";
+import { ImVec4 } from "../lib/imgui-js/imgui";
+import { ImGuiIO } from "../lib/imgui-js/imgui";
 
-import { MemoryEditor } from "../../lib/imgui-js/imgui_memory_editor";
+import { MemoryEditor } from "../lib/imgui-js/imgui_memory_editor";
 
 import { GameBoy } from "../core/gameboy";
 import { hexN } from '../core/util/misc';
@@ -101,7 +101,7 @@ function _loop(time: number): void {
     // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 
     if (frameStep) {
-        for (let i = 0; i < 5000; i++) {
+        for (let i = 0; i < 100000; i++) {
             if (mgr.gb.errored) break;
             mgr.gb.step();
         }

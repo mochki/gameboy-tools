@@ -1,6 +1,6 @@
 SystemJS.config({
     map: {
-        "imgui-js": "../lib/imgui-js/",
+        "imgui-js": "./lib/imgui-js/",
     },
     packages: {
         "imgui-js": {

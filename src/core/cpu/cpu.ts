@@ -6,13 +6,13 @@ import { BIT, RES, SET, RLC, RRC, RL, RR, SLA, SRA, SWAP, JP_HL, SRL } from "./c
 import { Interrupts } from "../interrupts";
 import { LD_R8_R8, LD_BC_U16, LD_DE_U16, LD_HL_U16, LD_SP_U16, LD_A_iU16, LD_iU16_A, LD_iU16_SP, JP, JP_CC, CALL, CALL_CC, LD_A_iFF00plusU8, LD_iFF00plusU8_A, LD_iHL_U8, LD_HL_SPplusE8, ADD_SP_E8, AND_A_U8, OR_A_U8, XOR_A_U8, CP_A_U8, JR, ADD_A_U8, ADC_A_U8, SUB_A_U8, SBC_A_U8, LD_R8_U8, LD_SP_HL, PUSH_BC, PUSH_DE, PUSH_HL, PUSH_AF, POP_BC, POP_DE, POP_HL, POP_AF, INC_R8, DEC_R8, INC_BC, INC_DE, INC_HL, INC_SP, DEC_BC, DEC_DE, DEC_HL, DEC_SP, ADD_A_R8, ADC_A_R8, SUB_A_R8, SBC_A_R8, AND_A_R8, XOR_A_R8, OR_A_R8, CP_A_R8, CPL, RETI, DAA, NOP, LD_iBC_A, LD_iDE_A, LD_iHLinc_A, LD_iHLdec_A, LD_A_iBC, LD_A_iDE, LD_A_iHLinc, LD_A_iHLdec, LD_A_iFF00plusC, LD_iFF00plusC_A, DI, EI, RLCA, RRCA, RRA, RLA, HALT, SCF, CCF, RET, RET_CC, RST, ADD_HL_BC, ADD_HL_DE, ADD_HL_HL, ADD_HL_SP } from "./unprefixed";
 
-function boundsCheck8(i: number): void {
-    if ((i & ~0xFF) != 0) throw "Bounds error 8-bit";
-}
+// function boundsCheck8(i: number): void {
+//     if ((i & ~0xFF) != 0) throw "Bounds error 8-bit";
+// }
 
-function boundsCheck16(i: number): void {
-    if ((i & ~0xFFFF) != 0) throw "Bounds error 16-bit";
-}
+// function boundsCheck16(i: number): void {
+//     if ((i & ~0xFFFF) != 0) throw "Bounds error 16-bit";
+// }
 
 export class CPU {
     gb: GameBoy;
@@ -74,22 +74,22 @@ export class CPU {
     a: number = 0;
 
     setAf(val: number) {
-        boundsCheck16(val);
+        // boundsCheck16(val);
         this.a = (val >> 8) & 0xFF;
         this.setF((val >> 0) & 0xFF);
     }
     setBc(val: number) {
-        boundsCheck16(val);
+        // boundsCheck16(val);
         this.b = (val >> 8) & 0xFF;
         this.c = (val >> 0) & 0xFF;
     }
     setDe(val: number) {
-        boundsCheck16(val);
+        // boundsCheck16(val);
         this.d = (val >> 8) & 0xFF;
         this.e = (val >> 0) & 0xFF;
     }
     setHl(val: number) {
-        boundsCheck16(val);
+        // boundsCheck16(val);
         this.h = (val >> 8) & 0xFF;
         this.l = (val >> 0) & 0xFF;
     }
@@ -98,65 +98,62 @@ export class CPU {
         let val = 0;
         val |= ((this.a & 0xFF) << 8);
         val |= ((this.getF() & 0xFF) << 0);
-        boundsCheck16(val);
+        // boundsCheck16(val);
         return val;
     }
     getBc() {
         let val = 0;
         val |= (this.b << 8);
         val |= (this.c << 0);
-        boundsCheck16(val);
+        // boundsCheck16(val);
         return val;
     }
     getDe() {
         let val = 0;
         val |= (this.d << 8);
         val |= (this.e << 0);
-        boundsCheck16(val);
+        // boundsCheck16(val);
         return val;
     }
     getHl() {
         let val = 0;
         val |= (this.h << 8);
         val |= (this.l << 0);
-        boundsCheck16(val);
+        // boundsCheck16(val);
         return val;
     }
 
     execute(): void {
-        boundsCheck16(this.pc);
-        boundsCheck8(this.b);
-        boundsCheck8(this.c);
-        boundsCheck8(this.d);
-        boundsCheck8(this.e);
-        boundsCheck8(this.h);
-        boundsCheck8(this.l);
-        boundsCheck8(this.a);
+        // boundsCheck16(this.pc);
+        // boundsCheck8(this.b);
+        // boundsCheck8(this.c);
+        // boundsCheck8(this.d);
+        // boundsCheck8(this.e);
+        // boundsCheck8(this.h);
+        // boundsCheck8(this.l);
+        // boundsCheck8(this.a);
 
         // this.gb.resetInfo();
         // if (this.pc == 0xC000) this.gb.error("sadfdfsd");
 
-        let origPc = this.pc;
+        // let origPc = this.pc;
         let val = this.read8PcInc();
 
         if (this.scheduleEi) this.ime = true;
 
         if (val != 0xCB) {
-            if (!t[val]) {
-                alert(hex(val, 2));
-            }
             t[val](this, val);
         } else {
-            this.gb.info(`Prefix: ${hexN(val, 2)}`);
+            // this.gb.info(`Prefix: ${hexN(val, 2)}`);
             val = this.read8PcInc();
             CB_PREFIX_TABLE[val](this, val);
         }
 
-        this.gb.info(`Addr:${hexN(origPc, 4)} Opcode:${hexN(val, 2)}`);
+        // this.gb.info(`Addr:${hexN(origPc, 4)} Opcode:${hexN(val, 2)}`);
     }
 
     setReg(reg: number, val: number) {
-        boundsCheck8(val);
+        // boundsCheck8(val);
 
         switch (reg) {
             case 0b000: // B
@@ -178,7 +175,7 @@ export class CPU {
                 this.l = val;
                 break;
             case 0b110: // [HL] 
-                return this.writeIndirectHl(val);
+                this.writeIndirectHl(val);
                 break;
             case 0b111: // A 
                 this.a = val;

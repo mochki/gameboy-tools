@@ -16,7 +16,7 @@ export enum SchedulerId {
     PPU = 0,
 }
 
-function parent(n: number) { return Math.floor((n - 1) / 2); }
+function parent(n: number) { return (n - 1) >> 1; }
 function leftChild(n: number) { return n * 2 + 1; }
 function rightChild(n: number) { return n * 2 + 2; }
 
@@ -44,9 +44,14 @@ export class Scheduler {
         this.heap[index].ticks = ticks;
         this.heap[index].callback = callback;
 
-        while (index != 0 && this.heap[parent(index)].ticks > this.heap[index].ticks) {
-            this.swap(index, parent(index));
-            index = parent(index);
+        while (index != 0) {
+            let parentIndex = parent(index);
+            if (this.heap[parentIndex].ticks > this.heap[index].ticks) {
+                this.swap(index, parentIndex);
+                index = parentIndex;
+            } else {
+                break;
+            }
         }
         this.updateCurr();
     }
@@ -85,10 +90,6 @@ export class Scheduler {
     }
 
     popFirstEvent(): SchedulerEvent {
-        if (this.heapSize == 1) {
-            this.heapSize--;
-            return this.heap[0];
-        }
         let event = this.getFirstEvent();
 
         this.heap[0] = this.heap[--this.heapSize];
@@ -101,9 +102,14 @@ export class Scheduler {
     setTicksLower(index: number, newVal: number) {
         this.heap[index].ticks = newVal;
 
-        while (index != 0 && this.heap[parent(index)].ticks > this.heap[index].ticks) {
-            this.swap(index, parent(index));
-            index = parent(index);
+        while (index != 0) {
+            let parentIndex = parent(index);
+            if (this.heap[parentIndex].ticks > this.heap[index].ticks) {
+                this.swap(index, parentIndex);
+                index = parentIndex;
+            } else {
+                break;
+            }
         }
     }
 

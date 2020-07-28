@@ -1,6 +1,6 @@
 import { SchedulerId } from './scheduler';
 import { GameBoy } from './gameboy';
-import { BackendFlags } from '../../lib/imgui-js/imgui';
+import { BackendFlags } from '../lib/imgui-js/imgui';
 import { bitTest, bitSet } from './util/bits';
 import { unTwo8b } from './util/misc';
 
