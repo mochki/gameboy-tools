@@ -35,7 +35,7 @@ export function RL(cpu: CPU, opcode: number) {
     let regIndex = opcode & 0b111;
 
     let oldVal = cpu.getReg(regIndex);
-    let rotateBit = cpu.carry ? 0b10000000 : 0;
+    let rotateBit = cpu.carry ? 0b00000001 : 0;
     let newVal = ((oldVal << 1) & 0xFF) | rotateBit;
 
     cpu.setReg(regIndex, newVal);
@@ -50,7 +50,7 @@ export function RR(cpu: CPU, opcode: number) {
     let regIndex = opcode & 0b111;
 
     let oldVal = cpu.getReg(regIndex);
-    let rotateBit = cpu.carry ? 0b00000001 : 0;
+    let rotateBit = cpu.carry ? 0b10000000 : 0;
     let newVal = ((oldVal >> 1) & 0xFF) | rotateBit;
 
     cpu.setReg(regIndex, newVal);
@@ -79,7 +79,8 @@ export function SRA(cpu: CPU, opcode: number) {
     let regIndex = opcode & 0b111;
 
     let oldVal = cpu.getReg(regIndex);
-    let newVal = (oldVal >> 1) & 0xFF;
+    let leftmostBit = oldVal & 0b10000000;
+    let newVal = ((oldVal >> 1) & 0xFF) | leftmostBit;
 
     cpu.setReg(regIndex, newVal);
 
@@ -97,15 +98,28 @@ export function SWAP(cpu: CPU, opcode: number) {
     let upper = (oldVal >> 4) & 0xF;
 
     let newVal = (lower << 4) | upper;
- 
+
     cpu.setReg(regIndex, newVal);
 
     cpu.zero = newVal == 0;
     cpu.negative = false;
     cpu.halfCarry = false;
-    cpu.carry = false
+    cpu.carry = false;
 }
 
+export function SRL(cpu: CPU, opcode: number) {
+    let regIndex = opcode & 0b111;
+
+    let oldVal = cpu.getReg(regIndex);
+    let newVal = (oldVal >> 1) & 0xFF;
+
+    cpu.setReg(regIndex, newVal);
+
+    cpu.zero = newVal == 0;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = bitTest(oldVal, 0);
+}
 
 export function BIT(cpu: CPU, opcode: number) {
     let val = cpu.getReg(opcode & 0b111);

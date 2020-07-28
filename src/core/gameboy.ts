@@ -36,7 +36,12 @@ export class GameBoy {
         }
 
         this.scheduler = new Scheduler();
+
+        this.cpu.pc = 0x100;
+        this.bus.bootromEnabled = false;
     }
+
+    cgb = false;
 
     errored = false;
     infoText: string[] = [];
@@ -46,10 +51,11 @@ export class GameBoy {
         this.infoText.unshift(text);
         this.infoText = this.infoText.slice(0, 10);
     }
-    // info(text: string) {
-    //     this.infoText.unshift(text);
-    //     this.infoText = this.infoText.slice(0, 10);
-    // }
+    info(text: string) {
+        return;
+        this.infoText.unshift(text);
+        this.infoText = this.infoText.slice(0, 10);
+    }
     resetInfo() {
         this.infoText = [];
     }

@@ -32,12 +32,14 @@ export class Bus {
         new Uint8Array(0x1000),
         new Uint8Array(0x1000),
     ];
-    wramBank = 0;
+    wramBank = 1;
+
+    serialOut = "";
 
     read8(addr: number): number {
         switch (addr >> 12) {
             case 0x0: // ROM0 - 0###
-                if (this.bootromEnabled) {
+                if (this.bootromEnabled && addr < 0x100) {
                     return this.bootrom[addr];
                 } else {
                     return this.rom[addr];
@@ -61,8 +63,8 @@ export class Bus {
                 return this.wram[0][addr & 0xFFF];
             case 0xD: // WRAMX - D###
                 return this.wram[this.wramBank][addr & 0xFFF];
-            case 0xE: // OAM - E###
-                break;
+            case 0xE: // Echo RAM - E###
+                return this.wram[0][addr & 0xFFF];
             case 0xF: // ZeroPage - F###
                 switch (addr) {
                     case 0xFF40: // LCDC
@@ -101,6 +103,7 @@ export class Bus {
     }
 
     write8(addr: number, val: number): void {
+
         switch (addr >> 12) {
             case 0x0: // ROM0 - 0###
             case 0x1: // ROM0 - 1###
@@ -125,10 +128,15 @@ export class Bus {
             case 0xD: // WRAMX - D###
                 this.wram[this.wramBank][addr & 0xFFF] = val;
                 return;
-            case 0xE: // OAM - E###
-                break;
+            case 0xE: // Echo RAM - E###
+                this.wram[0][addr & 0xFFF] = val;
+                return;
             case 0xF: // ZeroPage - F###
                 switch (addr) {
+                    case 0xFF01: // SB
+                        this.serialOut += String.fromCharCode(val);
+                        return;
+
                     case 0xFF40: // LCDC
                     case 0xFF41: // STAT
                     case 0xFF42: // SCY

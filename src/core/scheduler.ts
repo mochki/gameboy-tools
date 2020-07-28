@@ -1,12 +1,19 @@
 export type SchedulerCallback = () => void;
 export class SchedulerEvent {
+    id: SchedulerId;
     ticks: number;
     callback: SchedulerCallback;
 
-    constructor(ticks: number, callback: SchedulerCallback) {
+    constructor(id: SchedulerId, ticks: number, callback: SchedulerCallback) {
+        this.id = id;
         this.ticks = ticks;
         this.callback = callback;
     }
+}
+
+export enum SchedulerId {
+    None = 255,
+    PPU = 0,
 }
 
 function parent(n: number) { return Math.floor((n - 1) / 2); }
@@ -16,7 +23,7 @@ function rightChild(n: number) { return n * 2 + 2; }
 export class Scheduler {
     constructor() {
         for (let i = 0; i < 64; i++) {
-            this.heap[i] = new SchedulerEvent(0, () => { });
+            this.heap[i] = new SchedulerEvent(SchedulerId.None, 0, () => { });
         }
     }
 
@@ -26,13 +33,14 @@ export class Scheduler {
     heap: SchedulerEvent[] = new Array(64);
     heapSize = 0;
 
-    addEvent(ticks: number, callback: SchedulerCallback) {
+    addEvent(id: SchedulerId, ticks: number, callback: SchedulerCallback) {
         if (this.heapSize >= this.heap.length) {
             alert("Heap overflow!");
         }
 
         this.heapSize++;
         let index = this.heapSize - 1;
+        this.heap[index].id = id;
         this.heap[index].ticks = ticks;
         this.heap[index].callback = callback;
 
@@ -43,8 +51,22 @@ export class Scheduler {
         this.updateCurr();
     }
 
-    addEventRelative(ticks: number, callback: SchedulerCallback) {
-        this.addEvent(this.currTicks + ticks, callback);
+    addEventRelative(id: SchedulerId, ticks: number, callback: SchedulerCallback) {
+        this.addEvent(id, this.currTicks + ticks, callback);
+    }
+
+    cancelEvents(id: SchedulerId) {
+        let go = true;
+        while (go) {
+            go = false;
+            for (let i = 0; i < this.heapSize; i++) {
+                if (this.heap[i].id == id) {
+                    this.deleteEvent(i);
+                    go = true;
+                    break;
+                }
+            }
+        }
     }
 
     updateCurr() {
@@ -63,7 +85,6 @@ export class Scheduler {
     }
 
     popFirstEvent(): SchedulerEvent {
-        
         if (this.heapSize == 1) {
             this.heapSize--;
             return this.heap[0];

@@ -1,7 +1,7 @@
-import { CPU } from './cpu';
-import { unTwo8b } from '../util/misc';
-import { bitTest } from '../util/bits';
+import { CPU } from "./cpu";
+import { unTwo8b } from "../util/misc";
 
+/** LD R16, U16 */
 export function LD_BC_U16(cpu: CPU) {
     cpu.c = cpu.read8PcInc();
     cpu.b = cpu.read8PcInc();
@@ -20,6 +20,720 @@ export function LD_SP_U16(cpu: CPU) {
 
     cpu.sp = (upper << 8) | lower;
 }
+
+
+// LD A, [U16]
+export function LD_A_iU16(cpu: CPU, opcode: number): void {
+    const U16 = cpu.read16PcInc();
+
+    cpu.a = cpu.read8(U16);
+};
+
+// LD [U16], A
+export function LD_iU16_A(cpu: CPU, opcode: number): void {
+    const U16 = cpu.read16PcInc();
+
+    cpu.write8(U16, cpu.a);
+};
+
+export function LD_iU16_SP(cpu: CPU, opcode: number): void {
+    const U16 = cpu.read16PcInc();
+
+    const spUpperByte = cpu.sp >> 8;
+    const spLowerByte = cpu.sp & 0b11111111;
+
+    cpu.write8(U16 + 0, spLowerByte);
+    cpu.write8(U16 + 1, (spUpperByte) & 0xFFFF);
+
+};
+
+export function JP(cpu: CPU, opcode: number): void {
+    const U16 = cpu.read16PcInc();
+    cpu.pc = U16;
+
+    cpu.tick(4); // Branching takes 4 cycles
+};
+
+export function JP_CC(cpu: CPU, opcode: number) {
+    let cond = false;
+
+    switch ((opcode >> 3) & 0b11) {
+        case 0:
+            cond = !cpu.zero;
+            break;
+        case 1:
+            cond = cpu.zero;
+            break;
+        case 2:
+            cond = !cpu.carry;
+            break;
+        case 3:
+            cond = cpu.carry;
+            break;
+    }
+
+    let target = cpu.read16PcInc();
+
+    if (cond) {
+        cpu.pc = target;
+    }
+}
+
+export function CALL(cpu: CPU, opcode: number) {
+    let target = cpu.read16PcInc();
+    cpu.push(cpu.pc);
+    cpu.pc = target;
+}
+
+export function CALL_CC(cpu: CPU, opcode: number) {
+    let cond = false;
+
+    switch ((opcode >> 3) & 0b111) {
+        case 0:
+            cond = !cpu.zero;
+            break;
+        case 1:
+            cond = cpu.zero;
+            break;
+        case 2:
+            cond = !cpu.carry;
+            break;
+        case 3:
+            cond = cpu.carry;
+            break;
+    }
+
+    let target = cpu.read16PcInc();
+
+    if (cond) {
+        cpu.push(cpu.pc);
+        cpu.pc = target;
+    }
+}
+
+/** LD between A and High RAM */
+export function LD_A_iFF00plusU8(cpu: CPU, opcode: number): void {
+    const imm = cpu.read8PcInc();
+
+    cpu.a = cpu.read8((0xFF00 | imm) & 0xFFFF);
+
+};
+
+export function LD_iFF00plusU8_A(cpu: CPU, opcode: number): void {
+    const imm = cpu.read8PcInc();
+
+    cpu.write8((0xFF00 | imm) & 0xFFFF, cpu.a);
+
+};
+
+export function LD_iHL_U8(cpu: CPU, opcode: number): void {
+    const imm = cpu.read8PcInc();
+
+    cpu.write8(cpu.getHl(), imm);
+};
+
+export function LD_HL_SPplusE8(cpu: CPU, opcode: number): void {
+    const imm = cpu.read8PcInc();
+
+    const signedVal = unTwo8b(imm);
+
+    cpu.zero = false;
+    cpu.negative = false;
+    cpu.halfCarry = (signedVal & 0xF) + (cpu.sp & 0xF) > 0xF;
+    cpu.carry = (signedVal & 0xFF) + (cpu.sp & 0xFF) > 0xFF;
+
+    cpu.setHl((unTwo8b(imm) + cpu.sp) & 0xFFFF);
+
+    // Register read timing
+    cpu.tick(4);
+};
+
+export function ADD_SP_E8(cpu: CPU, opcode: number): void {
+    const imm = cpu.read8PcInc();
+
+    const value = unTwo8b(imm);
+
+    cpu.zero = false;
+    cpu.negative = false;
+    cpu.halfCarry = ((value & 0xF) + (cpu.sp & 0xF)) > 0xF;
+    cpu.carry = ((value & 0xFF) + (cpu.sp & 0xFF)) > 0xFF;
+
+    cpu.sp = (cpu.sp + value) & 0xFFFF;
+
+    // Extra time
+    cpu.tick(8);
+
+};
+
+export function AND_A_U8(cpu: CPU, opcode: number): void {
+    const imm = cpu.read8PcInc();
+
+    const final = imm & cpu.a;
+    cpu.a = final;
+
+    cpu.zero = cpu.a === 0;
+    cpu.negative = false;
+    cpu.halfCarry = true;
+    cpu.carry = false;
+
+};
+
+export function OR_A_U8(cpu: CPU, opcode: number): void {
+    const imm = cpu.read8PcInc();
+
+    const final = imm | cpu.a;
+    cpu.a = final;
+
+    cpu.zero = final === 0;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = false;
+};
+
+export function XOR_A_U8(cpu: CPU, opcode: number): void {
+    const imm = cpu.read8PcInc();
+
+    const final = imm ^ cpu.a;
+    cpu.a = final;
+
+    cpu.zero = final === 0;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = false;
+
+};
+
+export function CP_A_U8(cpu: CPU, opcode: number): void {
+    const imm = cpu.read8PcInc();
+
+    const newValue = (cpu.a - imm) & 0xFF;
+
+    // Set flags
+    cpu.carry = imm > cpu.a;
+    cpu.zero = newValue === 0;
+    cpu.negative = true;
+    cpu.halfCarry = (cpu.a & 0xF) - (imm & 0xF) < 0;
+
+};
+
+/** JR */
+
+export function JR(cpu: CPU, opcode: number) {
+    let cond = false;
+    switch ((opcode >> 3) & 0b111) {
+        case 3:
+            cond = true;
+            break;
+        case 4:
+            cond = !cpu.zero;
+            break;
+        case 5:
+            cond = cpu.zero;
+            break;
+        case 6:
+            cond = !cpu.carry;
+            break;
+        case 7:
+            cond = cpu.carry;
+            break;
+    }
+
+    let offset = unTwo8b(cpu.read8PcInc());
+    if (cond) {
+        cpu.pc = (cpu.pc + offset) & 0xFFFF;
+    }
+}
+
+/** Arithmetic */
+export function ADD_A_U8(cpu: CPU, opcode: number): void {
+    const imm = cpu.read8PcInc();
+
+    const newValue = (imm + cpu.a) & 0xFF;
+
+    // Set flags
+    cpu.zero = newValue === 0;
+    cpu.negative = false;
+    cpu.halfCarry = (cpu.a & 0xF) + (imm & 0xF) > 0xF;
+    cpu.carry = (imm + cpu.a) > 0xFF;
+
+    // Set register values
+    cpu.a = newValue;
+
+};
+
+export function ADC_A_U8(cpu: CPU, opcode: number): void {
+    const imm = cpu.read8PcInc();
+
+    const newValue = (imm + cpu.a + (cpu.carry ? 1 : 0)) & 0xFF;
+
+    // Set flags
+    cpu.zero = newValue === 0;
+    cpu.negative = false;
+    cpu.halfCarry = (cpu.a & 0xF) + (imm & 0xF) + (cpu.carry ? 1 : 0) > 0xF;
+    cpu.carry = (imm + cpu.a + (cpu.carry ? 1 : 0)) > 0xFF;
+
+    // Set register values
+    cpu.a = newValue;
+
+};
+
+export function SUB_A_U8(cpu: CPU, opcode: number): void {
+    const imm = cpu.read8PcInc();
+
+    const newValue = (cpu.a - imm) & 0xFF;
+
+    // Set flags
+    cpu.zero = newValue === 0;
+    cpu.negative = true;
+    cpu.halfCarry = (imm & 0xF) > (cpu.a & 0xF);
+    cpu.carry = imm > cpu.a;
+
+    // Set register values
+    cpu.a = newValue;
+
+};
+
+export function SBC_A_U8(cpu: CPU, opcode: number): void {
+    const imm = cpu.read8PcInc();
+
+    const newValue = (cpu.a - imm - (cpu.carry ? 1 : 0)) & 0xFF;
+
+    // Set flags
+    cpu.zero = newValue === 0;
+    cpu.negative = true;
+    cpu.halfCarry = (imm & 0xF) > (cpu.a & 0xF) - (cpu.carry ? 1 : 0);
+    cpu.carry = imm > cpu.a - (cpu.carry ? 1 : 0);
+
+    // Set register values
+    cpu.a = newValue;
+
+};
+
+/** LD R8, U8 */
+export function LD_R8_U8(cpu: CPU, opcode: number): void {
+    const imm = cpu.read8PcInc();
+
+    const target = (opcode & 0b111000) >> 3;
+    cpu.setReg(target, imm);
+};
+
+export function LD_SP_HL(cpu: CPU, opcode: number): void {
+    cpu.sp = cpu.getHl();
+    // Register read timing
+    cpu.tick(4);
+
+};
+
+export function LD_R8_R8(cpu: CPU, opcode: number): void {
+    const source = opcode & 0b111;
+    const dest = (opcode & 0b111000) >> 3;
+    cpu.setReg(dest, cpu.getReg(source));
+};
+
+export function PUSH_BC(cpu: CPU) {
+    cpu.push(cpu.getBc());
+}
+export function PUSH_DE(cpu: CPU) {
+    cpu.push(cpu.getDe());
+}
+export function PUSH_HL(cpu: CPU) {
+    cpu.push(cpu.getHl());
+}
+export function PUSH_AF(cpu: CPU) {
+    cpu.push(cpu.getAf());
+}
+
+export function POP_BC(cpu: CPU) {
+    cpu.setBc(cpu.pop());
+}
+export function POP_DE(cpu: CPU) {
+    cpu.setDe(cpu.pop());
+}
+export function POP_HL(cpu: CPU) {
+    cpu.setHl(cpu.pop());
+}
+export function POP_AF(cpu: CPU) {
+    cpu.setAf(cpu.pop());
+}
+/** INC R8 */
+export function INC_R8(cpu: CPU, opcode: number): void {
+    const dest = (opcode & 0b111000) >> 3;
+
+    const oldValue = cpu.getReg(dest);
+    const newValue = (oldValue + 1) & 0xFF;
+    cpu.setReg(dest, newValue);
+    cpu.zero = newValue === 0;
+    cpu.negative = false;
+    cpu.halfCarry = (oldValue & 0xF) + (1 & 0xF) > 0xF;
+
+};
+
+/** DEC R8 */
+export function DEC_R8(cpu: CPU, opcode: number): void {
+    const dest = (opcode & 0b111000) >> 3;
+
+    const oldValue = cpu.getReg(dest);
+    const newValue = (oldValue - 1) & 0xFF;
+    cpu.setReg(dest, newValue);
+
+    cpu.zero = newValue === 0;
+    cpu.negative = true;
+    cpu.halfCarry = (1 & 0xF) > (oldValue & 0xF);
+
+};
+
+export function INC_BC(cpu: CPU) { cpu.setBc((cpu.getBc() + 1) & 0xFFFF); }
+export function DEC_BC(cpu: CPU) { cpu.setBc((cpu.getBc() - 1) & 0xFFFF); }
+export function INC_DE(cpu: CPU) { cpu.setDe((cpu.getDe() + 1) & 0xFFFF); }
+export function DEC_DE(cpu: CPU) { cpu.setDe((cpu.getDe() - 1) & 0xFFFF); }
+export function INC_HL(cpu: CPU) { cpu.setHl((cpu.getHl() + 1) & 0xFFFF); }
+export function DEC_HL(cpu: CPU) { cpu.setHl((cpu.getHl() - 1) & 0xFFFF); }
+export function INC_SP(cpu: CPU) { cpu.sp = (cpu.sp + 1) & 0xFFFF; }
+export function DEC_SP(cpu: CPU) { cpu.sp = (cpu.sp - 1) & 0xFFFF; }
+
+
+// #region Accumulator Arithmetic
+export function ADD_A_R8(cpu: CPU, opcode: number): void {
+    const source = opcode & 0b111;
+
+    const value = cpu.getReg(source);
+
+    const newValue = (value + cpu.a) & 0xFF;
+
+    // Set flags
+    cpu.halfCarry = (cpu.a & 0xF) + (value & 0xF) > 0xF;
+    cpu.carry = (value + cpu.a) > 0xFF;
+    cpu.zero = newValue === 0;
+    cpu.negative = false;
+
+    // Set register values
+    cpu.a = newValue;
+
+};
+
+export function ADC_A_R8(cpu: CPU, opcode: number): void {
+    const source = opcode & 0b111;
+
+    const value = cpu.getReg(source);
+
+    const newValue = (value + cpu.a + (cpu.carry ? 1 : 0)) & 0xFF;
+
+    // Set flags
+    cpu.zero = newValue === 0;
+    cpu.negative = false;
+    cpu.halfCarry = (cpu.a & 0xF) + (value & 0xF) + (cpu.carry ? 1 : 0) > 0xF;
+    cpu.carry = (value + cpu.a + (cpu.carry ? 1 : 0)) > 0xFF;
+
+    // Set register values
+    cpu.a = newValue;
+
+};
+
+export function SUB_A_R8(cpu: CPU, opcode: number): void {
+    const source = opcode & 0b111;
+
+    const value = cpu.getReg(source);
+
+    const newValue = (cpu.a - value) & 0xFF;
+
+    // Set flags
+    cpu.zero = newValue === 0;
+    cpu.negative = true;
+    cpu.halfCarry = (value & 0xF) > (cpu.a & 0xF);
+    cpu.carry = value > cpu.a;
+
+    // Set register values
+    cpu.a = newValue;
+
+};
+
+export function SBC_A_R8(cpu: CPU, opcode: number): void {
+    const source = opcode & 0b111;
+
+    const value = cpu.getReg(source);
+
+    const newValue = (cpu.a - value - (cpu.carry ? 1 : 0)) & 0xFF;
+
+    // Set flags
+    cpu.zero = newValue === 0;
+    cpu.negative = true;
+    cpu.halfCarry = (value & 0xF) > (cpu.a & 0xF) - (cpu.carry ? 1 : 0);
+    cpu.carry = value > cpu.a - (cpu.carry ? 1 : 0);
+
+    // Set register values
+    cpu.a = newValue;
+
+};
+
+export function AND_A_R8(cpu: CPU, opcode: number): void {
+    const source = opcode & 0b111;
+
+    const value = cpu.getReg(source);
+
+    const final = value & cpu.a;
+    cpu.a = final;
+
+    // Set flags
+    cpu.zero = cpu.a === 0;
+    cpu.negative = false;
+    cpu.halfCarry = true;
+    cpu.carry = false;
+
+};
+
+export function XOR_A_R8(cpu: CPU, opcode: number): void {
+    const source = opcode & 0b111;
+
+    const value = cpu.getReg(source);
+
+    const final = value ^ cpu.a;
+    cpu.a = final;
+
+    cpu.zero = final === 0;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = false;
+
+};
+
+export function OR_A_R8(cpu: CPU, opcode: number): void {
+    const source = opcode & 0b111;
+
+    const value = cpu.getReg(source);
+
+    const final = value | cpu.a;
+    cpu.a = final;
+
+    cpu.zero = final === 0;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = false;
+
+};
+
+export function CP_A_R8(cpu: CPU, opcode: number): void {
+    const source = opcode & 0b111;
+
+    const r8 = cpu.getReg(source);
+
+    const newValue = (cpu.a - r8) & 0xFF;
+
+    // DO not set register values for CP
+
+    // Set flags
+    cpu.carry = r8 > cpu.a;
+    cpu.zero = newValue === 0;
+    cpu.negative = true;
+    cpu.halfCarry = (cpu.a & 0xF) - (r8 & 0xF) < 0;
+
+};
+
+export function CPL(cpu: CPU, opcode: number): void {
+    cpu.a = cpu.a ^ 0b11111111;
+
+    cpu.negative = true;
+    cpu.halfCarry = true;
+};
+
+export function RETI(cpu: CPU, opcode: number): void {
+    cpu.pc = cpu.pop();
+    cpu.tick(4); // Branching takes 4 cycles
+    cpu.ime = true;
+};
+
+export function DAA(cpu: CPU, opcode: number): void {
+    if (!cpu.negative) {
+        if (cpu.carry || cpu.a > 0x99) {
+            cpu.a = (cpu.a + 0x60) & 0xFF;
+            cpu.carry = true;
+        }
+        if (cpu.halfCarry || (cpu.a & 0x0f) > 0x09) {
+            cpu.a = (cpu.a + 0x6) & 0xFF;
+        }
+    }
+    else {
+        if (cpu.carry) {
+            cpu.a = (cpu.a - 0x60) & 0xFF;
+            cpu.carry = true;
+        }
+        if (cpu.halfCarry) {
+            cpu.a = (cpu.a - 0x6) & 0xFF;
+        }
+    }
+
+    cpu.zero = cpu.a === 0;
+    cpu.halfCarry = false;
+};
+
+export function NOP(): void {
+};
+
+/** LD between A and R16 */
+export function LD_iBC_A(cpu: CPU, opcode: number): void { // LD [BC], A
+    cpu.write8(cpu.getBc(), cpu.a);
+};
+
+export function LD_iDE_A(cpu: CPU, opcode: number): void {// LD [DE], A
+    cpu.write8(cpu.getDe(), cpu.a);
+};
+export function LD_iHLinc_A(cpu: CPU, opcode: number): void {// LD [HL+], A
+    cpu.write8(cpu.getHl(), cpu.a);
+    cpu.setHl((cpu.getHl() + 1) & 0xFFFF);
+};
+export function LD_iHLdec_A(cpu: CPU, opcode: number): void {  // LD [HL-], A
+    cpu.write8(cpu.getHl(), cpu.a);
+    cpu.setHl((cpu.getHl() - 1) & 0xFFFF);
+};
+export function LD_A_iBC(cpu: CPU, opcode: number): void { // LD A, [BC]
+    cpu.a = cpu.read8(cpu.getBc());
+};
+export function LD_A_iDE(cpu: CPU, opcode: number): void { // LD A, [DE]
+    cpu.a = cpu.read8(cpu.getDe());
+};
+export function LD_A_iHLinc(cpu: CPU, opcode: number): void { // LD A, [HL+]
+    cpu.a = cpu.read8(cpu.getHl());
+    cpu.setHl((cpu.getHl() + 1) & 0xFFFF);
+};
+export function LD_A_iHLdec(cpu: CPU, opcode: number): void { // LD A, [HL-]
+    cpu.a = cpu.read8(cpu.getHl());
+    cpu.setHl((cpu.getHl() - 1) & 0xFFFF);
+};
+
+export function LD_A_iFF00plusC(cpu: CPU, opcode: number): void { // LD A, [$FF00+C]
+    cpu.a = cpu.read8((0xFF00 | cpu.c) & 0xFFFF);
+};
+export function LD_iFF00plusC_A(cpu: CPU, opcode: number): void {  // LD [$FF00+C], A
+    cpu.write8((0xFF00 | cpu.c) & 0xFFFF, cpu.a);
+};
+
+export function DI(cpu: CPU, opcode: number): void {  // DI - Disable interrupts master flag
+    cpu.ime = false;
+};
+export function EI(cpu: CPU, opcode: number): void {  // EI - Enable interrupts master flag
+    cpu.scheduleEi = true;
+};
+
+/** JP */
+export function JP_HL(cpu: CPU, opcode: number): void {  // JP HL
+    cpu.pc = cpu.getHl();
+};
+
+/** A rotate */
+export function RLCA(cpu: CPU, opcode: number): void {    // RLC A
+    const value = cpu.a;
+
+    const leftmostBit = (value & 0b10000000) >> 7;
+
+    const newValue = ((value << 1) | leftmostBit) & 0xFF;
+
+    cpu.a = newValue;
+
+    cpu.zero = false;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = (value >> 7) === 1;
+
+};
+
+export function RRCA(cpu: CPU, opcode: number): void {  // RRC A
+
+    const value = cpu.a;
+
+    const rightmostBit = (value & 1) << 7;
+    const newValue = ((value >> 1) | rightmostBit) & 0xFF;
+
+    cpu.a = newValue;
+
+    cpu.zero = false;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = (value & 1) === 1;
+
+};
+
+export function RRA(cpu: CPU, opcode: number): void {  // RR A
+    const value = cpu.a;
+
+    const newValue = ((value >> 1) | (cpu.carry ? 128 : 0)) & 0xFF;
+
+    cpu.a = newValue;
+
+    cpu.zero = false;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = !!(value & 1);
+
+};
+export function RLA(cpu: CPU, opcode: number): void {  // RL A
+    const value = cpu.a;
+
+    const newValue = ((value << 1) | (cpu.carry ? 1 : 0)) & 0xFF;
+
+    cpu.a = newValue;
+
+    cpu.zero = false;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = (value >> 7) === 1;
+
+};
+
+export function HALT(cpu: CPU, opcode: number): void {
+};
+
+/** Carry flag */
+export function SCF(cpu: CPU, opcode: number): void { // SCF
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = true;
+};
+
+export function CCF(cpu: CPU, opcode: number): void {  // CCF
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = !cpu.carry;
+};
+
+/** RET */
+export function RET(cpu: CPU, opcode: number): void {
+    cpu.pc = cpu.pop();
+
+    cpu.tick(4); // Branching takes 4 cycles
+
+};
+
+/** RET */
+export function RET_CC(cpu: CPU, opcode: number) {
+    let cond = false;
+    switch ((opcode >> 3) & 0b111) {
+        case 0:
+            cond = !cpu.zero;
+            break;
+        case 1:
+            cond = cpu.zero;
+            break;
+        case 2:
+            cond = !cpu.carry;
+            break;
+        case 3:
+            cond = cpu.carry;
+            break;
+    }
+
+    if (cond) {
+        cpu.pc = cpu.pop();
+    }
+}
+
+
+/** Reset Vectors */
+export function RST(cpu: CPU, opcode: number): void {
+    const target = opcode & 0b111000;
+
+    cpu.push(cpu.pc);
+    cpu.pc = target;
+
+};
 
 export function ADD_HL_BC(cpu: CPU) {
     let r16Val = cpu.getBc();
@@ -64,441 +778,4 @@ export function ADD_HL_SP(cpu: CPU) {
     cpu.carry = newVal > 0xFFFF;
 
     cpu.tick(4);
-}
-
-
-export function LD_iU16_SP(cpu: CPU) {
-    let addr = cpu.read16PcInc();
-
-    let spLower = (cpu.sp >> 0) & 0xFF;
-    let spUpper = (cpu.sp >> 8) & 0xFF;
-
-    cpu.write8((addr + 0) & 0xFFFF, spLower);
-    cpu.write8((addr + 1) & 0xFFFF, spUpper);
-}
-
-export function LD_iBC_A(cpu: CPU) {
-    cpu.write8(cpu.getBc(), cpu.a);
-}
-export function LD_A_iBC(cpu: CPU) {
-    cpu.a = cpu.read8(cpu.getBc());
-}
-export function LD_iDE_A(cpu: CPU) {
-    cpu.write8(cpu.getDe(), cpu.a);
-}
-export function LD_A_iDE(cpu: CPU) {
-    cpu.a = cpu.read8(cpu.getDe());
-}
-export function LD_iHLinc_A(cpu: CPU) {
-    cpu.writeIndirectHl(cpu.a);
-    cpu.setHl((cpu.getHl() + 1) & 0xFFFF);
-}
-export function LD_A_iHLinc(cpu: CPU) {
-    cpu.a = cpu.readIndirectHl();
-    cpu.setHl((cpu.getHl() + 1) & 0xFFFF);
-}
-export function LD_iHLdec_A(cpu: CPU) {
-    cpu.writeIndirectHl(cpu.a);
-    cpu.setHl((cpu.getHl() - 1) & 0xFFFF);
-}
-export function LD_A_iHLdec(cpu: CPU) {
-    cpu.a = cpu.readIndirectHl();
-    cpu.setHl((cpu.getHl() - 1) & 0xFFFF);
-}
-
-export function ADD_A_R8(cpu: CPU, opcode: number) {
-    let val = cpu.getReg(opcode & 0b111);
-
-    cpu.a = (cpu.a + val) & 0xFF;
-
-    cpu.zero = cpu.a == 0;
-    cpu.negative = false;
-    cpu.halfCarry = (cpu.a & 0xF) + (val & 0xF) > 0xF;
-    cpu.carry = (cpu.a + val) > 0xFF;
-}
-
-export function ADC_A_R8(cpu: CPU, opcode: number) {
-    let val = cpu.getReg(opcode & 0b111);
-
-    cpu.a = (cpu.a + val + (cpu.carry ? 1 : 0)) & 0xFF;
-
-    cpu.zero = cpu.a == 0;
-    cpu.negative = false;
-    cpu.halfCarry = (cpu.a & 0xF) + (val & 0xF) + (cpu.carry ? 1 : 0) > 0xF;
-    cpu.carry = (cpu.a + val + (cpu.carry ? 1 : 0)) > 0xFF;
-}
-
-export function AND_A_R8(cpu: CPU, opcode: number) {
-    let val = cpu.getReg(opcode & 0b111);
-
-    cpu.a = cpu.a & val;
-
-    cpu.zero = cpu.a == 0;
-    cpu.negative = false;
-    cpu.halfCarry = true;
-    cpu.carry = false;
-}
-
-export function SUB_A_R8(cpu: CPU, opcode: number) {
-    let val = cpu.getReg(opcode & 0b111);
-
-    cpu.a = (cpu.a - val) & 0xFF;
-
-    cpu.zero = cpu.a == 0;
-    cpu.negative = true;
-    cpu.halfCarry = (val & 0xF) > (cpu.a & 0xF);
-    cpu.carry = val > cpu.a;
-}
-
-export function XOR_A_R8(cpu: CPU, opcode: number) {
-    cpu.a &= cpu.getReg(opcode & 0b111);
-
-    cpu.zero = cpu.a == 0;
-    cpu.negative = false;
-    cpu.halfCarry = false;
-    cpu.carry = false;
-}
-
-export function OR_A_R8(cpu: CPU, opcode: number) {
-    let val = cpu.getReg(opcode & 0b111);
-
-    cpu.a = cpu.a | val;
-
-    cpu.zero = cpu.a == 0;
-    cpu.negative = false;
-    cpu.halfCarry = true;
-    cpu.carry = false;
-}
-
-export function CP_A_R8(cpu: CPU, opcode: number) {
-    let val = cpu.getReg(opcode & 0b111);
-    let res = (cpu.a - val) & 0xFF;
-
-    cpu.zero = res == 0;
-    cpu.negative = true;
-    cpu.halfCarry = (val & 0xF) > (cpu.a & 0xF); // If borrow from bit 4
-    cpu.carry = val > cpu.a;
-}
-export function ADD_A_U8(cpu: CPU, opcode: number) {
-    let imm = cpu.read8PcInc();
-
-    cpu.a = (cpu.a + imm) & 0xFF;
-
-    cpu.zero = cpu.a == 0;
-    cpu.negative = false;
-    cpu.halfCarry = (cpu.a & 0xF) + (imm & 0xF) > 0xF;
-    cpu.carry = (cpu.a + imm) > 0xFF;
-}
-export function ADC_A_U8(cpu: CPU, opcode: number) {
-    let imm = cpu.read8PcInc();
-
-    cpu.a = (cpu.a + imm + (cpu.carry ? 1 : 0)) & 0xFF;
-
-    cpu.zero = cpu.a == 0;
-    cpu.negative = false;
-    cpu.halfCarry = (cpu.a & 0xF) + (imm & 0xF) + (cpu.carry ? 1 : 0) > 0xF;
-    cpu.carry = (cpu.a + imm + (cpu.carry ? 1 : 0)) > 0xFF;
-}
-
-export function SUB_A_U8(cpu: CPU, opcode: number) {
-    let imm = cpu.read8PcInc();
-
-    cpu.a = (cpu.a - imm) & 0xFF;
-
-    cpu.zero = cpu.a == 0;
-    cpu.negative = true;
-    cpu.halfCarry = (imm & 0xF) > (cpu.a & 0xF);
-    cpu.carry = imm > cpu.a;
-}
-
-export function AND_A_U8(cpu: CPU, opcode: number) {
-    let imm = cpu.read8PcInc();
-
-    cpu.a = cpu.a & imm;
-
-    cpu.zero = cpu.a == 0;
-    cpu.negative = false;
-    cpu.halfCarry = true;
-    cpu.carry = false;
-}
-
-export function XOR_A_U8(cpu: CPU, opcode: number) {
-    let imm = cpu.read8PcInc();
-
-    cpu.a = cpu.a ^ imm;
-
-    cpu.zero = cpu.a == 0;
-    cpu.negative = false;
-    cpu.halfCarry = true;
-    cpu.carry = false;
-}
-
-export function OR_A_U8(cpu: CPU, opcode: number) {
-    let imm = cpu.read8PcInc();
-
-    cpu.a = cpu.a | imm;
-
-    cpu.zero = cpu.a == 0;
-    cpu.negative = false;
-    cpu.halfCarry = true;
-    cpu.carry = false;
-}
-
-export function CP_A_U8(cpu: CPU) {
-    let imm = cpu.read8PcInc();
-
-    let res = (cpu.a - imm) & 0xFF;
-
-    cpu.zero = res == 0;
-    cpu.negative = true;
-    cpu.halfCarry = (imm & 0xF) > (cpu.a & 0xF); // If borrow from bit 4
-    cpu.carry = imm > cpu.a;
-}
-
-export function JR(cpu: CPU, opcode: number) {
-    let cond = false;
-    switch ((opcode >> 3) & 0b111) {
-        case 3:
-            cond = true;
-            break;
-        case 4:
-            cond = !cpu.zero;
-            break;
-        case 5:
-            cond = cpu.zero;
-            break;
-        case 6:
-            cond = !cpu.carry;
-            break;
-        case 7:
-            cond = cpu.carry;
-            break;
-    }
-
-    let offset = unTwo8b(cpu.read8PcInc());
-    if (cond) {
-        cpu.pc = (cpu.pc + offset) & 0xFFFF;
-    }
-}
-
-export function CALL(cpu: CPU, opcode: number) {
-    let target = cpu.read16PcInc();
-    cpu.push(cpu.pc);
-    cpu.pc = target;
-}
-
-
-export function JP(cpu: CPU, opcode: number) {
-    let target = cpu.read16PcInc();
-    cpu.pc = target;
-}
-
-export function RET(cpu: CPU, opcode: number) {
-    cpu.pc = cpu.pop();
-}
-
-export function RET_CC(cpu: CPU, opcode: number) {
-    let cond = false;
-    switch ((opcode >> 3) & 0b111) {
-        case 0:
-            cond = !cpu.zero;
-            break;
-        case 1:
-            cond = cpu.zero;
-            break;
-        case 2:
-            cond = !cpu.carry;
-            break;
-        case 3:
-            cond = cpu.carry;
-            break;
-    }
-
-    if (cond) {
-        cpu.pc = cpu.pop();
-    }
-}
-
-export function EI(cpu: CPU, opcode: number) {
-    cpu.scheduleEi = true;
-}
-export function DI(cpu: CPU, opcode: number) {
-    cpu.ime = false;
-}
-
-export function LD_R8_R8(cpu: CPU, opcode: number) {
-    cpu.setReg((opcode >> 3) & 0b111, cpu.getReg(opcode & 0b111));
-}
-
-export function LD_R8_U8(cpu: CPU, opcode: number) {
-    let val = cpu.read8PcInc();
-    cpu.setReg((opcode >> 3) & 0b111, val);
-}
-
-export function LD_FF00plusC_A(cpu: CPU, opcode: number) {
-    cpu.write8(0xFF00 | cpu.c, cpu.a);
-}
-export function LD_A_FF00plusC(cpu: CPU, opcode: number) {
-    cpu.a = cpu.read8(0xFF00 | cpu.c);
-}
-
-export function LD_iU16_A(cpu: CPU, opcode: number) {
-    cpu.write8(cpu.read16PcInc(), cpu.a);
-}
-export function LD_A_iU16(cpu: CPU, opcode: number) {
-    cpu.a = cpu.read8(cpu.read16PcInc() | cpu.c);
-}
-
-export function INC_R8(cpu: CPU, opcode: number) {
-    let regId = (opcode >> 3) & 0b111;
-    let oldVal = cpu.getReg(regId);
-    let newVal = (oldVal + 1) & 0xFF;
-    cpu.setReg(regId, newVal);
-
-    cpu.zero = newVal == 0;
-    cpu.negative = false;
-    cpu.halfCarry = (oldVal & 0xF) + (1 & 0xF) > 0xF;
-}
-export function DEC_R8(cpu: CPU, opcode: number) {
-    let regId = (opcode >> 3) & 0b111;
-    let oldVal = cpu.getReg(regId);
-    let newVal = (oldVal - 1) & 0xFF;
-    cpu.setReg(regId, newVal);
-
-    cpu.zero = newVal == 0;
-    cpu.negative = false;
-    cpu.halfCarry = (1 & 0xF) > (oldVal & 0xF);
-}
-
-export function LD_iFF00plusU8_A(cpu: CPU) {
-    let u8 = cpu.read8PcInc();
-    cpu.write8(0xFF00 | u8, cpu.a);
-}
-export function LD_A_iFF00plusU8(cpu: CPU) {
-    let u8 = cpu.read8PcInc();
-    cpu.a = cpu.read8(0xFF00 | u8);
-}
-
-export function PUSH_BC(cpu: CPU) {
-    cpu.push(cpu.getBc());
-}
-export function PUSH_DE(cpu: CPU) {
-    cpu.push(cpu.getDe());
-}
-export function PUSH_HL(cpu: CPU) {
-    cpu.push(cpu.getHl());
-}
-export function PUSH_AF(cpu: CPU) {
-    cpu.push(cpu.getAf());
-}
-
-export function POP_BC(cpu: CPU) {
-    cpu.setBc(cpu.pop());
-}
-export function POP_DE(cpu: CPU) {
-    cpu.setDe(cpu.pop());
-}
-export function POP_HL(cpu: CPU) {
-    cpu.setHl(cpu.pop());
-}
-export function POP_AF(cpu: CPU) {
-    cpu.setAf(cpu.pop());
-}
-
-export function INC_BC(cpu: CPU) { cpu.setBc((cpu.getBc() + 1) & 0xFFFF); }
-export function DEC_BC(cpu: CPU) { cpu.setBc((cpu.getBc() - 1) & 0xFFFF); }
-export function INC_DE(cpu: CPU) { cpu.setDe((cpu.getDe() + 1) & 0xFFFF); }
-export function DEC_DE(cpu: CPU) { cpu.setDe((cpu.getDe() - 1) & 0xFFFF); }
-export function INC_HL(cpu: CPU) { cpu.setHl((cpu.getHl() + 1) & 0xFFFF); }
-export function DEC_HL(cpu: CPU) { cpu.setHl((cpu.getHl() - 1) & 0xFFFF); }
-export function INC_SP(cpu: CPU) { cpu.sp = (cpu.sp + 1) & 0xFFFF; }
-export function DEC_SP(cpu: CPU) { cpu.sp = (cpu.sp - 1) & 0xFFFF; }
-
-export function RLA(cpu: CPU) {
-    let oldVal = cpu.a;
-    let rotateBit = cpu.carry ? 0b10000000 : 0;
-    let newVal = ((oldVal << 1) & 0xFF) | rotateBit;
-
-    cpu.a = newVal;
-
-    cpu.zero = false;
-    cpu.negative = false;
-    cpu.halfCarry = false;
-    cpu.carry = bitTest(oldVal, 7);
-}
-export function RRA(cpu: CPU) {
-    let oldVal = cpu.a;
-    let rotateBit = cpu.carry ? 0b00000001 : 0;
-    let newVal = ((oldVal >> 1) & 0xFF) | rotateBit;
-
-    cpu.a = newVal;
-
-    cpu.zero = false;
-    cpu.negative = false;
-    cpu.halfCarry = false;
-    cpu.carry = bitTest(oldVal, 0);
-}
-
-export function RLCA(cpu: CPU, opcode: number) {
-    let oldVal = cpu.a;
-    let rotateBit = (oldVal & 0b10000000) >> 7;
-    let newVal = ((oldVal << 1) & 0xFF) | rotateBit;
-
-    cpu.a = newVal;
-
-    cpu.zero = false;
-    cpu.negative = false;
-    cpu.halfCarry = false;
-    cpu.carry = bitTest(oldVal, 7);
-}
-export function RRCA(cpu: CPU, opcode: number) {
-    let oldVal = cpu.a;
-    let rotateBit = (oldVal & 0b00000001) << 7;
-    let newVal = ((oldVal >> 1) & 0xFF) | rotateBit;
-
-    cpu.a = newVal;
-
-    cpu.zero = false;
-    cpu.negative = false;
-    cpu.halfCarry = false;
-    cpu.carry = bitTest(oldVal, 0);
-}
-
-
-export function NOP(cpu: CPU) { }
-
-export function CPL(cpu: CPU) {
-    cpu.a = cpu.a ^ 0xFF;
-}
-
-export function RST(cpu: CPU, opcode: number) {
-    let target = 8 * ((opcode >> 3) & 0b111);
-    cpu.push(cpu.pc);
-    cpu.pc = target;
-}
-
-export function JP_CC(cpu: CPU, opcode: number) {
-    let cond = false;
-
-    switch ((opcode >> 3) & 0b111) {
-        case 0:
-            cond = !cpu.zero;
-            break;
-        case 1:
-            cond = cpu.zero;
-            break;
-        case 2:
-            cond = !cpu.carry;
-            break;
-        case 3:
-            cond = cpu.carry;
-            break;
-    }
-
-    let target = cpu.read16PcInc();
-
-    if (cond) {
-        cpu.push(cpu.pc);
-        cpu.pc = target;
-    }
 }

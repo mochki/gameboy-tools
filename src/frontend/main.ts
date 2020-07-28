@@ -116,7 +116,7 @@ function _loop(time: number): void {
     DrawDisplay();
     DrawSchedulerInfo();
 
-    memoryEditor.DrawWindow("Memory Editor", new Uint8Array(32));
+    memoryEditor.DrawWindow("Memory Viewer", mgr.gb.bus.wram[0], 0x2000, 0xC000);
 
     if (ImGui.BeginMainMenuBar()) {
         if (ImGui.BeginMenu("File")) {
@@ -202,9 +202,13 @@ function DrawDebug() {
         ImGuiColumnSeparator();
 
         ImGui.Checkbox("Frame Step", (v = frameStep) => frameStep = v);
+        if (ImGui.Button("Unerror")) {
+            mgr.gb.errored = false;
+        }
         if (ImGui.Button("Step")) {
             mgr.gb.step();
         }
+        
 
         ImGui.NextColumn();
 
@@ -224,9 +228,10 @@ function DrawDebug() {
         ImGui.Columns(1);
 
         ImGui.Separator();
+        ImGui.Text(mgr.gb.bus.serialOut);
+        ImGui.Separator();
 
-
-        for (let i= 0; i < mgr.gb.infoText.length; i++) {
+        for (let i = 0; i < mgr.gb.infoText.length; i++) {
             ImGui.Text(mgr.gb.infoText[mgr.gb.infoText.length - i - 1]);
         }
 
@@ -240,7 +245,7 @@ function DrawSchedulerInfo() {
         ImGui.Text(`Current Ticks: ${mgr.gb.scheduler.currTicks}`);
         ImGui.Text(`Next event at: ${mgr.gb.scheduler.currEventTicks}`);
         ImGui.Text(`Events queued: ${mgr.gb.scheduler.heapSize}`);
-        
+
         ImGui.End();
     }
 }
@@ -268,7 +273,7 @@ function DrawRoms() {
     if (ImGui.Begin("ROMs")) {
 
         for (let i = 0; i < romsList.length; i++) {
-            if (ImGui.Button("Load")) {
+            if (ImGui.Button('Load##' + i)) {
                 LoadRomFromURL(`../roms/${romsList[i]}`, false);
             }
 
@@ -283,18 +288,12 @@ function DrawRoms() {
     }
 }
 
-const arr = new Uint8Array(160 * 144 * 3).fill(0xFF);
 let tex: null | WebGLTexture;
 
 function DrawDisplay() {
     if (ImGui.Begin("Display")) {
 
         ImGui.SetWindowSize(new ImVec2((160 * 2) + 16, (144 * 2) + 36));
-
-
-        for (let i = 0; i < 160 * 144 * 3; i++) {
-            arr[i] = RNG.next();
-        }
 
         const gl: WebGLRenderingContext | null = ImGui_Impl.gl;
         if (gl) {
@@ -316,7 +315,7 @@ function DrawDisplay() {
                 0,
                 gl.RGB,
                 gl.UNSIGNED_BYTE,
-                arr
+                mgr.gb.ppu.screenBuf
             );
 
             ImGui.Image(tex, new ImVec2(160 * 2, 144 * 2));
