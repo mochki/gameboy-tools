@@ -2,5 +2,5 @@
 
 tsc
 mkdir -p dist/
-cp -rav lib/ dist/
-cp -rav src/
+cp -rav lib/* dist/
+cp -rav src/* dist/

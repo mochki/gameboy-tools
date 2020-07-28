@@ -1,3 +1,4 @@
 src/frontend/**/*.js
 src/core/**/*.js
 roms/
+dist/
