@@ -257,7 +257,7 @@ let frameStep = false;
 function DrawDebug() {
     if (ImGui.Begin("Optime GB")) {
 
-        ImGui.Text("Welcome to a new generation of Optime mgr.gb.");
+        ImGui.Text("Welcome to a new generation of Optime GB.");
         ImGui.Separator();
         ImGui.Columns(3);
 
