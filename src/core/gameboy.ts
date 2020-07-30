@@ -4,12 +4,14 @@ import { GameBoyProvider } from './provider';
 import { Bus } from "./bus";
 import { CPU } from "./cpu/cpu";
 import { PPU } from './ppu';
+import { Joypad } from './joypad';
 
 export class GameBoy {
     bus: Bus;
     ppu: PPU;
     cpu: CPU;
     interrupts: Interrupts;
+    joypad: Joypad;
 
     provider: GameBoyProvider | null = null;
 
@@ -18,7 +20,8 @@ export class GameBoy {
     constructor(provider?: GameBoyProvider) {
         this.ppu = new PPU(this);
         this.interrupts = new Interrupts();
-        this.bus = new Bus(this, this.ppu, this.interrupts);
+        this.joypad = new Joypad();
+        this.bus = new Bus(this, this.ppu, this.interrupts, this.joypad);
         this.cpu = new CPU(this, this.bus, this.interrupts);
 
         if (provider) {

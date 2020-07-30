@@ -3,15 +3,18 @@ import { PPU } from './ppu';
 import { GameBoy } from './gameboy';
 import { hex } from './util/misc';
 import { bitTest } from './util/bits';
+import { Joypad } from './joypad';
 export class Bus {
     gb: GameBoy;
     ppu: PPU;
     interrupts: Interrupts;
+    joypad: Joypad;
 
-    constructor(gb: GameBoy, ppu: PPU, interrupts: Interrupts) {
+    constructor(gb: GameBoy, ppu: PPU, interrupts: Interrupts, joypad: Joypad) {
         this.gb = gb;
         this.ppu = ppu;
         this.interrupts = interrupts;
+        this.joypad = joypad;
     }
 
     bootrom = new Uint8Array(0x100);
@@ -67,6 +70,9 @@ export class Bus {
                 return this.wram[0][addr & 0xFFF];
             case 0xF: // ZeroPage - F###
                 switch (addr) {
+                    case 0xFF00: // JOYP
+                        return this.joypad.readHwio8();
+
                     case 0xFF40: // LCDC
                     case 0xFF41: // STAT
                     case 0xFF42: // SCY
@@ -133,6 +139,10 @@ export class Bus {
                 return;
             case 0xF: // ZeroPage - F###
                 switch (addr) {
+                    case 0xFF00: // JOYP
+                        this.joypad.writeHwio8(val);
+                        return;
+
                     case 0xFF01: // SB
                         this.serialOut += String.fromCharCode(val);
                         return;

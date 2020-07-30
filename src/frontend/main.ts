@@ -53,6 +53,75 @@ export default async function main(): Promise<void> {
 }
 
 async function _init(): Promise<void> {
+
+    let altControls = false;
+    let block = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Enter", "\\", "z", "x", "Tab"];
+
+    document.onkeydown = function (e) {
+        if (block.includes(e.key)) {
+            e.preventDefault();
+        }
+
+        if (altControls) {
+            switch (e.key.toLowerCase()) {
+                case "a": mgr.gb.joypad.left = true; break;
+                case "w": mgr.gb.joypad.up = true; break;
+                case "d": mgr.gb.joypad.right = true; break;
+                case "s": mgr.gb.joypad.down = true; break;
+
+                case "l": mgr.gb.joypad.a = true; break;
+                case "k": mgr.gb.joypad.b = true; break;
+            }
+        } else {
+            switch (e.key.toLowerCase()) {
+                case "arrowleft": mgr.gb.joypad.left = true; break;
+                case "arrowup": mgr.gb.joypad.up = true; break;
+                case "arrowright": mgr.gb.joypad.right = true; break;
+                case "arrowdown": mgr.gb.joypad.down = true; break;
+
+                case "x": mgr.gb.joypad.a = true; break;
+                case "z": mgr.gb.joypad.b = true; break;
+            }
+        }
+
+        switch (e.key) {
+            case "Enter": mgr.gb.joypad.start = true; break;
+            case "\\": mgr.gb.joypad.select = true; break;
+        }
+    };
+    document.onkeyup = function (e) {
+        if (block.includes(e.key))
+            e.preventDefault();
+
+        if (altControls) {
+            switch (e.key.toLowerCase()) {
+                case "a": mgr.gb.joypad.left = false; break;
+                case "w": mgr.gb.joypad.up = false; break;
+                case "d": mgr.gb.joypad.right = false; break;
+                case "s": mgr.gb.joypad.down = false; break;
+
+                case "l": mgr.gb.joypad.a = false; break;
+                case "k": mgr.gb.joypad.b = false; break;
+            }
+        } else {
+            switch (e.key.toLowerCase()) {
+                case "arrowleft": mgr.gb.joypad.left = false; break;
+                case "arrowup": mgr.gb.joypad.up = false; break;
+                case "arrowright": mgr.gb.joypad.right = false; break;
+                case "arrowdown": mgr.gb.joypad.down = false; break;
+
+                case "x": mgr.gb.joypad.a = false; break;
+                case "z": mgr.gb.joypad.b = false; break;
+            }
+        }
+
+        switch (e.key) {
+            case "Enter": mgr.gb.joypad.start = false; break;
+            case "\\": mgr.gb.joypad.select = false; break;
+        }
+    };
+
+
     console.log("Total allocated space (uordblks) @ _init:", ImGui.bind.mallinfo().uordblks);
 
     // Setup Dear ImGui binding
@@ -107,6 +176,8 @@ async function _init(): Promise<void> {
     };
 }
 
+let cyclesOver = 0;
+
 // Main loop
 function _loop(time: number): void {
     // Poll and handle events (inputs, window resize, etc.)
@@ -116,10 +187,13 @@ function _loop(time: number): void {
     // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 
     if (frameStep) {
-        for (let i = 0; i < 70224;) {
+        let i = 0;
+        let cpu = mgr.gb.cpu;
+        while (i < 70224 - cyclesOver) {
             if (mgr.gb.errored) break;
-            i += mgr.gb.cpu.execute();
+            i += cpu.execute();
         }
+        cyclesOver += i - 70224;
     }
 
     // Start the Dear ImGui frame
@@ -183,7 +257,7 @@ let frameStep = false;
 function DrawDebug() {
     if (ImGui.Begin("Optime GB")) {
 
-        ImGui.Text("Welcome to a new generation of Optime GB.");
+        ImGui.Text("Welcome to a new generation of Optime mgr.gb.");
         ImGui.Separator();
         ImGui.Columns(3);
 
@@ -200,6 +274,7 @@ function DrawDebug() {
 
         ImGuiColumnSeparator();
 
+        ImGui.Text(`Cycles over: ${cyclesOver}`);
         ImGui.Checkbox("Frame Step", (v = frameStep) => frameStep = v);
         if (ImGui.Button("Unerror")) {
             mgr.gb.errored = false;
