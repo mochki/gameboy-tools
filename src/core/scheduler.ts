@@ -28,7 +28,7 @@ export class Scheduler {
     }
 
     currTicks = 0;
-    currEventTicks = 0;
+    nextEventTicks = 0;
 
     heap: SchedulerEvent[] = new Array(64);
     heapSize = 0;
@@ -53,7 +53,7 @@ export class Scheduler {
                 break;
             }
         }
-        this.updateCurr();
+        this.updateNextEvent();
     }
 
     addEventRelative(id: SchedulerId, ticks: number, callback: SchedulerCallback) {
@@ -74,9 +74,9 @@ export class Scheduler {
         }
     }
 
-    updateCurr() {
+    updateNextEvent() {
         if (this.heapSize > 0) {
-            this.currEventTicks = this.heap[0].ticks;
+            this.nextEventTicks = this.heap[0].ticks;
         }
     }
 
@@ -95,7 +95,7 @@ export class Scheduler {
         this.heap[0] = this.heap[--this.heapSize];
         this.minHeapify(0);
 
-        this.updateCurr();
+        this.updateNextEvent();
         return event;
     }
 

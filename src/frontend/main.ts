@@ -13,7 +13,6 @@ import { GameBoy } from "../core/gameboy";
 import { hexN } from '../core/util/misc';
 
 const clearColor: ImVec4 = new ImVec4(0.114, 0.114, 0.114, 1.00);
-const memoryEditor: MemoryEditor = new MemoryEditor();
 
 let done: boolean = false;
 
@@ -87,9 +86,25 @@ async function _init(): Promise<void> {
         ImGui_Impl.Init(null);
     }
 
-    if (typeof (window) !== "undefined") {
-        window.requestAnimationFrame(_loop);
+    try {
+        if (typeof (window) !== "undefined") {
+            window.requestAnimationFrame(_loop);
+        }
+    } catch (error) {
+        alert("Exception occured in main loop, check console for info.");
+        console.error(error);
     }
+
+    const openRomBtn = document.getElementById("open-rom-btn")!;
+    openRomBtn.onclick = () => {
+        let input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".gb,.gbc";
+        input.addEventListener("change", () => {
+
+        });
+        input.dispatchEvent(new MouseEvent("click"));
+    };
 }
 
 // Main loop
@@ -101,9 +116,9 @@ function _loop(time: number): void {
     // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 
     if (frameStep) {
-        for (let i = 0; i < 100000; i++) {
+        for (let i = 0; i < 70224;) {
             if (mgr.gb.errored) break;
-            mgr.gb.step();
+            i += mgr.gb.cpu.execute();
         }
     }
 
@@ -115,22 +130,6 @@ function _loop(time: number): void {
     DrawRoms();
     DrawDisplay();
     DrawSchedulerInfo();
-
-    memoryEditor.DrawWindow("Memory Viewer", mgr.gb.bus.wram[0], 0x2000, 0xC000);
-
-    if (ImGui.BeginMainMenuBar()) {
-        if (ImGui.BeginMenu("File")) {
-            if (ImGui.MenuItem("Load ROM")) {
-                //Do something
-            }
-
-            ImGui.EndMenu();
-        }
-        if (ImGui.BeginMenu("Settings")) {
-            ImGui.EndMenu();
-        }
-        ImGui.EndMainMenuBar();
-    }
 
     ImGui.EndFrame();
 
@@ -206,9 +205,9 @@ function DrawDebug() {
             mgr.gb.errored = false;
         }
         if (ImGui.Button("Step")) {
-            mgr.gb.step();
+            mgr.gb.cpu.execute();
         }
-        
+
 
         ImGui.NextColumn();
 
@@ -243,7 +242,7 @@ function DrawSchedulerInfo() {
     if (ImGui.Begin("Scheduler")) {
 
         ImGui.Text(`Current Ticks: ${mgr.gb.scheduler.currTicks}`);
-        ImGui.Text(`Next event at: ${mgr.gb.scheduler.currEventTicks}`);
+        ImGui.Text(`Next event at: ${mgr.gb.scheduler.nextEventTicks}`);
         ImGui.Text(`Events queued: ${mgr.gb.scheduler.heapSize}`);
 
         ImGui.End();

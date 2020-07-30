@@ -24,32 +24,32 @@ export function LD_SP_U16(cpu: CPU) {
 
 // LD A, [U16]
 export function LD_A_iU16(cpu: CPU, opcode: number): void {
-    const U16 = cpu.read16PcInc();
+    const u16 = cpu.read16PcInc();
 
-    cpu.a = cpu.read8(U16);
+    cpu.a = cpu.read8(u16);
 };
 
 // LD [U16], A
 export function LD_iU16_A(cpu: CPU, opcode: number): void {
-    const U16 = cpu.read16PcInc();
+    const u16 = cpu.read16PcInc();
 
-    cpu.write8(U16, cpu.a);
+    cpu.write8(u16, cpu.a);
 };
 
 export function LD_iU16_SP(cpu: CPU, opcode: number): void {
-    const U16 = cpu.read16PcInc();
+    const u16 = cpu.read16PcInc();
 
     const spUpperByte = cpu.sp >> 8;
     const spLowerByte = cpu.sp & 0b11111111;
 
-    cpu.write8(U16 + 0, spLowerByte);
-    cpu.write8(U16 + 1, (spUpperByte) & 0xFFFF);
+    cpu.write8(u16 + 0, spLowerByte);
+    cpu.write8(u16 + 1, (spUpperByte) & 0xFFFF);
 
 };
 
 export function JP(cpu: CPU, opcode: number): void {
-    const U16 = cpu.read16PcInc();
-    cpu.pc = U16;
+    const u16 = cpu.read16PcInc();
+    cpu.pc = u16;
 
     cpu.tick(4); // Branching takes 4 cycles
 };

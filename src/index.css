@@ -1,0 +1,32 @@
+#menu {
+    position: absolute;
+    margin: 0;
+    padding: 0;
+
+    top: 0;
+    right: 0;
+    width: 100%;
+
+    float: left;
+
+    outline: 1px solid grey;
+
+    /* ImGui light theme background color */
+    background-color: #f0f0f0;
+
+    z-index: 100;
+}
+
+#output {
+    width: 100%;
+
+}
+
+button {
+    border: none;
+    margin: 1px;
+}
+
+body {
+    margin: 0
+}

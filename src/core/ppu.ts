@@ -3,6 +3,7 @@ import { GameBoy } from './gameboy';
 import { BackendFlags } from '../lib/imgui-js/imgui';
 import { bitTest, bitSet } from './util/bits';
 import { unTwo8b } from './util/misc';
+import { InterruptId } from './interrupts';
 
 export enum PPUMode {
     Hblank = 0,
@@ -136,6 +137,7 @@ export class PPU {
     enterMode1() { // Enter Vblank
         this.mode = PPUMode.Vblank;
         this.gb.scheduler.addEventRelative(SchedulerId.PPU, 456, this.continueMode1Bound);
+        this.gb.interrupts.flagInterrupt(InterruptId.Vblank);
     }
     continueMode1Bound = this.continueMode1.bind(this);
     continueMode1() {// During Vblank

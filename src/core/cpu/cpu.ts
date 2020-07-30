@@ -1,3 +1,4 @@
+import { InterruptId } from './../interrupts';
 import { Bus } from "../bus";
 import { GameBoy } from "../gameboy";
 import { bitTest as bitTest, bitSet, bitSetValue } from "../util/bits";
@@ -14,6 +15,12 @@ import { LD_R8_R8, LD_BC_U16, LD_DE_U16, LD_HL_U16, LD_SP_U16, LD_A_iU16, LD_iU1
 //     if ((i & ~0xFFFF) != 0) throw "Bounds error 16-bit";
 // }
 
+const VBLANK_VECTOR = 0x40;
+const STAT_VECTOR = 0x48;
+const TIMER_VECTOR = 0x50;
+const SERIAL_VECTOR = 0x58;
+const JOYPAD_VECTOR = 0x60;
+
 export class CPU {
     gb: GameBoy;
     bus: Bus;
@@ -26,15 +33,18 @@ export class CPU {
     }
 
     read8(addr: number): number {
+        this.cycles += 4;
         this.gb.tick(4);
         return this.bus.read8(addr);
     }
     write8(addr: number, val: number) {
+        this.cycles += 4;
         this.gb.tick(4);
         this.bus.write8(addr, val);
     }
 
     tick(cycles: number) {
+        this.cycles += cycles;
         this.gb.tick(cycles);
     }
 
@@ -123,7 +133,9 @@ export class CPU {
         return val;
     }
 
-    execute(): void {
+    cycles = 0;
+
+    execute(): number {
         // boundsCheck16(this.pc);
         // boundsCheck8(this.b);
         // boundsCheck8(this.c);
@@ -136,7 +148,49 @@ export class CPU {
         // this.gb.resetInfo();
         // if (this.pc == 0xC000) this.gb.error("sadfdfsd");
 
+        if (this.ime && (this.interrupts.if & this.interrupts.ie & 0x1F) != 0) {
+            let vector = 0;
+
+            if (
+                bitTest(this.interrupts.ie, InterruptId.Vblank) &&
+                bitTest(this.interrupts.if, InterruptId.Vblank)
+            ) {
+                this.interrupts.clearInterrupt(InterruptId.Vblank);
+                vector = VBLANK_VECTOR;
+            } else if (
+                bitTest(this.interrupts.ie, InterruptId.Stat) &&
+                bitTest(this.interrupts.if, InterruptId.Stat)
+            ) {
+                this.interrupts.clearInterrupt(InterruptId.Stat);
+                vector = STAT_VECTOR;
+            } else if (
+                bitTest(this.interrupts.ie, InterruptId.Timer) &&
+                bitTest(this.interrupts.if, InterruptId.Timer)
+            ) {
+                this.interrupts.clearInterrupt(InterruptId.Timer);
+                vector = TIMER_VECTOR;
+            } else if (
+                bitTest(this.interrupts.ie, InterruptId.Serial) &&
+                bitTest(this.interrupts.if, InterruptId.Serial)
+            ) {
+                this.interrupts.clearInterrupt(InterruptId.Serial);
+                vector = SERIAL_VECTOR;
+            } else if (
+                bitTest(this.interrupts.ie, InterruptId.Joypad) &&
+                bitTest(this.interrupts.if, InterruptId.Joypad)
+            ) {
+                this.interrupts.clearInterrupt(InterruptId.Joypad);
+                vector = JOYPAD_VECTOR;
+            }
+
+            this.ime = false;
+
+            this.push(this.pc);
+            this.pc = vector;
+        }
+
         // let origPc = this.pc;
+        this.cycles = 0;
         let val = this.read8PcInc();
 
         if (this.scheduleEi) this.ime = true;
@@ -150,6 +204,8 @@ export class CPU {
         }
 
         // this.gb.info(`Addr:${hexN(origPc, 4)} Opcode:${hexN(val, 2)}`);
+
+        return this.cycles;
     }
 
     setReg(reg: number, val: number) {
@@ -455,7 +511,7 @@ function genUnprefixedTable(): Instruction[] {
     t[0x19] = ADD_HL_DE; // ADD HL, DE
     t[0x29] = ADD_HL_HL; // ADD HL, HL
     t[0x39] = ADD_HL_SP; // ADD HL, SP
-    
+
     return t;
 }
 

@@ -6,5 +6,5 @@
         "noFallthroughCasesInSwitch": true,
     },
     "include": ["src/"],
-    "exclude": ["src/lib"],
+    "exclude": ["src/lib", "dist/"],
 }

@@ -121,7 +121,7 @@ export class Bus {
                 return;
             case 0xA: // SRAM - A###
             case 0xB: // SRAM - B###
-                break;
+                return;
             case 0xC: // WRAM0 - C###
                 this.wram[0][addr & 0xFFF] = val;
                 return;

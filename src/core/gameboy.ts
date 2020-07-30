@@ -60,14 +60,10 @@ export class GameBoy {
         this.infoText = [];
     }
 
-    public step(): void {
-        this.cpu.execute();
-    }
-
     public tick(ticks: number): void {
         this.scheduler.currTicks += ticks;
         while (
-            this.scheduler.currTicks >= this.scheduler.currEventTicks &&
+            this.scheduler.currTicks >= this.scheduler.nextEventTicks &&
             this.scheduler.heapSize > 0
         ) {
             this.scheduler.popFirstEvent().callback();
