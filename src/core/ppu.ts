@@ -81,6 +81,8 @@ export class PPU {
     ];
     vramBank = 0;
 
+    oam = new Uint8Array(160);
+
     tileset = [
         new Array(384).fill(0).map(() => new Array(8).fill(0).map(() => new Uint8Array(8))), // Bank 0
         new Array(384).fill(0).map(() => new Array(8).fill(0).map(() => new Uint8Array(8))), // Bank 1
@@ -121,7 +123,7 @@ export class PPU {
     }
     endMode3Bound = this.endMode3.bind(this);
     endMode3() { // Drawing -> Hblank
-        this.renderBgWindowScanline();
+        this.renderScanline();
         this.mode = PPUMode.Hblank;
         this.gb.scheduler.addEventRelative(SchedulerId.PPU, 204, this.endMode0Bound);
     }
@@ -155,6 +157,8 @@ export class PPU {
     }
     onDisable() {
         this.gb.scheduler.cancelEvents(SchedulerId.PPU);
+        this.ly = 0;
+        this.mode = PPUMode.OamScan;
     }
 
     read8(addr: number): number {
@@ -275,6 +279,9 @@ export class PPU {
             case 0xFF43:
                 this.scx = val;
                 return;
+            case 0xFF46: // OAM DMA
+                this.oamDma(val);
+                return;
             case 0xFF47: // BG Palette
                 this.dmgBgPalette = val;
                 if (this.gb.cgb == false) {
@@ -335,13 +342,15 @@ export class PPU {
         this.objPalette.update(palette >> 2, palette & 3);
     }
 
-    renderBgWindowScanline() {
+    renderScanline() {
         let tilemapBase = (this.bgTilemapSelect ? 1024 : 0) + ((((this.scy + this.ly) >> 3) << 5) & 1023);
         let lineOffset = this.scx >> 3;
 
         let screenBase = this.ly * 160 * 3;
         let pixel = 0;
         let tileY = (this.scy + this.ly) & 7;
+
+        bgWindowLoop:
         for (let t = 0; t < 21; t++) {
             let tilemapAddr = tilemapBase + ((lineOffset + t) & 31);
             let tileIndex = this.tilemap[tilemapAddr];
@@ -359,8 +368,87 @@ export class PPU {
                 screenBase += 3;
                 pixel += 1;
 
-                if (pixel > 159) return;
+                if (pixel > 159) break bgWindowLoop;
             }
+        }
+
+        let displayObjs = this.objEnable;
+
+        if (displayObjs) {
+            let oamAddr = 0;
+            for (let s = 0; s < 40; s++) {
+                let yPos = this.oam[oamAddr + 0];
+                let xPos = this.oam[oamAddr + 1];
+                let tileIndex = this.oam[oamAddr + 2];
+                let flags = this.oam[oamAddr + 3];
+
+                let bgToObjPriority = bitTest(flags, 7);
+                let yFlip = bitTest(flags, 6);
+                let xFlip = bitTest(flags, 5);
+                let dmgPalette = bitTest(flags, 4);
+                let cgbVramBank = bitTest(flags, 3);
+                let cgbPalette = flags & 0b111;
+
+                let screenXStart = xPos - 8;
+                let screenYStart = yPos - 16;
+                screenBase = ((this.ly * 160) + screenXStart) * 3;
+                let screenYEnd = screenYStart + (this.objSize ? 16 : 8);
+
+                if (this.ly >= screenYStart && this.ly < screenYEnd) {
+                    let spriteY = this.ly - screenYStart;
+                    let tileY = spriteY & 0b111;
+                    if (this.objSize) {
+                        tileIndex &= ~1; // Erase low bit for tall sprites
+                        if (yFlip) {
+                            if (spriteY <= 7) {
+                                tileIndex++; // Double height sprites
+                            }
+                        } else {
+                            if (spriteY > 7) {
+                                tileIndex++; // Double height sprites
+                            }
+                        }
+
+                    }
+                    if (yFlip) {
+                        tileY ^= 0b111;
+                    }
+                    let tileData = this.tileset[0][tileIndex][tileY];
+
+                    if (xFlip) {
+                        for (let px = 7; px >= 0; px--) {
+                            if (screenXStart >= 0) {
+                                let pixelCol = this.objPalette.shades[dmgPalette ? 1 : 0][tileData[px]];
+                                this.screenBuf[screenBase + 0] = pixelCol[0];
+                                this.screenBuf[screenBase + 1] = pixelCol[1];
+                                this.screenBuf[screenBase + 2] = pixelCol[2];
+                            }
+                            screenBase += 3;
+                            screenXStart++;
+                        }
+                    } else {
+                        for (let px = 0; px < 8; px++) {
+                            if (screenXStart >= 0) {
+                                let pixelCol = this.objPalette.shades[dmgPalette ? 1 : 0][tileData[px]];
+                                this.screenBuf[screenBase + 0] = pixelCol[0];
+                                this.screenBuf[screenBase + 1] = pixelCol[1];
+                                this.screenBuf[screenBase + 2] = pixelCol[2];
+                            }
+                            screenBase += 3;
+                            screenXStart++;
+                        }
+                    }
+                }
+
+                oamAddr += 4;
+            }
+        }
+    }
+
+    oamDma(page: number) {
+        let startAddr = page << 8;
+        for (let i = 0; i < 160; i++) {
+            this.oam[i] = this.gb.bus.read8(startAddr + i);
         }
     }
 }
