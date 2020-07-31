@@ -1,4 +1,4 @@
-import { SchedulerId } from './scheduler';
+import { SchedulerId, SchedulerEvent, Scheduler } from './scheduler';
 import { GameBoy } from './gameboy';
 import { BackendFlags } from '../lib/imgui-js/imgui';
 import { bitTest, bitSet } from './util/bits';
@@ -113,51 +113,52 @@ export class PPU {
     lyMatch = false;
     mode: PPUMode = 0;
 
-    enterMode2() { // Enter OAM Scan
+    enterMode2 = function (this: PPU) { // Enter OAM Scan
         this.mode = PPUMode.OamScan;
-        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 80, this.endMode2Bound);
-    }
-    endMode2Bound = this.endMode2.bind(this);
-    endMode2() { // OAM Scan -> Drawing
+        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 80, this.endMode2);
+    }.bind(this);
+
+    endMode2 = function (this: PPU) { // OAM Scan -> Drawing
         this.mode = PPUMode.Drawing;
-        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 172, this.endMode3Bound);
-    }
-    endMode3Bound = this.endMode3.bind(this);
-    endMode3() { // Drawing -> Hblank
+        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 172, this.endMode3);
+    }.bind(this);
+
+    endMode3 = function (this: PPU) { // Drawing -> Hblank
         this.renderScanline();
         this.mode = PPUMode.Hblank;
-        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 204, this.endMode0Bound);
-    }
-    endMode0Bound = this.endMode0.bind(this);
-    endMode0() { // Hblank -> Vblank / OAM Scan
+        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 204, this.endMode0);
+    }.bind(this);
+
+    endMode0 = function (this: PPU) { // Hblank -> Vblank / OAM Scan
         this.ly++;
         if (this.ly < 144) {
             this.enterMode2();
         } else {
             this.enterMode1();
         }
-    }
-    enterMode1() { // Enter Vblank
+    }.bind(this);
+
+    enterMode1 = function (this: PPU) { // Enter Vblank
         this.mode = PPUMode.Vblank;
-        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 456, this.continueMode1Bound);
+        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 456, this.continueMode1);
         this.gb.interrupts.flagInterrupt(InterruptId.Vblank);
-    }
-    continueMode1Bound = this.continueMode1.bind(this);
-    continueMode1() {// During Vblank
+    }.bind(this);
+    
+    continueMode1 = function (this: PPU) { // During Vblank
         this.ly++;
         if (this.ly < 154) {
-            this.gb.scheduler.addEventRelative(SchedulerId.PPU, 456, this.continueMode1Bound);
+            this.gb.scheduler.addEventRelative(SchedulerId.PPU, 456, this.continueMode1);
         } else { // this.ly >= 153
             this.ly = 0;
             this.enterMode2();
         }
-    }
+    }.bind(this);
 
     onEnable() {
         this.enterMode2();
     }
     onDisable() {
-        this.gb.scheduler.cancelEvents(SchedulerId.PPU);
+        this.gb.scheduler.cancelEventsById(SchedulerId.PPU);
         this.ly = 0;
         this.mode = PPUMode.OamScan;
     }
@@ -257,6 +258,8 @@ export class PPU {
     writeHwio8(addr: number, val: number): void {
         switch (addr) {
             case 0xFF40:
+                if (this.lcdDisplayEnable && !bitTest(val, 7)) this.onDisable();
+                if (!this.lcdDisplayEnable && bitTest(val, 7)) this.onEnable();
                 this.lcdDisplayEnable = bitTest(val, 7);
                 this.windowTilemapSelect = bitTest(val, 6);
                 this.windowEnable = bitTest(val, 5);
@@ -265,8 +268,6 @@ export class PPU {
                 this.objSize = bitTest(val, 2);
                 this.objEnable = bitTest(val, 1);
                 this.bgWindowEnable = bitTest(val, 0);
-                if (this.lcdDisplayEnable) this.onEnable();
-                if (!this.lcdDisplayEnable) this.onDisable();
                 break;
             case 0xFF41:
                 this.enableLycIntr = bitTest(val, 6);

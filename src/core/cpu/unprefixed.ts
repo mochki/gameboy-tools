@@ -1,5 +1,6 @@
 import { CPU } from "./cpu";
 import { unTwo8b } from "../util/misc";
+import { SchedulerId } from "../scheduler";
 
 /** LD R16, U16 */
 export function LD_BC_U16(cpu: CPU) {
@@ -610,7 +611,7 @@ export function DI(cpu: CPU, opcode: number): void {  // DI - Disable interrupts
     cpu.ime = false;
 };
 export function EI(cpu: CPU, opcode: number): void {  // EI - Enable interrupts master flag
-    cpu.scheduleEi = true;
+    cpu.gb.scheduler.addEventRelative(SchedulerId.EnableInterrupts, 8, cpu.enableInterrupts);
 };
 
 /** JP */

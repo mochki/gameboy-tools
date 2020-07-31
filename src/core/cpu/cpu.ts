@@ -48,7 +48,6 @@ export class CPU {
         this.gb.tick(cycles);
     }
 
-    scheduleEi = false;
     ime = false;
 
     zero = false;
@@ -193,8 +192,6 @@ export class CPU {
         this.cycles = 0;
         let val = this.read8PcInc();
 
-        if (this.scheduleEi) this.ime = true;
-
         if (val != 0xCB) {
             t[val](this, val);
         } else {
@@ -307,6 +304,10 @@ export class CPU {
 
         return (upper << 8) | lower;
     }
+
+    enableInterrupts = function(this: CPU) {
+        this.ime = true;
+    }.bind(this);
 }
 
 type Instruction = (cpu: CPU, opcode: number) => void;

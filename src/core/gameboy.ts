@@ -1,10 +1,11 @@
 import { Interrupts } from './interrupts';
-import { Scheduler } from './scheduler';
+import { Scheduler, SchedulerId } from './scheduler';
 import { GameBoyProvider } from './provider';
 import { Bus } from "./bus";
 import { CPU } from "./cpu/cpu";
 import { PPU } from './ppu';
 import { Joypad } from './joypad';
+import { Timer } from './timer';
 
 export class GameBoy {
     bus: Bus;
@@ -12,16 +13,19 @@ export class GameBoy {
     cpu: CPU;
     interrupts: Interrupts;
     joypad: Joypad;
+    timer: Timer;
 
     provider: GameBoyProvider | null = null;
 
     scheduler: Scheduler;
 
     constructor(provider?: GameBoyProvider) {
+        this.scheduler = new Scheduler();
         this.ppu = new PPU(this);
         this.interrupts = new Interrupts();
         this.joypad = new Joypad();
-        this.bus = new Bus(this, this.ppu, this.interrupts, this.joypad);
+        this.timer = new Timer(this);
+        this.bus = new Bus(this, this.ppu, this.interrupts, this.joypad, this.timer);
         this.cpu = new CPU(this, this.bus, this.interrupts);
 
         if (provider) {
@@ -37,9 +41,6 @@ export class GameBoy {
             }
             this.provider = provider;
         }
-
-        this.scheduler = new Scheduler();
-
         // this.cpu.pc = 0x100;
         // this.bus.bootromEnabled = false;
     }

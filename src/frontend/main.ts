@@ -259,7 +259,7 @@ function DrawDebug() {
 
         ImGui.Text("Welcome to a new generation of Optime GB.");
         ImGui.Separator();
-        ImGui.Columns(3);
+        ImGui.Columns(4);
 
         ImGui.Text(`AF: ${hexN(mgr.gb.cpu.getAf(), 4)}`);
         ImGui.Text(`BC: ${hexN(mgr.gb.cpu.getBc(), 4)}`);
@@ -299,6 +299,10 @@ function DrawDebug() {
         ImGui.Text(`SCX: ${mgr.gb.ppu.scx}`);
         ImGui.Text(`SCY: ${mgr.gb.ppu.scy}`);
 
+        ImGui.NextColumn();
+
+        ImGui.Text(`DIV: ${mgr.gb.timer.div}`);
+
         ImGui.Columns(1);
 
         ImGui.Separator();
@@ -319,6 +323,13 @@ function DrawSchedulerInfo() {
         ImGui.Text(`Current Ticks: ${mgr.gb.scheduler.currTicks}`);
         ImGui.Text(`Next event at: ${mgr.gb.scheduler.nextEventTicks}`);
         ImGui.Text(`Events queued: ${mgr.gb.scheduler.heapSize}`);
+
+        ImGui.Separator();
+
+        for (let i = 0; i < mgr.gb.scheduler.heapSize; i++) {
+            let evt = mgr.gb.scheduler.heap[i];
+            ImGui.Text(`${i} | Ticks: ${evt.ticks} ID: ${evt.id}`);
+        }
 
         ImGui.End();
     }
