@@ -6,6 +6,7 @@ import { CPU } from "./cpu/cpu";
 import { PPU } from './ppu';
 import { Joypad } from './joypad';
 import { Timer } from './timer';
+import { APU } from './apu';
 
 export class GameBoy {
     bus: Bus;
@@ -14,7 +15,8 @@ export class GameBoy {
     interrupts: Interrupts;
     joypad: Joypad;
     timer: Timer;
-
+    apu: APU;
+    
     provider: GameBoyProvider | null = null;
 
     scheduler: Scheduler;
@@ -24,8 +26,9 @@ export class GameBoy {
         this.ppu = new PPU(this);
         this.interrupts = new Interrupts();
         this.joypad = new Joypad();
+        this.apu = new APU(this);
         this.timer = new Timer(this);
-        this.bus = new Bus(this, this.ppu, this.interrupts, this.joypad, this.timer);
+        this.bus = new Bus(this, this.ppu, this.interrupts, this.joypad, this.timer, this.apu);
         this.cpu = new CPU(this, this.bus, this.interrupts);
 
         if (provider) {

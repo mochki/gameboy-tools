@@ -5,19 +5,22 @@ import { hex } from './util/misc';
 import { bitTest } from './util/bits';
 import { Joypad } from './joypad';
 import { Timer } from './timer';
+import { APU } from './apu';
 export class Bus {
     gb: GameBoy;
     ppu: PPU;
     interrupts: Interrupts;
     joypad: Joypad;
     timer: Timer;
+    apu: APU;
 
-    constructor(gb: GameBoy, ppu: PPU, interrupts: Interrupts, joypad: Joypad, timer: Timer) {
+    constructor(gb: GameBoy, ppu: PPU, interrupts: Interrupts, joypad: Joypad, timer: Timer, sound: APU) {
         this.gb = gb;
         this.ppu = ppu;
         this.interrupts = interrupts;
         this.joypad = joypad;
         this.timer = timer;
+        this.apu = sound;
     }
 
     bootrom = new Uint8Array(0x100);
@@ -81,6 +84,15 @@ export class Bus {
                     case 0xFF06: // TMA
                     case 0xFF07: // TAC
                         return this.timer.readHwio8(addr);
+
+                    case 0xFF10: case 0xFF11: case 0xFF12: case 0xFF13: case 0xFF14: // NR1X
+                    case 0xFF15: case 0xFF16: case 0xFF17: case 0xFF18: case 0xFF19: // NR2X
+                    case 0xFF1A: case 0xFF1B: case 0xFF1C: case 0xFF1D: case 0xFF1E: // NR3X
+                    case 0xFF1F: case 0xFF20: case 0xFF21: case 0xFF22: case 0xFF23: // NR4X
+                    case 0xFF24: case 0xFF25: case 0xFF26: // NR5X
+                    case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33: case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37: // Wave Table
+                    case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B: case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F: // Wave Table
+                        return this.apu.readHwio8(addr);
 
                     case 0xFF40: // LCDC
                     case 0xFF41: // STAT
@@ -161,6 +173,16 @@ export class Bus {
                     case 0xFF06: // TMA
                     case 0xFF07: // TAC
                         this.timer.writeHwio8(addr, val);
+                        return;
+
+                    case 0xFF10: case 0xFF11: case 0xFF12: case 0xFF13: case 0xFF14: // NR1X
+                    case 0xFF15: case 0xFF16: case 0xFF17: case 0xFF18: case 0xFF19: // NR2X
+                    case 0xFF1A: case 0xFF1B: case 0xFF1C: case 0xFF1D: case 0xFF1E: // NR3X
+                    case 0xFF1F: case 0xFF20: case 0xFF21: case 0xFF22: case 0xFF23: // NR4X
+                    case 0xFF24: case 0xFF25: case 0xFF26: // NR5X
+                    case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33: case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37: // Wave Table
+                    case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B: case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F: // Wave Table
+                        this.apu.writeHwio8(addr, val);
                         return;
 
                     case 0xFF40: // LCDC

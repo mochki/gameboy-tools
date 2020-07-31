@@ -73,7 +73,9 @@ export class PPU {
     dmgObj0Palette = 0;
     dmgObj1Palette = 0;
 
-    screenBuf = new Uint8Array(160 * 144 * 3);
+    screenBackBuf = new Uint8Array(160 * 144 * 3);
+    screenFrontBuf = new Uint8Array(160 * 144 * 3);
+    renderDone = false;
     scanlineRaw = new Uint8Array(160);
 
     vram = [
@@ -113,6 +115,12 @@ export class PPU {
     lyMatch = false;
     mode: PPUMode = 0;
 
+    swapBuffers() {
+        let temp = this.screenBackBuf;
+        this.screenBackBuf = this.screenFrontBuf;
+        this.screenFrontBuf = temp;
+    }
+
     enterMode2 = function (this: PPU) { // Enter OAM Scan
         this.mode = PPUMode.OamScan;
         this.gb.scheduler.addEventRelative(SchedulerId.PPU, 80, this.endMode2);
@@ -132,9 +140,11 @@ export class PPU {
     endMode0 = function (this: PPU) { // Hblank -> Vblank / OAM Scan
         this.ly++;
         if (this.ly < 144) {
-            this.enterMode2();
+            this.enterMode2(); // OAM Scan
         } else {
-            this.enterMode1();
+            this.enterMode1(); // Vblank
+            this.renderDone = true;
+            this.swapBuffers();
         }
     }.bind(this);
 
@@ -143,7 +153,7 @@ export class PPU {
         this.gb.scheduler.addEventRelative(SchedulerId.PPU, 456, this.continueMode1);
         this.gb.interrupts.flagInterrupt(InterruptId.Vblank);
     }.bind(this);
-    
+
     continueMode1 = function (this: PPU) { // During Vblank
         this.ly++;
         if (this.ly < 154) {
@@ -368,9 +378,9 @@ export class PPU {
             for (let tp = 0; tp < 8; tp++) {
                 if (pixel >= 0) {
                     let pixelCol = palette[data[tp]];
-                    this.screenBuf[screenBase + 0] = pixelCol[0];
-                    this.screenBuf[screenBase + 1] = pixelCol[1];
-                    this.screenBuf[screenBase + 2] = pixelCol[2];
+                    this.screenBackBuf[screenBase + 0] = pixelCol[0];
+                    this.screenBackBuf[screenBase + 1] = pixelCol[1];
+                    this.screenBackBuf[screenBase + 2] = pixelCol[2];
                     this.scanlineRaw[pixel] = data[tp];
                     screenBase += 3;
                 }
@@ -431,9 +441,9 @@ export class PPU {
                             if (screenX >= 0 && prePalette != 0) {
                                 if (!bgPriority || this.scanlineRaw[screenX] == 0) {
                                     let pixelCol = palette[prePalette];
-                                    this.screenBuf[screenBase + 0] = pixelCol[0];
-                                    this.screenBuf[screenBase + 1] = pixelCol[1];
-                                    this.screenBuf[screenBase + 2] = pixelCol[2];
+                                    this.screenBackBuf[screenBase + 0] = pixelCol[0];
+                                    this.screenBackBuf[screenBase + 1] = pixelCol[1];
+                                    this.screenBackBuf[screenBase + 2] = pixelCol[2];
                                 }
                             }
                             screenBase += 3;
@@ -445,9 +455,9 @@ export class PPU {
                             if (screenX >= 0 && prePalette != 0) {
                                 if (!bgPriority || this.scanlineRaw[screenX] == 0) {
                                     let pixelCol = palette[prePalette];
-                                    this.screenBuf[screenBase + 0] = pixelCol[0];
-                                    this.screenBuf[screenBase + 1] = pixelCol[1];
-                                    this.screenBuf[screenBase + 2] = pixelCol[2];
+                                    this.screenBackBuf[screenBase + 0] = pixelCol[0];
+                                    this.screenBackBuf[screenBase + 1] = pixelCol[1];
+                                    this.screenBackBuf[screenBase + 2] = pixelCol[2];
                                 }
                             }
                             screenBase += 3;

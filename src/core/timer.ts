@@ -1,11 +1,13 @@
 import { GameBoy } from "./gameboy";
 import { SchedulerEvent, SchedulerId } from "./scheduler";
+import { bitTest } from "./util/bits";
 
 export class Timer {
     gb: GameBoy;
     constructor(gb: GameBoy) {
         this.gb = gb;
         this.gb.scheduler.addEventRelative(SchedulerId.TimerDIV, 256, this.incrementDiv);
+        this.gb.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 16384, this.gb.apu.advanceFrameSequencer);
     }
 
     div = 0;
@@ -17,8 +19,12 @@ export class Timer {
     }.bind(this);
 
     resetDiv = function (this: Timer) {
+        this.div = 0;
+        if (bitTest(this.div, 5)) this.gb.apu.advanceFrameSequencer(); 
+        this.gb.scheduler.cancelEventsById(SchedulerId.TimerAPUFrameSequencer);
         this.gb.scheduler.cancelEventsById(SchedulerId.TimerDIV);
         this.gb.scheduler.addEventRelative(SchedulerId.TimerDIV, 256, this.incrementDiv);
+        this.gb.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 16384, this.gb.apu.advanceFrameSequencer);
     }.bind(this);
 
     readHwio8(addr: number): number {

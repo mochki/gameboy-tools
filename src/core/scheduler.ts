@@ -19,6 +19,13 @@ export enum SchedulerId {
     PPU = "PPU",
     TimerDIV = "TimerDIV",
     EnableInterrupts = "EnableInterrupts",
+    APUSample = "APUSample",
+    APUChannel1 = "APUChannel1",
+    APUChannel2 = "APUChannel2",
+    APUChannel3 = "APUChannel3",
+    APUChannel4 = "APUChannel4",
+    TimerAPUFrameSequencer = "TimerAPUFrameSequencer"
+
 }
 
 function parent(n: number) { return (n - 1) >> 1; }
@@ -43,7 +50,8 @@ export class Scheduler {
         return new SchedulerEvent(SchedulerId.None, 0, () => { });
     }
 
-    addEvent(id: SchedulerId, ticks: number, callback: SchedulerCallback): void {
+    addEventRelative(id: SchedulerId, ticks: number, callback: SchedulerCallback): void {
+        ticks += this.currTicks;
         if (this.heapSize >= this.heap.length) {
             alert("Heap overflow!");
         }
@@ -55,8 +63,6 @@ export class Scheduler {
         this.heap[index].callback = callback;
         this.heap[index].index = index;
 
-        let evt = this.heap[index];
-
         while (index != 0) {
             let parentIndex = parent(index);
             if (this.heap[parentIndex].ticks > this.heap[index].ticks) {
@@ -67,10 +73,6 @@ export class Scheduler {
             }
         }
         this.updateNextEvent();
-    }
-
-    addEventRelative(id: SchedulerId, ticks: number, callback: SchedulerCallback): void {
-        this.addEvent(id, this.currTicks + ticks, callback);
     }
 
     cancelEventsById(id: SchedulerId) {
@@ -117,12 +119,31 @@ export class Scheduler {
             return this.returnEvent;
         }
 
-        this.heap[0].ticks = this.heap[this.heapSize - 1].ticks;
-        this.heap[0].id = this.heap[this.heapSize - 1].id;
-        this.heap[0].callback = this.heap[this.heapSize - 1].callback;
+        this.swap(0, this.heapSize - 1);
 
         this.heapSize--;
-        this.minHeapify(0);
+
+        // Satisfy the heap property again
+        let index = 0;
+        while (true) {
+            let left = leftChild(index);
+            let right = rightChild(index);
+            let smallest = index;
+
+            if (left < this.heapSize && this.heap[left].ticks < this.heap[index].ticks) {
+                smallest = left;
+            }
+            if (right < this.heapSize && this.heap[right].ticks < this.heap[smallest].ticks) {
+                smallest = right;
+            }
+
+            if (smallest != index) {
+                this.swap(index, smallest);
+                index = smallest;
+            } else {
+                break;
+            }
+        }
 
         this.updateNextEvent();
         return this.returnEvent;
@@ -147,24 +168,6 @@ export class Scheduler {
         this.popFirstEvent();
     }
 
-    minHeapify(index: number) {
-        let left = leftChild(index);
-        let right = rightChild(index);
-        let smallest = index;
-
-        if (left < this.heapSize && this.heap[left].ticks < this.heap[index].ticks) {
-            smallest = left;
-        }
-        if (right < this.heapSize && this.heap[right].ticks < this.heap[smallest].ticks) {
-            smallest = right;
-        }
-
-        if (smallest != index) {
-            this.swap(index, smallest);
-            this.minHeapify(smallest);
-        }
-    }
-
     swap(ix: number, iy: number) {
         // console.log(`Swapped ${ix} with ${iy}`);
         let temp = this.heap[ix];
@@ -172,9 +175,5 @@ export class Scheduler {
         this.heap[ix].index = ix;
         this.heap[iy] = temp;
         this.heap[iy].index = iy;
-
-
-        if (ix > this.heapSize) console.log("bigger than heap error");
-        if (iy > this.heapSize) console.log("bigger than heap error");
     }
 }

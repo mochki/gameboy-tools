@@ -186,14 +186,16 @@ function _loop(time: number): void {
     // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application.
     // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 
-    if (frameStep) {
-        let i = 0;
-        let cpu = mgr.gb.cpu;
-        while (i < 70224 - cyclesOver) {
-            if (mgr.gb.errored) break;
-            i += cpu.execute();
+    if (mgr.gb.apu.player.sources.length < 10) {
+        if (frameStep) {
+            let i = 0;
+            let cpu = mgr.gb.cpu;
+            while (i < 70224 - cyclesOver) {
+                if (mgr.gb.errored) break;
+                i += cpu.execute();
+            }
+            cyclesOver += i - 70224;
         }
-        cyclesOver += i - 70224;
     }
 
     // Start the Dear ImGui frame
@@ -326,10 +328,27 @@ function DrawSchedulerInfo() {
 
         ImGui.Separator();
 
+        ImGui.Columns(3);
+
+        ImGui.Text("Index");
+        ImGui.NextColumn();
+        ImGui.Text("Ticks");
+        ImGui.NextColumn();
+        ImGui.Text("ID");
+        ImGui.NextColumn();
+
+        ImGui.Separator();
+
         for (let i = 0; i < mgr.gb.scheduler.heapSize; i++) {
             let evt = mgr.gb.scheduler.heap[i];
-            ImGui.Text(`${i} | Ticks: ${evt.ticks} ID: ${evt.id}`);
+            ImGui.Text(i.toString());
+            ImGui.NextColumn();
+            ImGui.Text((evt.ticks - mgr.gb.scheduler.currTicks).toString());
+            ImGui.NextColumn();
+            ImGui.Text(evt.id);
+            ImGui.NextColumn();
         }
+        ImGui.Columns(1);
 
         ImGui.End();
     }
@@ -383,25 +402,29 @@ function DrawDisplay() {
         const gl: WebGLRenderingContext | null = ImGui_Impl.gl;
         if (gl) {
             if (!tex) tex = gl.createTexture()!;
-            gl.bindTexture(gl.TEXTURE_2D, tex);
 
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            if (mgr.gb.ppu.renderDone) {
+                mgr.gb.ppu.renderDone = false;
+                gl.bindTexture(gl.TEXTURE_2D, tex);
 
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
-            gl.texImage2D(
-                gl.TEXTURE_2D,
-                0,
-                gl.RGB,
-                160,
-                144,
-                0,
-                gl.RGB,
-                gl.UNSIGNED_BYTE,
-                mgr.gb.ppu.screenBuf
-            );
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+                gl.texImage2D(
+                    gl.TEXTURE_2D,
+                    0,
+                    gl.RGB,
+                    160,
+                    144,
+                    0,
+                    gl.RGB,
+                    gl.UNSIGNED_BYTE,
+                    mgr.gb.ppu.screenFrontBuf
+                );
+            }
 
             ImGui.Image(tex, new ImVec2(160 * 2, 144 * 2));
         }
