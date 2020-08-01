@@ -6,6 +6,8 @@ import { bitTest } from './util/bits';
 import { Joypad } from './joypad';
 import { Timer } from './timer';
 import { APU } from './apu';
+import { MBC } from './mbc/mbc';
+import NullMBC from './mbc/nullmbc';
 export class Bus {
     gb: GameBoy;
     ppu: PPU;
@@ -21,6 +23,12 @@ export class Bus {
         this.joypad = joypad;
         this.timer = timer;
         this.apu = sound;
+    }
+
+    mbc: MBC = new NullMBC();
+
+    updateMapper() {
+
     }
 
     bootrom = new Uint8Array(0x100);

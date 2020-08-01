@@ -332,6 +332,8 @@ function DrawDebug() {
         ImGui.NextColumn();
 
         ImGui.Text(`DIV: ${mgr.gb.timer.div}`);
+        ImGui.Text(`TIMA: ${mgr.gb.timer.counter}`);
+        ImGui.Text(`TMA: ${mgr.gb.timer.modulo}`);
 
         ImGui.Columns(1);
 
@@ -423,7 +425,7 @@ function DrawRoms() {
 let tex: null | WebGLTexture;
 
 function DrawDisplay() {
-    if (ImGui.Begin("Display")) {
+    if (ImGui.Begin("Display", () => true, ImGui.ImGuiWindowFlags.NoResize)) {
 
         ImGui.SetWindowSize(new ImVec2((160 * 2) + 16, (144 * 2) + 36));
 

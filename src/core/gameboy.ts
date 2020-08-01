@@ -23,11 +23,11 @@ export class GameBoy {
 
     constructor(provider?: GameBoyProvider) {
         this.scheduler = new Scheduler();
-        this.ppu = new PPU(this);
         this.interrupts = new Interrupts();
         this.joypad = new Joypad();
-        this.apu = new APU(this);
-        this.timer = new Timer(this);
+        this.ppu = new PPU(this, this.scheduler);
+        this.apu = new APU(this, this.scheduler);
+        this.timer = new Timer(this, this.scheduler);
         this.bus = new Bus(this, this.ppu, this.interrupts, this.joypad, this.timer, this.apu);
         this.cpu = new CPU(this, this.bus, this.interrupts);
 
@@ -44,6 +44,7 @@ export class GameBoy {
             }
             this.provider = provider;
         }
+        this.bus.updateMapper();
         // this.cpu.pc = 0x100;
         // this.bus.bootromEnabled = false;
     }

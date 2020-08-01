@@ -61,9 +61,11 @@ class PaletteData {
 
 export class PPU {
     gb: GameBoy;
+    scheduler: Scheduler;
 
-    constructor(gb: GameBoy) {
+    constructor(gb: GameBoy, scheduler: Scheduler) {
         this.gb = gb;
+        this.scheduler = scheduler;
     }
 
     bgPalette = new PaletteData();
@@ -123,18 +125,18 @@ export class PPU {
 
     enterMode2 = function (this: PPU, cyclesLate: number) { // Enter OAM Scan
         this.mode = PPUMode.OamScan;
-        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 80 - cyclesLate, this.endMode2);
+        this.scheduler.addEventRelative(SchedulerId.PPU, 80 - cyclesLate, this.endMode2);
     }.bind(this);
 
     endMode2 = function (this: PPU, cyclesLate: number) { // OAM Scan -> Drawing
         this.mode = PPUMode.Drawing;
-        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 172 - cyclesLate, this.endMode3);
+        this.scheduler.addEventRelative(SchedulerId.PPU, 172 - cyclesLate, this.endMode3);
     }.bind(this);
 
     endMode3 = function (this: PPU, cyclesLate: number) { // Drawing -> Hblank
         this.renderScanline();
         this.mode = PPUMode.Hblank;
-        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 204 - cyclesLate, this.endMode0);
+        this.scheduler.addEventRelative(SchedulerId.PPU, 204 - cyclesLate, this.endMode0);
     }.bind(this);
 
     endMode0 = function (this: PPU, cyclesLate: number) { // Hblank -> Vblank / OAM Scan
@@ -150,14 +152,14 @@ export class PPU {
 
     enterMode1 = function (this: PPU, cyclesLate: number) { // Enter Vblank
         this.mode = PPUMode.Vblank;
-        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 456 - cyclesLate, this.continueMode1);
+        this.scheduler.addEventRelative(SchedulerId.PPU, 456 - cyclesLate, this.continueMode1);
         this.gb.interrupts.flagInterrupt(InterruptId.Vblank);
     }.bind(this);
 
     continueMode1 = function (this: PPU, cyclesLate: number) { // During Vblank
         this.ly++;
         if (this.ly < 154) {
-            this.gb.scheduler.addEventRelative(SchedulerId.PPU, 456 - cyclesLate, this.continueMode1);
+            this.scheduler.addEventRelative(SchedulerId.PPU, 456 - cyclesLate, this.continueMode1);
         } else { // this.ly >= 153
             this.ly = 0;
             this.enterMode2(0);
@@ -169,7 +171,7 @@ export class PPU {
         this.mode = PPUMode.OamScan;
     }
     onDisable() {
-        this.gb.scheduler.cancelEventsById(SchedulerId.PPU);
+        this.scheduler.cancelEventsById(SchedulerId.PPU);
         this.ly = 0;
         this.mode = PPUMode.Hblank;
     }

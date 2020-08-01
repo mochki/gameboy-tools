@@ -1,42 +1,91 @@
 import { GameBoy } from "./gameboy";
-import { SchedulerEvent, SchedulerId } from "./scheduler";
-import { bitTest } from "./util/bits";
+import { SchedulerEvent, SchedulerId, Scheduler } from "./scheduler";
+import { bitTest, bitSet } from "./util/bits";
+import { TickSignal } from "tone";
+import { InterruptId } from "./interrupts";
+
+const timerBits = Uint16Array.from([9, 3, 5, 7]);
+const timerMasks = Uint16Array.from([1 << 9, 1 << 3, 1 << 5, 1 << 7]);
+const timerIntervals = Uint16Array.from([1024, 16, 64, 256]);
 
 export class Timer {
+
     gb: GameBoy;
-    constructor(gb: GameBoy) {
+    scheduler: Scheduler;
+
+    constructor(gb: GameBoy, scheduler: Scheduler) {
         this.gb = gb;
-        this.gb.scheduler.addEventRelative(SchedulerId.TimerDIV, 256, this.incrementDiv);
-        this.gb.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 16384, this.gb.apu.advanceFrameSequencer);
+        this.scheduler = scheduler;
+
+        this.scheduler.addEventRelative(SchedulerId.TimerDIV, 256, this.incrementDiv);
+        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 16384, this.gb.apu.advanceFrameSequencer);
+        this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel] * 2, this.incrementTima);
     }
 
-    div = 0;
+    enabled = false;
+    bitSel = 0;
 
-    incrementDiv = function (this: Timer) {
+    div = 0;
+    lastDivIncrement = 0; // In scheduler ticks
+
+    counter = 0;
+    modulo = 0;
+
+    interruptAndReloadTima  = function (this: Timer, cyclesLate: number) {
+        this.counter = this.modulo;
+        this.gb.interrupts.flagInterrupt(InterruptId.Timer);
+        
+    }.bind(this);
+
+    incrementTima = function (this: Timer, cyclesLate: number) {
+        // TODO: Implement basically all of the obscure behavior and edge cases with timer and TIMA increments.
+
+        if (this.enabled) {
+            this.counter++;
+            if (this.counter > 255) {
+                this.counter = 0;
+                this.scheduler.addEventRelative(SchedulerId.TimerReload, 4, this.interruptAndReloadTima);
+            }
+        }
+
+        this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel] - cyclesLate, this.incrementTima);
+    }.bind(this);
+
+    incrementDiv = function (this: Timer, cyclesLate: number) {
         this.div++;
         this.div &= 0xFF;
-        this.gb.scheduler.addEventRelative(SchedulerId.TimerDIV, 256, this.incrementDiv);
+        this.scheduler.addEventRelative(SchedulerId.TimerDIV, 256 - cyclesLate, this.incrementDiv);
+        this.lastDivIncrement = this.scheduler.currTicks - cyclesLate;
     }.bind(this);
 
-    resetDiv = function (this: Timer) {
+    resetDiv() {
         this.div = 0;
-        if (bitTest(this.div, 5)) this.gb.apu.advanceFrameSequencer(); 
-        this.gb.scheduler.cancelEventsById(SchedulerId.TimerAPUFrameSequencer);
-        this.gb.scheduler.cancelEventsById(SchedulerId.TimerDIV);
-        this.gb.scheduler.addEventRelative(SchedulerId.TimerDIV, 256, this.incrementDiv);
-        this.gb.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 16384, this.gb.apu.advanceFrameSequencer);
-    }.bind(this);
+        if (bitTest(this.div, 5)) this.gb.apu.advanceFrameSequencer();
+        this.scheduler.cancelEventsById(SchedulerId.TimerDIV);
+        this.scheduler.addEventRelative(SchedulerId.TimerDIV, 256, this.incrementDiv);
+
+        this.scheduler.cancelEventsById(SchedulerId.TimerAPUFrameSequencer);
+        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 16384, this.gb.apu.advanceFrameSequencer);
+
+        this.scheduler.cancelEventsById(SchedulerId.TimerIncrement);
+        this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel] * 2, this.incrementTima);
+    }
 
     readHwio8(addr: number): number {
         switch (addr) {
             case 0xFF04: // DIV
                 return this.div;
             case 0xFF05: // TIMA
-                return 0xFF;
+                return this.counter;
             case 0xFF06: // TMA
-                return 0xFF;
+                return this.modulo;
             case 0xFF07: // TAC
-                return 0xFF;
+                let val = 0;
+
+                val |= this.bitSel & 0b11;
+                if (this.enabled) val = bitSet(val, 2);
+
+                return val;
         }
         return 0xFF;
     }
@@ -46,10 +95,14 @@ export class Timer {
                 this.resetDiv();
                 break;
             case 0xFF05: // TIMA
+                this.counter = val;
                 break;
             case 0xFF06: // TMA
+                this.modulo = val;
                 break;
             case 0xFF07: // TAC
+                this.bitSel = val & 0b11;
+                this.enabled = bitTest(val, 2);
                 break;
         }
     }

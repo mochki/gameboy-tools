@@ -1,6 +1,6 @@
 import { bitTest } from "./util/bits";
 import { GameBoy } from "./gameboy";
-import { SchedulerId } from "./scheduler";
+import { SchedulerId, Scheduler } from "./scheduler";
 import { AudioPlayer } from "./audioplayer";
 import { GetTextLineHeightWithSpacing } from "../lib/imgui-js/imgui";
 
@@ -26,12 +26,15 @@ const noiseDivisors = Uint8Array.from([8, 16, 32, 48, 64, 80, 96, 112]);
 export class APU {
 
     gb: GameBoy;
-    constructor(gb: GameBoy) {
-        this.gb = gb;
+    scheduler: Scheduler;
 
-        this.gb.scheduler.addEventRelative(SchedulerId.APUChannel1, 16, this.advanceCh1);
-        this.gb.scheduler.addEventRelative(SchedulerId.APUChannel2, 16, this.advanceCh2);
-        this.gb.scheduler.addEventRelative(SchedulerId.APUChannel3, 16, this.advanceCh3);
+    constructor(gb: GameBoy, scheduler: Scheduler) {
+        this.gb = gb;
+        this.scheduler = scheduler;
+
+        this.scheduler.addEventRelative(SchedulerId.APUChannel1, 16, this.advanceCh1);
+        this.scheduler.addEventRelative(SchedulerId.APUChannel2, 16, this.advanceCh2);
+        this.scheduler.addEventRelative(SchedulerId.APUChannel3, 16, this.advanceCh3);
     }
 
     frameSequencerStep = 0;
@@ -53,7 +56,7 @@ export class APU {
         this.frameSequencerStep++;
         this.frameSequencerStep &= 7;
 
-        this.gb.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 8192, this.advanceFrameSequencer);
+        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 8192, this.advanceFrameSequencer);
     }.bind(this);
 
     clockLength() {
@@ -348,7 +351,7 @@ export class APU {
         this.ch1.currentVal = pulseDuty[this.ch1.duty][this.ch1.pos];
 
         this.ch1.updateDac();
-        this.gb.scheduler.addEventRelative(SchedulerId.APUChannel1, this.ch1.frequencyPeriod - cyclesLate, this.advanceCh1);
+        this.scheduler.addEventRelative(SchedulerId.APUChannel1, this.ch1.frequencyPeriod - cyclesLate, this.advanceCh1);
     }.bind(this);
 
     advanceCh2 = function (this: APU, cyclesLate: number) {
@@ -358,7 +361,7 @@ export class APU {
         this.ch2.currentVal = pulseDuty[this.ch2.duty][this.ch2.pos];
 
         this.ch2.updateDac();
-        this.gb.scheduler.addEventRelative(SchedulerId.APUChannel2, this.ch2.frequencyPeriod - cyclesLate, this.advanceCh2);
+        this.scheduler.addEventRelative(SchedulerId.APUChannel2, this.ch2.frequencyPeriod - cyclesLate, this.advanceCh2);
     }.bind(this);
 
     advanceCh3 = function (this: APU, cyclesLate: number) {
@@ -368,7 +371,7 @@ export class APU {
         this.ch3.currentVal = this.ch3.waveTable[this.ch3.pos];
 
         this.ch3.updateDac();
-        this.gb.scheduler.addEventRelative(SchedulerId.APUChannel3, this.ch3.frequencyPeriod - cyclesLate, this.advanceCh3);
+        this.scheduler.addEventRelative(SchedulerId.APUChannel3, this.ch3.frequencyPeriod - cyclesLate, this.advanceCh3);
     }.bind(this);
 
     advanceCh4() {

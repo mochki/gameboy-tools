@@ -22,7 +22,9 @@ export enum SchedulerId {
     APUChannel1 = 4,
     APUChannel2 = 5,
     APUChannel3 = 6,
-    TimerAPUFrameSequencer = 8
+    TimerAPUFrameSequencer = 8,
+    TimerIncrement = 9,
+    TimerReload = 10,
 }
 
 
@@ -36,6 +38,8 @@ export function resolveSchedulerId(id: SchedulerId): string {
         case SchedulerId.APUChannel2: return "APUChannel2";
         case SchedulerId.APUChannel3: return "APUChannel3";
         case SchedulerId.TimerAPUFrameSequencer: return "TimerAPUFrameSequencer";
+        case SchedulerId.TimerIncrement: return "TimerIncrement";
+        default:
             return "<SchedulerId not found>";
     }
 }
