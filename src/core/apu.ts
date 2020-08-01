@@ -29,12 +29,9 @@ export class APU {
     constructor(gb: GameBoy) {
         this.gb = gb;
 
-        this.gb.scheduler.addEventRelative(SchedulerId.APUSample, 16, this.sample);
-
         this.gb.scheduler.addEventRelative(SchedulerId.APUChannel1, 16, this.advanceCh1);
         this.gb.scheduler.addEventRelative(SchedulerId.APUChannel2, 16, this.advanceCh2);
         this.gb.scheduler.addEventRelative(SchedulerId.APUChannel3, 16, this.advanceCh3);
-        this.gb.scheduler.addEventRelative(SchedulerId.APUChannel4, 16, this.advanceCh4);
     }
 
     frameSequencerStep = 0;
@@ -63,6 +60,7 @@ export class APU {
         if (this.ch1.useLength) {
             if (this.ch1.lengthTimer <= 0) {
                 this.ch1.enabled = false;
+                this.ch1.updateDac();
             } else {
                 this.ch1.lengthTimer--;
             }
@@ -70,6 +68,7 @@ export class APU {
         if (this.ch2.useLength) {
             if (this.ch2.lengthTimer <= 0) {
                 this.ch2.enabled = false;
+                this.ch2.updateDac();
             } else {
                 this.ch2.lengthTimer--;
             }
@@ -77,6 +76,7 @@ export class APU {
         if (this.ch3.useLength) {
             if (this.ch3.lengthTimer <= 0) {
                 this.ch3.enabled = false;
+                this.ch3.updateDac();
             } else {
                 this.ch3.lengthTimer--;
             }
@@ -84,6 +84,7 @@ export class APU {
         if (this.ch4.useLength) {
             if (this.ch4.lengthTimer <= 0) {
                 this.ch4.enabled = false;
+                this.ch4.updateDac();
             } else {
                 this.ch4.lengthTimer--;
             }
@@ -106,6 +107,7 @@ export class APU {
 
                 if (volume >= 0 && volume <= 15) {
                     this.ch1.volume = volume;
+                    this.ch1.updateDac();
                 }
             }
             this.ch1.envelopeTimer--;
@@ -123,6 +125,7 @@ export class APU {
 
                 if (volume >= 0 && volume <= 15) {
                     this.ch2.volume = volume;
+                    this.ch2.updateDac();
                 }
             }
             this.ch2.envelopeTimer--;
@@ -141,6 +144,7 @@ export class APU {
 
                 if (volume >= 0 && volume <= 15) {
                     this.ch4.volume = volume;
+                    this.ch4.updateDac();
                 }
             }
             this.ch4.envelopeTimer--;
@@ -154,6 +158,7 @@ export class APU {
 
         pos: 0,
         currentVal: 0,
+        dacOut: 0,
 
         envelopeTimer: 0,
         volume: 0,
@@ -184,9 +189,14 @@ export class APU {
         frequencyPeriod: 256,
 
         trigger: function () {
+            this.pos = 0;
             this.enabled = true;
             this.volume = this.envelopeInitial;
             this.lengthTimer = 64 - this.length;
+        },
+
+        updateDac: function () {
+            this.dacOut = ((this.currentVal * this.volume) / (15 / 2)) - 1;
         }
     };
 
@@ -197,6 +207,7 @@ export class APU {
 
         pos: 0,
         currentVal: 0,
+        dacOut: 0,
 
         envelopeTimer: 0,
         volume: 0,
@@ -222,9 +233,14 @@ export class APU {
         frequencyPeriod: 256,
 
         trigger: function () {
+            this.pos = 0;
             this.enabled = true;
             this.volume = this.envelopeInitial;
             this.lengthTimer = 64 - this.length;
+        },
+
+        updateDac: function () {
+            this.dacOut = ((this.currentVal * this.volume) / (15 / 2)) - 1;
         }
     };
 
@@ -235,6 +251,7 @@ export class APU {
 
         pos: 0,
         currentVal: 0,
+        dacOut: 0,
 
         envelopeTimer: 0,
         volume: 0,
@@ -261,8 +278,17 @@ export class APU {
         frequencyPeriod: 256,
 
         trigger: function () {
+            this.pos = 0;
             this.enabled = true;
             this.lengthTimer = 256 - this.length;
+        },
+
+        updateDac() {
+            if (this.dacEnabled) {
+                this.dacOut = ((this.currentVal >> this.volumeShift) / (15 / 2)) - 1;
+            } else {
+                this.dacOut = 0;
+            }
         }
     };
 
@@ -272,6 +298,9 @@ export class APU {
         dacEnabled: false,
 
         currentVal: 0,
+        dacOut: 0,
+
+        frequencyTimer: 0,
 
         envelopeTimer: 0,
         volume: 0,
@@ -304,38 +333,45 @@ export class APU {
             this.enabled = true;
             this.volume = this.envelopeInitial;
             this.lengthTimer = 64 - this.length;
-            this.lfsr = 0b111111111111111;
+            this.lfsr = 0x7FFF;
+        },
+
+        updateDac: function () {
+            this.dacOut = ((this.currentVal * this.volume) / (15 / 2)) - 1;
         }
     };
 
-    advanceCh1 = function (this: APU) {
+    advanceCh1 = function (this: APU, cyclesLate: number) {
         this.ch1.pos++;
         this.ch1.pos &= 7;
 
         this.ch1.currentVal = pulseDuty[this.ch1.duty][this.ch1.pos];
 
-        this.gb.scheduler.addEventRelative(SchedulerId.APUChannel1, this.ch1.frequencyPeriod, this.advanceCh1);
+        this.ch1.updateDac();
+        this.gb.scheduler.addEventRelative(SchedulerId.APUChannel1, this.ch1.frequencyPeriod - cyclesLate, this.advanceCh1);
     }.bind(this);
 
-    advanceCh2 = function (this: APU) {
+    advanceCh2 = function (this: APU, cyclesLate: number) {
         this.ch2.pos++;
         this.ch2.pos &= 7;
 
         this.ch2.currentVal = pulseDuty[this.ch2.duty][this.ch2.pos];
 
-        this.gb.scheduler.addEventRelative(SchedulerId.APUChannel2, this.ch2.frequencyPeriod, this.advanceCh2);
+        this.ch2.updateDac();
+        this.gb.scheduler.addEventRelative(SchedulerId.APUChannel2, this.ch2.frequencyPeriod - cyclesLate, this.advanceCh2);
     }.bind(this);
 
-    advanceCh3 = function (this: APU) {
+    advanceCh3 = function (this: APU, cyclesLate: number) {
         this.ch3.pos++;
         this.ch3.pos &= 31;
 
         this.ch3.currentVal = this.ch3.waveTable[this.ch3.pos];
 
-        this.gb.scheduler.addEventRelative(SchedulerId.APUChannel3, this.ch3.frequencyPeriod, this.advanceCh3);
+        this.ch3.updateDac();
+        this.gb.scheduler.addEventRelative(SchedulerId.APUChannel3, this.ch3.frequencyPeriod - cyclesLate, this.advanceCh3);
     }.bind(this);
 
-    advanceCh4 = function (this: APU) {
+    advanceCh4() {
         let lfsr = this.ch4.lfsr;
         let xored = ((lfsr) ^ (lfsr >> 1)) & 1;
         lfsr >>= 1;
@@ -347,10 +383,8 @@ export class APU {
 
         this.ch4.currentVal = xored ^ 1;
 
-        this.gb.scheduler.addEventRelative(SchedulerId.APUChannel4, this.ch4.frequencyPeriod, this.advanceCh4);
-    }.bind(this);
-
-
+        this.ch4.updateDac();
+    }
 
     player = new AudioPlayer();
 
@@ -359,23 +393,29 @@ export class APU {
     sampleBufMax = 2048;
     sampleBufPos = 0;
 
-    sample = function (this: APU) {
+    sample() {
+
         let final = 0;
 
         if (this.ch1.enabled) {
-            final += ((this.ch1.currentVal * this.ch1.volume) / (15 / 2)) - 1;
+            final += this.ch1.dacOut;
         }
         if (this.ch2.enabled) {
-            final += ((this.ch2.currentVal * this.ch2.volume) / (15 / 2)) - 1;
+            final += this.ch2.dacOut;
         }
-        if (this.ch3.enabled && this.ch3.dacEnabled) {
-            final += ((this.ch3.currentVal >> this.ch3.volumeShift) / (15 / 2)) - 1;
+        if (this.ch3.enabled) {
+            final += this.ch3.dacOut;
         }
         if (this.ch4.enabled) {
-            final += ((this.ch4.currentVal * this.ch4.volume) / (15 / 2)) - 1;
+            // Channel 4 can be advanced far too often to be efficient for the scheduler
+            this.ch4.frequencyTimer -= 4194304 / 262144;
+            if (this.ch4.frequencyTimer <= 0) {
+                this.ch4.frequencyTimer += this.ch4.frequencyPeriod;
+                this.advanceCh4();
+            }
+            final += this.ch4.dacOut;
         }
 
-        this.gb.scheduler.addEventRelative(SchedulerId.APUSample, 16, this.sample);
         this.sampleBufL[this.sampleBufPos] = final / 32;
         this.sampleBufR[this.sampleBufPos] = final / 32;
         this.sampleBufPos++;
@@ -383,7 +423,7 @@ export class APU {
             this.sampleBufPos = 0;
             this.player.queueAudio(this.sampleBufL, this.sampleBufR, 262144);
         }
-    }.bind(this);
+    }
 
     readHwio8(addr: number): number {
         return 0xFF;
@@ -394,21 +434,25 @@ export class APU {
                 this.ch1.sweepShift = (val >> 0) & 0b111;
                 this.ch1.sweepIncrease = bitTest(val, 3);
                 this.ch1.sweepTime = (val >> 4) & 0b111;
+                this.ch1.updateDac();
                 break;
             case 0xFF11: // NR11
                 this.ch1.length = (val >> 0) & 0b111111;
                 this.ch1.duty = (val >> 6) & 0b11;
+                this.ch1.updateDac();
                 break;
             case 0xFF12: // NR12
                 this.ch1.envelopePeriod = (val >> 0) & 0b111;
                 this.ch1.envelopeIncrease = bitTest(val, 3);
                 this.ch1.envelopeInitial = (val >> 4) & 0b1111;
+                this.ch1.updateDac();
                 break;
             case 0xFF13: // NR13
                 this.ch1.frequency &= 0b11100000000;
                 this.ch1.frequency |= ((val & 0xFF) << 0);
 
                 this.ch1.frequencyPeriod = (2048 - this.ch1.frequency) * 4;
+                this.ch1.updateDac();
                 break;
             case 0xFF14: // NR14
                 this.ch1.frequency &= 0b00011111111;
@@ -417,22 +461,26 @@ export class APU {
                 if (bitTest(val, 7)) this.ch1.trigger();
 
                 this.ch1.frequencyPeriod = (2048 - this.ch1.frequency) * 4;
+                this.ch1.updateDac();
                 break;
 
             case 0xFF16: // NR21
                 this.ch2.length = (val >> 0) & 0b111111;
                 this.ch2.duty = (val >> 6) & 0b11;
+                this.ch2.updateDac();
                 break;
             case 0xFF17: // NR22
                 this.ch2.envelopePeriod = (val >> 0) & 0b111;
                 this.ch2.envelopeIncrease = bitTest(val, 3);
                 this.ch2.envelopeInitial = (val >> 4) & 0b1111;
+                this.ch2.updateDac();
                 break;
             case 0xFF18: // NR23
                 this.ch2.frequency &= 0b11100000000;
                 this.ch2.frequency |= ((val & 0xFF) << 0);
 
                 this.ch2.frequencyPeriod = (2048 - this.ch2.frequency) * 4;
+                this.ch2.updateDac();
                 break;
             case 0xFF19: // NR24
                 this.ch2.frequency &= 0b00011111111;
@@ -441,23 +489,28 @@ export class APU {
                 if (bitTest(val, 7)) this.ch2.trigger();
 
                 this.ch2.frequencyPeriod = (2048 - this.ch2.frequency) * 4;
+                this.ch2.updateDac();
                 break;
 
             case 0xFF1A: // NR30
                 this.ch3.dacEnabled = bitTest(val, 7);
+                this.ch3.updateDac();
                 break;
             case 0xFF1B: // NR31
                 this.ch3.length = (val >> 0) & 0xFF;
+                this.ch3.updateDac();
                 break;
             case 0xFF1C: // NR32
                 this.ch3.volumeCode = (val >> 5) & 0b11;
                 this.ch3.volumeShift = waveShiftCodes[this.ch3.volumeCode];
+                this.ch3.updateDac();
                 break;
             case 0xFF1D: // NR33
                 this.ch3.frequency &= 0b11100000000;
                 this.ch3.frequency |= ((val & 0xFF) << 0);
 
                 this.ch3.frequencyPeriod = (2048 - this.ch3.frequency) * 2;
+                this.ch3.updateDac();
                 break;
             case 0xFF1E: // NR34
                 this.ch3.frequency &= 0b00011111111;
@@ -466,15 +519,18 @@ export class APU {
                 if (bitTest(val, 7)) this.ch3.trigger();
 
                 this.ch3.frequencyPeriod = (2048 - this.ch3.frequency) * 2;
+                this.ch3.updateDac();
                 break;
 
             case 0xFF20: // NR41
                 this.ch4.length = (val >> 0) & 0b111111;
+                this.ch4.updateDac();
                 break;
             case 0xFF21: // NR42
                 this.ch4.envelopePeriod = (val >> 0) & 0b111;
                 this.ch4.envelopeIncrease = bitTest(val, 3);
                 this.ch4.envelopeInitial = (val >> 4) & 0b1111;
+                this.ch4.updateDac();
                 break;
             case 0xFF22: // NR43
                 this.ch4.frequencyShift = (val >> 4) & 0b1111;
@@ -482,10 +538,12 @@ export class APU {
                 this.ch4.divisorCode = (val >> 0) & 0b111;
 
                 this.ch4.frequencyPeriod = noiseDivisors[this.ch4.divisorCode] << this.ch4.frequencyShift;
+                this.ch4.updateDac();
                 break;
             case 0xFF23: // NR44
                 this.ch4.useLength = bitTest(val, 6);
                 if (bitTest(val, 7)) this.ch4.trigger();
+                this.ch4.updateDac();
                 break;
 
             case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33: case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37: // Wave Table

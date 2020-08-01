@@ -67,13 +67,23 @@ export class GameBoy {
         this.infoText = [];
     }
 
+    sampleTimer = 0;
+    sampleMax = 4194304/262144;
     public tick(ticks: number): void {
         this.scheduler.currTicks += ticks;
         while (
             this.scheduler.currTicks >= this.scheduler.nextEventTicks &&
             this.scheduler.heapSize > 0
         ) {
-            this.scheduler.popFirstEvent().callback();
+            let current = this.scheduler.currTicks;
+            let next = this.scheduler.nextEventTicks;
+            this.scheduler.popFirstEvent().callback(current - next);
+        }
+
+        this.sampleTimer += ticks;
+        if (this.sampleTimer >= this.sampleMax) {
+            this.sampleTimer -= this.sampleMax
+            this.apu.sample();
         }
     }
 }

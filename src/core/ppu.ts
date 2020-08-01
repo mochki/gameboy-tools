@@ -121,56 +121,57 @@ export class PPU {
         this.screenFrontBuf = temp;
     }
 
-    enterMode2 = function (this: PPU) { // Enter OAM Scan
+    enterMode2 = function (this: PPU, cyclesLate: number) { // Enter OAM Scan
         this.mode = PPUMode.OamScan;
-        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 80, this.endMode2);
+        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 80 - cyclesLate, this.endMode2);
     }.bind(this);
 
-    endMode2 = function (this: PPU) { // OAM Scan -> Drawing
+    endMode2 = function (this: PPU, cyclesLate: number) { // OAM Scan -> Drawing
         this.mode = PPUMode.Drawing;
-        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 172, this.endMode3);
+        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 172 - cyclesLate, this.endMode3);
     }.bind(this);
 
-    endMode3 = function (this: PPU) { // Drawing -> Hblank
+    endMode3 = function (this: PPU, cyclesLate: number) { // Drawing -> Hblank
         this.renderScanline();
         this.mode = PPUMode.Hblank;
-        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 204, this.endMode0);
+        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 204 - cyclesLate, this.endMode0);
     }.bind(this);
 
-    endMode0 = function (this: PPU) { // Hblank -> Vblank / OAM Scan
+    endMode0 = function (this: PPU, cyclesLate: number) { // Hblank -> Vblank / OAM Scan
         this.ly++;
         if (this.ly < 144) {
-            this.enterMode2(); // OAM Scan
+            this.enterMode2(0); // OAM Scan
         } else {
-            this.enterMode1(); // Vblank
+            this.enterMode1(0); // Vblank
             this.renderDone = true;
             this.swapBuffers();
         }
     }.bind(this);
 
-    enterMode1 = function (this: PPU) { // Enter Vblank
+    enterMode1 = function (this: PPU, cyclesLate: number) { // Enter Vblank
         this.mode = PPUMode.Vblank;
-        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 456, this.continueMode1);
+        this.gb.scheduler.addEventRelative(SchedulerId.PPU, 456 - cyclesLate, this.continueMode1);
         this.gb.interrupts.flagInterrupt(InterruptId.Vblank);
     }.bind(this);
 
-    continueMode1 = function (this: PPU) { // During Vblank
+    continueMode1 = function (this: PPU, cyclesLate: number) { // During Vblank
         this.ly++;
         if (this.ly < 154) {
-            this.gb.scheduler.addEventRelative(SchedulerId.PPU, 456, this.continueMode1);
+            this.gb.scheduler.addEventRelative(SchedulerId.PPU, 456 - cyclesLate, this.continueMode1);
         } else { // this.ly >= 153
             this.ly = 0;
-            this.enterMode2();
+            this.enterMode2(0);
         }
     }.bind(this);
 
     onEnable() {
-        this.enterMode2();
+        this.enterMode2(0);
+        this.mode = PPUMode.OamScan;
     }
     onDisable() {
         this.gb.scheduler.cancelEventsById(SchedulerId.PPU);
         this.ly = 0;
-        this.mode = PPUMode.OamScan;
+        this.mode = PPUMode.Hblank;
     }
 
     read8(addr: number): number {

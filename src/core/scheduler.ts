@@ -1,6 +1,6 @@
 import { CreateDeviceObjects } from "../frontend/imgui_impl";
 
-export type SchedulerCallback = () => void;
+export type SchedulerCallback = (cyclesLate: number) => void;
 export class SchedulerEvent {
     id: SchedulerId;
     ticks: number;
@@ -15,17 +15,29 @@ export class SchedulerEvent {
 }
 
 export enum SchedulerId {
-    None = "None",
-    PPU = "PPU",
-    TimerDIV = "TimerDIV",
-    EnableInterrupts = "EnableInterrupts",
-    APUSample = "APUSample",
-    APUChannel1 = "APUChannel1",
-    APUChannel2 = "APUChannel2",
-    APUChannel3 = "APUChannel3",
-    APUChannel4 = "APUChannel4",
-    TimerAPUFrameSequencer = "TimerAPUFrameSequencer"
+    None = 255,
+    PPU = 0,
+    TimerDIV = 1,
+    EnableInterrupts = 2,
+    APUChannel1 = 4,
+    APUChannel2 = 5,
+    APUChannel3 = 6,
+    TimerAPUFrameSequencer = 8
+}
 
+
+export function resolveSchedulerId(id: SchedulerId): string {
+    switch (id) {
+        case SchedulerId.None: return "None";
+        case SchedulerId.PPU: return "PPU";
+        case SchedulerId.TimerDIV: return "TimerDIV";
+        case SchedulerId.EnableInterrupts: return "EnableInterrupts";
+        case SchedulerId.APUChannel1: return "APUChannel1";
+        case SchedulerId.APUChannel2: return "APUChannel2";
+        case SchedulerId.APUChannel3: return "APUChannel3";
+        case SchedulerId.TimerAPUFrameSequencer: return "TimerAPUFrameSequencer";
+            return "<SchedulerId not found>";
+    }
 }
 
 function parent(n: number) { return (n - 1) >> 1; }

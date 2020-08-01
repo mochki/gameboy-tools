@@ -11,6 +11,7 @@ import { MemoryEditor } from "../lib/imgui-js/imgui_memory_editor";
 
 import { GameBoy } from "../core/gameboy";
 import { hexN } from '../core/util/misc';
+import { resolveSchedulerId } from '../core/scheduler';
 
 const clearColor: ImVec4 = new ImVec4(0.114, 0.114, 0.114, 1.00);
 
@@ -177,6 +178,8 @@ async function _init(): Promise<void> {
 }
 
 let cyclesOver = 0;
+let hostCpuRatioSamples = new Float32Array(16);
+let hostCpuRatioPos = 0;
 
 // Main loop
 function _loop(time: number): void {
@@ -186,8 +189,11 @@ function _loop(time: number): void {
     // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application.
     // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 
+    // Use this to sync to audio
     if (mgr.gb.apu.player.sources.length < 10) {
         if (frameStep) {
+            let startMs = performance.now();
+
             let i = 0;
             let cpu = mgr.gb.cpu;
             while (i < 70224 - cyclesOver) {
@@ -195,6 +201,14 @@ function _loop(time: number): void {
                 i += cpu.execute();
             }
             cyclesOver += i - 70224;
+
+            let endMs = performance.now();
+
+            let timeRealMs = endMs - startMs;
+            let timeEmulMs = (i / 4194304) * 1000;
+
+            hostCpuRatioSamples[hostCpuRatioPos] = timeRealMs / timeEmulMs;
+            hostCpuRatioPos = (hostCpuRatioPos + 1) & 15;
         }
     }
 
@@ -276,6 +290,20 @@ function DrawDebug() {
 
         ImGuiColumnSeparator();
 
+        let hostCpuRatio = 0;
+        for (let i = 0; i < 16; i++) {
+            hostCpuRatio += hostCpuRatioSamples[i];
+        }
+        hostCpuRatio /= 16;
+        ImGui.Text(`Host CPU:`);
+
+        let pos: ImVec2 = ImGui.GetCursorScreenPos();
+        let width: number = ImGui.GetColumnWidth();
+        ImGui.GetWindowDrawList().AddRectFilled(new ImVec2(pos.x, pos.y), new ImVec2(pos.x + ((width - 24) * hostCpuRatio), pos.y + 8), ImGui.GetColorU32(ImGuiCol.PlotHistogram));
+        ImGui.GetWindowDrawList().AddRect(new ImVec2(pos.x, pos.y), new ImVec2(pos.x + width - 24, pos.y + 8), ImGui.GetColorU32(ImGuiCol.Border));
+
+        ImGui.Dummy(new ImVec2(0, 8));
+
         ImGui.Text(`Cycles over: ${cyclesOver}`);
         ImGui.Checkbox("Frame Step", (v = frameStep) => frameStep = v);
         if (ImGui.Button("Unerror")) {
@@ -345,7 +373,7 @@ function DrawSchedulerInfo() {
             ImGui.NextColumn();
             ImGui.Text((evt.ticks - mgr.gb.scheduler.currTicks).toString());
             ImGui.NextColumn();
-            ImGui.Text(evt.id);
+            ImGui.Text(resolveSchedulerId(evt.id));
             ImGui.NextColumn();
         }
         ImGui.Columns(1);
