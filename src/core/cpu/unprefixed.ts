@@ -76,12 +76,14 @@ export function JP_CC(cpu: CPU, opcode: number) {
     let target = cpu.read16PcInc();
 
     if (cond) {
+        cpu.tick(4);
         cpu.pc = target;
     }
 }
 
 export function CALL(cpu: CPU, opcode: number) {
     let target = cpu.read16PcInc();
+    cpu.tick(4);
     cpu.push(cpu.pc);
     cpu.pc = target;
 }
@@ -107,6 +109,7 @@ export function CALL_CC(cpu: CPU, opcode: number) {
     let target = cpu.read16PcInc();
 
     if (cond) {
+        cpu.tick(4);
         cpu.push(cpu.pc);
         cpu.pc = target;
     }
@@ -241,6 +244,7 @@ export function JR(cpu: CPU, opcode: number) {
 
     let offset = unTwo8b(cpu.read8PcInc());
     if (cond) {
+        cpu.tick(4);
         cpu.pc = (cpu.pc + offset) & 0xFFFF;
     }
 }
@@ -332,15 +336,19 @@ export function LD_R8_R8(cpu: CPU, opcode: number): void {
 };
 
 export function PUSH_BC(cpu: CPU) {
+    cpu.tick(4);
     cpu.push(cpu.getBc());
 }
 export function PUSH_DE(cpu: CPU) {
+    cpu.tick(4);
     cpu.push(cpu.getDe());
 }
 export function PUSH_HL(cpu: CPU) {
+    cpu.tick(4);
     cpu.push(cpu.getHl());
 }
 export function PUSH_AF(cpu: CPU) {
+    cpu.tick(4);
     cpu.push(cpu.getAf());
 }
 
@@ -721,8 +729,11 @@ export function RET_CC(cpu: CPU, opcode: number) {
             break;
     }
 
+    cpu.tick(4);
+    
     if (cond) {
         cpu.pc = cpu.pop();
+        cpu.tick(4);
     }
 }
 
@@ -731,6 +742,7 @@ export function RET_CC(cpu: CPU, opcode: number) {
 export function RST(cpu: CPU, opcode: number): void {
     const target = opcode & 0b111000;
 
+    cpu.tick(4);
     cpu.push(cpu.pc);
     cpu.pc = target;
 

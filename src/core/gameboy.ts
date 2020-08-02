@@ -45,8 +45,8 @@ export class GameBoy {
             this.provider = provider;
         }
         this.bus.updateMapper();
-        // this.cpu.pc = 0x100;
-        // this.bus.bootromEnabled = false;
+        this.cpu.pc = 0x100;
+        this.bus.bootromEnabled = false;
     }
 
     cgb = false;

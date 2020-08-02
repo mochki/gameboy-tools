@@ -8,6 +8,7 @@ import { Timer } from './timer';
 import { APU } from './apu';
 import { MBC } from './mbc/mbc';
 import NullMBC from './mbc/nullmbc';
+import MBC3 from './mbc/mbc3';
 export class Bus {
     gb: GameBoy;
     ppu: PPU;
@@ -28,6 +29,26 @@ export class Bus {
     mbc: MBC = new NullMBC();
 
     updateMapper() {
+        let id = this.rom[0x147];
+
+        switch (id) {
+            case 0x00:
+                this.mbc = new NullMBC();
+                break;
+            case 0x01:
+            case 0x02:
+            case 0x03:
+                // this.mbc = new MBC1();
+                break;
+            case 0x10:
+            case 0x11:
+            case 0x12:
+            case 0x13:
+                this.mbc = new MBC3();
+                break;
+        }
+
+        this.romOffset = this.mbc.getOffset();
 
     }
 
@@ -69,13 +90,13 @@ export class Bus {
             case 0x5: // ROMX - 5### 
             case 0x6: // ROMX - 6### 
             case 0x7: // ROMX - 7### 
-                return this.rom[addr + this.romOffset];
+                return this.rom[(addr & 0x3FFF) + this.romOffset];
             case 0x8: // VRAM - 8###
             case 0x9: // VRAM - 9###
                 return this.ppu.read8(addr);
             case 0xA: // SRAM - A###
             case 0xB: // SRAM - B###
-                break;
+                return 0xFF;
             case 0xC: // WRAM0 - C###
                 return this.wram[0][addr & 0xFFF];
             case 0xD: // WRAMX - D###
@@ -83,6 +104,10 @@ export class Bus {
             case 0xE: // Echo RAM - E###
                 return this.wram[0][addr & 0xFFF];
             case 0xF: // ZeroPage - F###
+                if (addr >= 0xFE00 && addr <= 0xFE9F) {
+                    return this.ppu.oam[addr - 0xFE00];
+                }
+
                 switch (addr) {
                     case 0xFF00: // JOYP
                         return this.joypad.readHwio8();
@@ -144,11 +169,12 @@ export class Bus {
             case 0x1: // ROM0 - 1###
             case 0x2: // ROM0 - 2###
             case 0x3: // ROM0 - 3###
-                return;
             case 0x4: // ROMX - 4### 
             case 0x5: // ROMX - 5### 
             case 0x6: // ROMX - 6### 
             case 0x7: // ROMX - 7### 
+                this.mbc.write8(addr, val);
+                this.romOffset = this.mbc.getOffset();
                 return;
             case 0x8: // VRAM - 8###
             case 0x9: // VRAM - 9###
@@ -167,6 +193,11 @@ export class Bus {
                 this.wram[0][addr & 0xFFF] = val;
                 return;
             case 0xF: // ZeroPage - F###
+                if (addr >= 0xFE00 && addr <= 0xFE9F) {
+                    this.ppu.oam[addr - 0xFE00] = val;
+                    return;
+                }
+
                 switch (addr) {
                     case 0xFF00: // JOYP
                         this.joypad.writeHwio8(val);

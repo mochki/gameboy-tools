@@ -1,8 +1,9 @@
-import { bitTest } from "./util/bits";
+import { bitTest, bitSet } from "./util/bits";
 import { GameBoy } from "./gameboy";
 import { SchedulerId, Scheduler } from "./scheduler";
 import { AudioPlayer } from "./audioplayer";
 import { GetTextLineHeightWithSpacing } from "../lib/imgui-js/imgui";
+import { hex } from "./util/misc";
 
 // Starts from NR10 / 0xFF10
 const regMask = Uint8Array.from([
@@ -12,6 +13,7 @@ const regMask = Uint8Array.from([
     0xFF, 0xFF, 0x00, 0x00, 0xBF,
     0x00, 0x00, 0x70
 ]);
+
 
 const pulseDuty = [
     Uint8Array.from([0, 0, 0, 0, 0, 0, 0, 1]),
@@ -191,13 +193,6 @@ export class APU {
 
         frequencyPeriod: 256,
 
-        trigger: function () {
-            this.pos = 0;
-            this.enabled = true;
-            this.volume = this.envelopeInitial;
-            this.lengthTimer = 64 - this.length;
-        },
-
         updateDac: function () {
             this.dacOut = ((this.currentVal * this.volume) / (15 / 2)) - 1;
         }
@@ -234,13 +229,6 @@ export class APU {
         useLength: false,
 
         frequencyPeriod: 256,
-
-        trigger: function () {
-            this.pos = 0;
-            this.enabled = true;
-            this.volume = this.envelopeInitial;
-            this.lengthTimer = 64 - this.length;
-        },
 
         updateDac: function () {
             this.dacOut = ((this.currentVal * this.volume) / (15 / 2)) - 1;
@@ -279,12 +267,6 @@ export class APU {
         useLength: false,
 
         frequencyPeriod: 256,
-
-        trigger: function () {
-            this.pos = 0;
-            this.enabled = true;
-            this.lengthTimer = 256 - this.length;
-        },
 
         updateDac() {
             if (this.dacEnabled) {
@@ -332,17 +314,58 @@ export class APU {
         useLength: false,
         frequencyPeriod: 256,
 
-        trigger: function () {
-            this.enabled = true;
-            this.volume = this.envelopeInitial;
-            this.lengthTimer = 64 - this.length;
-            this.lfsr = 0x7FFF;
-        },
-
         updateDac: function () {
             this.dacOut = ((this.currentVal * this.volume) / (15 / 2)) - 1;
         }
     };
+
+    registers = new Uint8Array(23);
+
+    leftEnable1 = false;
+    leftEnable2 = false;
+    leftEnable3 = false;
+    leftEnable4 = false;
+
+    rightEnable1 = false;
+    rightEnable2 = false;
+    rightEnable3 = false;
+    rightEnable4 = false;
+
+    triggerCh1() {
+        this.ch1.pos = 0;
+        this.ch1.enabled = true;
+        this.ch1.volume = this.ch1.envelopeInitial;
+        this.ch1.lengthTimer = 64 - this.ch1.length;
+
+        this.scheduler.cancelEventsById(SchedulerId.APUChannel1);
+        this.scheduler.addEventRelative(SchedulerId.APUChannel1, this.ch1.frequencyPeriod, this.advanceCh1);
+    }
+
+    triggerCh2() {
+        this.ch2.pos = 0;
+        this.ch2.enabled = true;
+        this.ch2.volume = this.ch2.envelopeInitial;
+        this.ch2.lengthTimer = 64 - this.ch2.length;
+
+        this.scheduler.cancelEventsById(SchedulerId.APUChannel2);
+        this.scheduler.addEventRelative(SchedulerId.APUChannel2, this.ch2.frequencyPeriod, this.advanceCh2);
+    }
+
+    triggerCh3() {
+        this.ch3.pos = 0;
+        if (this.ch3.dacEnabled) this.ch3.enabled = true;
+        this.ch3.lengthTimer = 256 - this.ch3.length;
+
+        this.scheduler.cancelEventsById(SchedulerId.APUChannel3);
+        this.scheduler.addEventRelative(SchedulerId.APUChannel3, this.ch3.frequencyPeriod, this.advanceCh3);
+    }
+
+    triggerCh4() {
+        this.ch4.enabled = true;
+        this.ch4.volume = this.ch4.envelopeInitial;
+        this.ch4.lengthTimer = 64 - this.ch4.length;
+        this.ch4.lfsr = 0x7FFF;
+    }
 
     advanceCh1 = function (this: APU, cyclesLate: number) {
         this.ch1.pos++;
@@ -398,16 +421,20 @@ export class APU {
 
     sample() {
 
-        let final = 0;
+        let finalLeft = 0;
+        let finalRight = 0;
 
         if (this.ch1.enabled) {
-            final += this.ch1.dacOut;
+            if (this.leftEnable1) finalLeft += this.ch1.dacOut;
+            if (this.rightEnable1) finalRight += this.ch1.dacOut;
         }
         if (this.ch2.enabled) {
-            final += this.ch2.dacOut;
+            if (this.leftEnable2) finalLeft += this.ch2.dacOut;
+            if (this.rightEnable2) finalRight += this.ch2.dacOut;
         }
         if (this.ch3.enabled) {
-            final += this.ch3.dacOut;
+            if (this.leftEnable3) finalLeft += this.ch3.dacOut;
+            if (this.rightEnable3) finalRight += this.ch3.dacOut;
         }
         if (this.ch4.enabled) {
             // Channel 4 can be advanced far too often to be efficient for the scheduler
@@ -416,11 +443,13 @@ export class APU {
                 this.ch4.frequencyTimer += this.ch4.frequencyPeriod;
                 this.advanceCh4();
             }
-            final += this.ch4.dacOut;
+
+            if (this.leftEnable4) finalLeft += this.ch4.dacOut;
+            if (this.rightEnable4) finalRight += this.ch4.dacOut;
         }
 
-        this.sampleBufL[this.sampleBufPos] = final / 32;
-        this.sampleBufR[this.sampleBufPos] = final / 32;
+        this.sampleBufL[this.sampleBufPos] = finalLeft / 32;
+        this.sampleBufR[this.sampleBufPos] = finalRight / 32;
         this.sampleBufPos++;
         if (this.sampleBufPos >= this.sampleBufMax) {
             this.sampleBufPos = 0;
@@ -429,9 +458,28 @@ export class APU {
     }
 
     readHwio8(addr: number): number {
+        switch (addr) {
+            case 0xFF10: case 0xFF11: case 0xFF12: case 0xFF13: case 0xFF14: // NR1X
+            case 0xFF15: case 0xFF16: case 0xFF17: case 0xFF18: case 0xFF19: // NR2X
+            case 0xFF1A: case 0xFF1B: case 0xFF1C: case 0xFF1D: case 0xFF1E: // NR3X
+            case 0xFF1F: case 0xFF20: case 0xFF21: case 0xFF22: case 0xFF23: // NR4X
+            case 0xFF24: case 0xFF25: case 0xFF26: // NR5X
+                let index = addr - 0xFF10;
+                let regVal = this.registers[index];
+                let mask = regMask[index];
+                return regVal | mask;
+
+            default:
+                console.log(`read ${hex(addr, 4)}`);
+        }
         return 0xFF;
     }
     writeHwio8(addr: number, val: number): void {
+        if (addr >= 0xFF10 && addr <= 0xFF26) {
+            let index = addr - 0xFF10;
+            this.registers[index] = val;
+        }
+
         switch (addr) {
             case 0xFF10: // NR10
                 this.ch1.sweepShift = (val >> 0) & 0b111;
@@ -461,7 +509,7 @@ export class APU {
                 this.ch1.frequency &= 0b00011111111;
                 this.ch1.frequency |= ((val & 0b111) << 8);
                 this.ch1.useLength = bitTest(val, 6);
-                if (bitTest(val, 7)) this.ch1.trigger();
+                if (bitTest(val, 7)) this.triggerCh1();
 
                 this.ch1.frequencyPeriod = (2048 - this.ch1.frequency) * 4;
                 this.ch1.updateDac();
@@ -489,7 +537,7 @@ export class APU {
                 this.ch2.frequency &= 0b00011111111;
                 this.ch2.frequency |= ((val & 0b111) << 8);
                 this.ch2.useLength = bitTest(val, 6);
-                if (bitTest(val, 7)) this.ch2.trigger();
+                if (bitTest(val, 7)) this.triggerCh2();
 
                 this.ch2.frequencyPeriod = (2048 - this.ch2.frequency) * 4;
                 this.ch2.updateDac();
@@ -519,7 +567,7 @@ export class APU {
                 this.ch3.frequency &= 0b00011111111;
                 this.ch3.frequency |= ((val & 0b111) << 8);
                 this.ch3.useLength = bitTest(val, 6);
-                if (bitTest(val, 7)) this.ch3.trigger();
+                if (bitTest(val, 7)) this.triggerCh3();
 
                 this.ch3.frequencyPeriod = (2048 - this.ch3.frequency) * 2;
                 this.ch3.updateDac();
@@ -545,8 +593,19 @@ export class APU {
                 break;
             case 0xFF23: // NR44
                 this.ch4.useLength = bitTest(val, 6);
-                if (bitTest(val, 7)) this.ch4.trigger();
+                if (bitTest(val, 7)) this.triggerCh4();
                 this.ch4.updateDac();
+                break;
+
+            case 0xFF25: // NR53
+                this.leftEnable4 = bitTest(val, 7);
+                this.leftEnable3 = bitTest(val, 6);
+                this.leftEnable2 = bitTest(val, 5);
+                this.leftEnable1 = bitTest(val, 4);
+                this.rightEnable4 = bitTest(val, 3);
+                this.rightEnable3 = bitTest(val, 2);
+                this.rightEnable2 = bitTest(val, 1);
+                this.rightEnable1 = bitTest(val, 0);
                 break;
 
             case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33: case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37: // Wave Table

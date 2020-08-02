@@ -328,6 +328,9 @@ function DrawDebug() {
         ImGui.Text(`LY: ${mgr.gb.ppu.ly}`);
         ImGui.Text(`SCX: ${mgr.gb.ppu.scx}`);
         ImGui.Text(`SCY: ${mgr.gb.ppu.scy}`);
+        ImGui.Text(`WY: ${mgr.gb.ppu.wy}`);
+        ImGui.Text(`WX: ${mgr.gb.ppu.wx}`);
+
 
         ImGui.NextColumn();
 
