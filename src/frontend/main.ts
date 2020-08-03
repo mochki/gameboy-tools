@@ -181,6 +181,9 @@ let cyclesOver = 0;
 let hostCpuRatioSamples = new Float32Array(16);
 let hostCpuRatioPos = 0;
 
+const gbHz = 4194304 * 1;
+
+
 // Main loop
 function _loop(time: number): void {
     // Poll and handle events (inputs, window resize, etc.)
@@ -205,7 +208,7 @@ function _loop(time: number): void {
             let endMs = performance.now();
 
             let timeRealMs = endMs - startMs;
-            let timeEmulMs = (i / 4194304) * 1000;
+            let timeEmulMs = (i / gbHz) * 1000;
 
             hostCpuRatioSamples[hostCpuRatioPos] = timeRealMs / timeEmulMs;
             hostCpuRatioPos = (hostCpuRatioPos + 1) & 15;
@@ -287,6 +290,7 @@ function DrawDebug() {
         ImGui.Text(`PC: ${hexN(mgr.gb.cpu.pc, 4)}`);
 
         ImGui.Checkbox("IME", v => v = mgr.gb.cpu.ime);
+        ImGui.Text(`Halt Attempts: ${mgr.gb.cpu.haltAttempts}`);
 
         ImGuiColumnSeparator();
 
@@ -334,7 +338,7 @@ function DrawDebug() {
 
         ImGui.NextColumn();
 
-        ImGui.Text(`DIV: ${mgr.gb.timer.div}`);
+        ImGui.Text(`DIV: ${mgr.gb.timer.getDiv()}`);
         ImGui.Text(`TIMA: ${mgr.gb.timer.counter}`);
         ImGui.Text(`TMA: ${mgr.gb.timer.modulo}`);
 

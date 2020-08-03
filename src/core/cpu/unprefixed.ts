@@ -688,6 +688,7 @@ export function RLA(cpu: CPU, opcode: number): void {  // RL A
 };
 
 export function HALT(cpu: CPU, opcode: number): void {
+    cpu.haltAttempts++;
 };
 
 /** Carry flag */

@@ -50,6 +50,8 @@ export class CPU {
 
     ime = false;
 
+    haltAttempts = 0;
+
     zero = false;
     negative = false;
     halfCarry = false;

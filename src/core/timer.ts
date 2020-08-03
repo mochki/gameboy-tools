@@ -17,7 +17,6 @@ export class Timer {
         this.gb = gb;
         this.scheduler = scheduler;
 
-        this.scheduler.addEventRelative(SchedulerId.TimerDIV, 256, this.incrementDiv);
         this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 16384, this.gb.apu.advanceFrameSequencer);
         this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel] * 2, this.incrementTima);
     }
@@ -25,16 +24,16 @@ export class Timer {
     enabled = false;
     bitSel = 0;
 
-    div = 0;
-    lastDivIncrement = 0; // In scheduler ticks
+    private div = 0;
+    lastDivModify = 0; // In scheduler ticks
 
     counter = 0;
     modulo = 0;
 
-    interruptAndReloadTima  = function (this: Timer, cyclesLate: number) {
+    interruptAndReloadTima = function (this: Timer, cyclesLate: number) {
         this.counter = this.modulo;
         this.gb.interrupts.flagInterrupt(InterruptId.Timer);
-        
+
     }.bind(this);
 
     incrementTima = function (this: Timer, cyclesLate: number) {
@@ -51,18 +50,10 @@ export class Timer {
         this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel] - cyclesLate, this.incrementTima);
     }.bind(this);
 
-    incrementDiv = function (this: Timer, cyclesLate: number) {
-        this.div++;
-        this.div &= 0xFF;
-        this.scheduler.addEventRelative(SchedulerId.TimerDIV, 256 - cyclesLate, this.incrementDiv);
-        this.lastDivIncrement = this.scheduler.currTicks - cyclesLate;
-    }.bind(this);
-
     resetDiv() {
         this.div = 0;
+        this.lastDivModify = this.scheduler.currTicks;
         if (bitTest(this.div, 5)) this.gb.apu.advanceFrameSequencer();
-        this.scheduler.cancelEventsById(SchedulerId.TimerDIV);
-        this.scheduler.addEventRelative(SchedulerId.TimerDIV, 256, this.incrementDiv);
 
         this.scheduler.cancelEventsById(SchedulerId.TimerAPUFrameSequencer);
         this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 16384, this.gb.apu.advanceFrameSequencer);
@@ -71,10 +62,19 @@ export class Timer {
         this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel] * 2, this.incrementTima);
     }
 
+    getDiv() {
+        let cyclesBehind = this.scheduler.currTicks - this.lastDivModify;
+        let incrementDivBy = (cyclesBehind >> 8) & 0xFF;
+        this.lastDivModify += (cyclesBehind & 0xFFFFFF00);
+        this.div += incrementDivBy;
+        this.div &= 0xFF;
+        return this.div;
+    }
+
     readHwio8(addr: number): number {
         switch (addr) {
             case 0xFF04: // DIV
-                return this.div;
+                return this.getDiv();
             case 0xFF05: // TIMA
                 return this.counter;
             case 0xFF06: // TMA

@@ -1,4 +1,4 @@
-import { bitTest, bitSet } from "./util/bits";
+import { bitTest, bitSet, BIT_6 } from "./util/bits";
 import { GameBoy } from "./gameboy";
 import { SchedulerId, Scheduler } from "./scheduler";
 import { AudioPlayer } from "./audioplayer";
@@ -96,7 +96,23 @@ export class APU {
         }
     }
     clockSweep() {
+        if (this.ch1.sweepPeriod != 0 && this.ch1.sweepEnable) {
+            if (this.ch1.sweepTimer <= 0) {
+                this.ch1.sweepTimer = this.ch1.sweepPeriod;
 
+                let diff = this.ch1.sweepShadowFrequency >> this.ch1.sweepShift;
+                if (this.ch1.sweepIncrease) diff *= -1;
+                this.ch1.sweepShadowFrequency += diff;
+
+                if (this.ch1.sweepShadowFrequency > 2047) {
+                    this.ch1.enabled = false;
+                } else {
+                    this.ch1.frequency = this.ch1.sweepShadowFrequency;
+                    this.ch1.frequencyPeriod = (2048 - this.ch1.frequency) * 4;
+                }
+            }
+            this.ch1.sweepTimer--;
+        }
     }
     clockEnvelope() {
         if (this.ch1.envelopePeriod != 0) {
@@ -170,10 +186,14 @@ export class APU {
 
         lengthCounter: 0,
         lengthTimer: 0,
+
+        sweepEnable: false,
+        sweepTimer: 0,
+        sweepShadowFrequency: 0,
         // -------
 
         // NR10
-        sweepTime: 0,
+        sweepPeriod: 0,
         sweepIncrease: false,
         sweepShift: 0,
 
@@ -337,6 +357,11 @@ export class APU {
         this.ch1.volume = this.ch1.envelopeInitial;
         this.ch1.lengthTimer = 64 - this.ch1.length;
 
+        this.ch1.sweepShadowFrequency = this.ch1.frequency;
+        this.ch1.sweepTimer = this.ch1.sweepPeriod;
+
+        this.ch1.sweepEnable = this.ch1.sweepPeriod + this.ch1.sweepShift != 0;
+
         this.scheduler.cancelEventsById(SchedulerId.APUChannel1);
         this.scheduler.addEventRelative(SchedulerId.APUChannel1, this.ch1.frequencyPeriod, this.advanceCh1);
     }
@@ -403,6 +428,7 @@ export class APU {
         lfsr >>= 1;
         lfsr |= (xored << 14);
         if (this.ch4.sevenBit) {
+            lfsr &= ~BIT_6;
             lfsr |= (xored << 5);
         }
         this.ch4.lfsr = lfsr;
@@ -414,9 +440,9 @@ export class APU {
 
     player = new AudioPlayer();
 
-    sampleBufL = new Float32Array(2048);
-    sampleBufR = new Float32Array(2048);
-    sampleBufMax = 2048;
+    sampleBufMax = 512;
+    sampleBufL = new Float32Array(this.sampleBufMax);
+    sampleBufR = new Float32Array(this.sampleBufMax);
     sampleBufPos = 0;
 
     sample() {
@@ -438,8 +464,8 @@ export class APU {
         }
         if (this.ch4.enabled) {
             // Channel 4 can be advanced far too often to be efficient for the scheduler
-            this.ch4.frequencyTimer -= 4194304 / 262144;
-            if (this.ch4.frequencyTimer <= 0) {
+            this.ch4.frequencyTimer -= 4194304 / 65536;
+            while (this.ch4.frequencyTimer <= 0 && this.ch4.frequencyPeriod != 0) {
                 this.ch4.frequencyTimer += this.ch4.frequencyPeriod;
                 this.advanceCh4();
             }
@@ -453,7 +479,7 @@ export class APU {
         this.sampleBufPos++;
         if (this.sampleBufPos >= this.sampleBufMax) {
             this.sampleBufPos = 0;
-            this.player.queueAudio(this.sampleBufL, this.sampleBufR, 262144);
+            this.player.queueAudio(this.sampleBufL, this.sampleBufR, 65536);
         }
     }
 
@@ -484,7 +510,7 @@ export class APU {
             case 0xFF10: // NR10
                 this.ch1.sweepShift = (val >> 0) & 0b111;
                 this.ch1.sweepIncrease = bitTest(val, 3);
-                this.ch1.sweepTime = (val >> 4) & 0b111;
+                this.ch1.sweepPeriod = (val >> 4) & 0b111;
                 this.ch1.updateDac();
                 break;
             case 0xFF11: // NR11

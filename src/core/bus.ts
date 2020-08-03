@@ -37,13 +37,21 @@ export class Bus {
                 break;
             case 0x01:
             case 0x02:
-            case 0x03:
-                // this.mbc = new MBC1();
+            case 0x03: // MBC1
+                this.mbc = new MBC3();
                 break;
             case 0x10:
             case 0x11:
             case 0x12:
-            case 0x13:
+            case 0x13: // MBC3
+                this.mbc = new MBC3();
+                break;
+            case 0x19:
+            case 0x1A:
+            case 0x1B:
+            case 0x1C:
+            case 0x1D:
+            case 0x1E:
                 this.mbc = new MBC3();
                 break;
         }
@@ -96,7 +104,7 @@ export class Bus {
                 return this.ppu.read8(addr);
             case 0xA: // SRAM - A###
             case 0xB: // SRAM - B###
-                return 0xFF;
+                return this.mbc.read8(addr);
             case 0xC: // WRAM0 - C###
                 return this.wram[0][addr & 0xFFF];
             case 0xD: // WRAMX - D###
@@ -182,6 +190,7 @@ export class Bus {
                 return;
             case 0xA: // SRAM - A###
             case 0xB: // SRAM - B###
+                this.mbc.write8(addr, val);
                 return;
             case 0xC: // WRAM0 - C###
                 this.wram[0][addr & 0xFFF] = val;

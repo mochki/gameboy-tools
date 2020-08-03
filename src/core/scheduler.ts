@@ -16,7 +16,7 @@ export class SchedulerEvent {
 
 export enum SchedulerId {
     None = 255,
-    PPU = 0,
+    PPUMode = 0,
     TimerDIV = 1,
     EnableInterrupts = 2,
     APUChannel1 = 4,
@@ -31,7 +31,7 @@ export enum SchedulerId {
 export function resolveSchedulerId(id: SchedulerId): string {
     switch (id) {
         case SchedulerId.None: return "None";
-        case SchedulerId.PPU: return "PPU";
+        case SchedulerId.PPUMode: return "PPUMode";
         case SchedulerId.TimerDIV: return "TimerDIV";
         case SchedulerId.EnableInterrupts: return "EnableInterrupts";
         case SchedulerId.APUChannel1: return "APUChannel1";

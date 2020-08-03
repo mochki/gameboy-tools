@@ -16,7 +16,7 @@ export class GameBoy {
     joypad: Joypad;
     timer: Timer;
     apu: APU;
-    
+
     provider: GameBoyProvider | null = null;
 
     scheduler: Scheduler;
@@ -45,8 +45,51 @@ export class GameBoy {
             this.provider = provider;
         }
         this.bus.updateMapper();
+        this.dmgBootrom();
+    }
+
+    dmgBootrom() {
         this.cpu.pc = 0x100;
         this.bus.bootromEnabled = false;
+
+        this.cpu.setAf(0x01B0);
+        this.cpu.setBc(0x0013);
+        this.cpu.setDe(0x00D8);
+        this.cpu.setHl(0x014D);
+        this.cpu.sp = 0xFFFE;
+
+        this.bus.write8(0xFF05, 0x00);
+        this.bus.write8(0xFF06, 0x00);
+        this.bus.write8(0xFF07, 0x00);
+        // Sound register writes
+        // this.bus.write8(0xFF10, 0x80); 
+        // this.bus.write8(0xFF11, 0xBF);
+        // this.bus.write8(0xFF12, 0xF3);
+        // this.bus.write8(0xFF14, 0xBF);
+        // this.bus.write8(0xFF16, 0x3F);
+        // this.bus.write8(0xFF17, 0x00);
+        // this.bus.write8(0xFF19, 0xBF);
+        // this.bus.write8(0xFF1A, 0x7F);
+        // this.bus.write8(0xFF1B, 0xFF);
+        // this.bus.write8(0xFF1C, 0x9F);
+        // this.bus.write8(0xFF1E, 0xBF);
+        // this.bus.write8(0xFF20, 0xFF);
+        // this.bus.write8(0xFF21, 0x00);
+        // this.bus.write8(0xFF22, 0x00);
+        // this.bus.write8(0xFF23, 0xBF);
+        // this.bus.write8(0xFF24, 0x77);
+        // this.bus.write8(0xFF25, 0xF3);
+        this.bus.write8(0xFF26, 0xF1);
+        this.bus.write8(0xFF40, 0x91);
+        this.bus.write8(0xFF42, 0x00);
+        this.bus.write8(0xFF43, 0x00);
+        this.bus.write8(0xFF45, 0x00);
+        this.bus.write8(0xFF47, 0xFC);
+        this.bus.write8(0xFF48, 0xFF);
+        this.bus.write8(0xFF49, 0xFF);
+        this.bus.write8(0xFF4A, 0x00);
+        this.bus.write8(0xFF4B, 0x00);
+        this.bus.write8(0xFFFF, 0x00);
     }
 
     cgb = false;
@@ -69,7 +112,7 @@ export class GameBoy {
     }
 
     sampleTimer = 0;
-    sampleMax = 4194304/262144;
+    sampleMax = 4194304 / 65536;
     public tick(ticks: number): void {
         this.scheduler.currTicks += ticks;
         while (
@@ -83,7 +126,7 @@ export class GameBoy {
 
         this.sampleTimer += ticks;
         if (this.sampleTimer >= this.sampleMax) {
-            this.sampleTimer -= this.sampleMax
+            this.sampleTimer -= this.sampleMax;
             this.apu.sample();
         }
     }
