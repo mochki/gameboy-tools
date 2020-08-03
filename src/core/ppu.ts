@@ -174,12 +174,21 @@ export class PPU {
         this.ly++;
         this.checkStat();
 
-        if (this.ly < 154) {
-            this.scheduler.addEventRelative(SchedulerId.PPUMode, 456 - cyclesLate, this.continueMode1);
-        } else { // this.ly >= 153
-            this.ly = 0;
-            this.enterMode2(0);
+        if (this.ly == 153) {
+            this.scheduler.addEventRelative(SchedulerId.PPUMode, 4 - cyclesLate, this.line153Quirk);
+            this.scheduler.addEventRelative(SchedulerId.PPUMode, 456 - cyclesLate, this.enterMode2);
+
+            return;
         }
+
+        if (this.ly < 153) {
+            this.scheduler.addEventRelative(SchedulerId.PPUMode, 456 - cyclesLate, this.continueMode1);
+        }
+    }.bind(this);
+
+    line153Quirk = function (this: PPU, cyclesLate: number) {
+        this.ly = 0;
+        this.checkStat();
     }.bind(this);
 
     onEnable() {
