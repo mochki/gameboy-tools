@@ -171,7 +171,13 @@ async function _init(): Promise<void> {
         input.type = "file";
         input.accept = ".gb,.gbc";
         input.addEventListener("change", () => {
-
+            if (input.files && input.files.length > 0) {
+                let file = input.files[0];
+                // @ts-ignore
+                file.arrayBuffer().then(arrayBuffer => {
+                    mgr.loadRom(new Uint8Array(arrayBuffer));
+                });
+            }
         });
         input.dispatchEvent(new MouseEvent("click"));
     };
@@ -407,8 +413,10 @@ function DrawRoms() {
     if (ImGui.Begin("ROMs")) {
 
         for (let i = 0; i < romsList.length; i++) {
-            if (ImGui.Button('Load##' + i)) {
-                LoadRomFromURL(`../roms/${romsList[i]}`, false);
+            if (romsList[i].substr(0, 1) != "#") {
+                if (ImGui.Button('Load##' + i)) {
+                    LoadRomFromURL(`../roms/${romsList[i]}`, false);
+                }
             }
 
             ImGui.SameLine(); ImGui.Text(romsList[i]);
