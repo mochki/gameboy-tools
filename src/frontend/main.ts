@@ -17,11 +17,6 @@ const clearColor: ImVec4 = new ImVec4(0.114, 0.114, 0.114, 1.00);
 
 let done: boolean = false;
 
-async function LoadArrayBuffer(url: string): Promise<ArrayBuffer> {
-    const response: Response = await fetch(url);
-    return response.arrayBuffer();
-}
-
 let romsList: string[] = [];
 let romsListLoadFailed = false;
 
@@ -175,10 +170,16 @@ async function _init(): Promise<void> {
         input.addEventListener("change", () => {
             if (input.files && input.files.length > 0) {
                 let file = input.files[0];
-                // @ts-ignore
-                file.arrayBuffer().then(arrayBuffer => {
-                    mgr.loadRom(new Uint8Array(arrayBuffer));
-                });
+                let reader = new FileReader();
+                reader.readAsArrayBuffer(file);
+                reader.onload = function() {
+                    let result = reader.result;
+                    if (result instanceof ArrayBuffer) {
+                        mgr.loadRom(new Uint8Array(result));
+                    } else {
+                        alert("Failed to read ROM! Probably a result of a lack of API support.");
+                    }
+                }
             }
         });
         input.dispatchEvent(new MouseEvent("click"));
@@ -413,7 +414,7 @@ function LoadRomFromURL(url: string, bootrom: boolean) {
 let romLoaded = false;
 function DrawRoms() {
     if (romsListLoadFailed) return;
-    
+
     if (ImGui.Begin("ROMs")) {
 
         for (let i = 0; i < romsList.length; i++) {
