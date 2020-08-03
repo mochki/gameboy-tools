@@ -37,6 +37,8 @@ export class APU {
         this.scheduler.addEventRelative(SchedulerId.APUChannel1, 16, this.advanceCh1);
         this.scheduler.addEventRelative(SchedulerId.APUChannel2, 16, this.advanceCh2);
         this.scheduler.addEventRelative(SchedulerId.APUChannel3, 16, this.advanceCh3);
+
+        this.sample();
     }
 
     frameSequencerStep = 0;
@@ -445,7 +447,7 @@ export class APU {
     sampleBufR = new Float32Array(this.sampleBufMax);
     sampleBufPos = 0;
 
-    sample() {
+    sample = function(this: APU) {
 
         let finalLeft = 0;
         let finalRight = 0;
@@ -481,7 +483,9 @@ export class APU {
             this.sampleBufPos = 0;
             this.player.queueAudio(this.sampleBufL, this.sampleBufR, 65536);
         }
-    }
+
+        this.scheduler.addEventRelative(SchedulerId.APUSample, 4194304/65536, this.sample);
+    }.bind(this);
 
     readHwio8(addr: number): number {
         switch (addr) {

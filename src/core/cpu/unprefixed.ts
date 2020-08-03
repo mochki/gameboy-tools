@@ -689,6 +689,16 @@ export function RLA(cpu: CPU, opcode: number): void {  // RL A
 
 export function HALT(cpu: CPU, opcode: number): void {
     cpu.haltAttempts++;
+
+    if (cpu.ime) {
+        cpu.gb.haltSkip();
+    } else {
+        if ((cpu.interrupts.ie & cpu.interrupts.if & 0x1F) == 0) {
+            cpu.gb.haltSkip();
+        } else {
+            cpu.haltBug = true;
+        }  
+    }
 };
 
 /** Carry flag */

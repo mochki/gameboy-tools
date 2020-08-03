@@ -51,6 +51,7 @@ export class CPU {
     ime = false;
 
     haltAttempts = 0;
+    haltBug = true;
 
     zero = false;
     negative = false;

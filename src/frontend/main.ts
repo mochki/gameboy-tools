@@ -177,7 +177,6 @@ async function _init(): Promise<void> {
     };
 }
 
-let cyclesOver = 0;
 let hostCpuRatioSamples = new Float32Array(16);
 let hostCpuRatioPos = 0;
 
@@ -193,17 +192,15 @@ function _loop(time: number): void {
     // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 
     // Use this to sync to audio
-    if (mgr.gb.apu.player.sources.length < 10) {
+    if (mgr.gb.apu.player.sources.length < 10 && !mgr.gb.errored) {
         if (frameStep) {
             let startMs = performance.now();
 
             let i = 0;
             let cpu = mgr.gb.cpu;
-            while (i < 70224 - cyclesOver) {
-                if (mgr.gb.errored) break;
+            while (i < 70224) {
                 i += cpu.execute();
             }
-            cyclesOver += i - 70224;
 
             let endMs = performance.now();
 
@@ -290,7 +287,8 @@ function DrawDebug() {
         ImGui.Text(`PC: ${hexN(mgr.gb.cpu.pc, 4)}`);
 
         ImGui.Checkbox("IME", v => v = mgr.gb.cpu.ime);
-        ImGui.Text(`Halt Attempts: ${mgr.gb.cpu.haltAttempts}`);
+        ImGui.Text(`Halt Attempts: \n${mgr.gb.cpu.haltAttempts}`);
+        ImGui.Text(`Halted Cycles: \n${mgr.gb.haltSkippedCycles}`);
 
         ImGuiColumnSeparator();
 
@@ -308,7 +306,6 @@ function DrawDebug() {
 
         ImGui.Dummy(new ImVec2(0, 8));
 
-        ImGui.Text(`Cycles over: ${cyclesOver}`);
         ImGui.Checkbox("Frame Step", (v = frameStep) => frameStep = v);
         if (ImGui.Button("Unerror")) {
             mgr.gb.errored = false;

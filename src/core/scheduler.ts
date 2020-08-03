@@ -7,7 +7,8 @@ export class SchedulerEvent {
     callback: SchedulerCallback;
     index: number = 0;
 
-    constructor(id: SchedulerId, ticks: number, callback: SchedulerCallback) {
+
+    constructor(id: SchedulerId, ticks: number, ticksOffset: number, callback: SchedulerCallback) {
         this.id = id;
         this.ticks = ticks;
         this.callback = callback;
@@ -22,6 +23,7 @@ export enum SchedulerId {
     APUChannel1 = 4,
     APUChannel2 = 5,
     APUChannel3 = 6,
+    APUSample = 7,
     TimerAPUFrameSequencer = 8,
     TimerIncrement = 9,
     TimerReload = 10,
@@ -37,6 +39,7 @@ export function resolveSchedulerId(id: SchedulerId): string {
         case SchedulerId.APUChannel1: return "APUChannel1";
         case SchedulerId.APUChannel2: return "APUChannel2";
         case SchedulerId.APUChannel3: return "APUChannel3";
+        case SchedulerId.APUSample: return "APUSample";
         case SchedulerId.TimerAPUFrameSequencer: return "TimerAPUFrameSequencer";
         case SchedulerId.TimerIncrement: return "TimerIncrement";
         default:
@@ -51,7 +54,7 @@ function rightChild(n: number) { return n * 2 + 2; }
 export class Scheduler {
     constructor() {
         for (let i = 0; i < 64; i++) {
-            this.heap[i] = new SchedulerEvent(SchedulerId.None, 0, () => { });
+            this.heap[i] = new SchedulerEvent(SchedulerId.None, 0, 0, () => { });
             this.heap[i].index = i;
         }
     }
@@ -63,10 +66,11 @@ export class Scheduler {
     heapSize = 0;
 
     static createEmptyEvent() {
-        return new SchedulerEvent(SchedulerId.None, 0, () => { });
+        return new SchedulerEvent(SchedulerId.None, 0, 0, () => { });
     }
 
     addEventRelative(id: SchedulerId, ticks: number, callback: SchedulerCallback): void {
+        let origTicks = ticks;
         ticks += this.currTicks;
         if (this.heapSize >= this.heap.length) {
             alert("Heap overflow!");

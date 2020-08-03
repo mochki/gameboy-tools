@@ -111,8 +111,6 @@ export class GameBoy {
         this.infoText = [];
     }
 
-    sampleTimer = 0;
-    sampleMax = 4194304 / 65536;
     public tick(ticks: number): void {
         this.scheduler.currTicks += ticks;
         while (
@@ -123,11 +121,23 @@ export class GameBoy {
             let next = this.scheduler.nextEventTicks;
             this.scheduler.popFirstEvent().callback(current - next);
         }
+    }
 
-        this.sampleTimer += ticks;
-        if (this.sampleTimer >= this.sampleMax) {
-            this.sampleTimer -= this.sampleMax;
-            this.apu.sample();
+    haltSkippedCycles = 0;
+    haltSkip(): void {
+        const terminateAt = 1000000;
+        for (let i = 0; i < terminateAt; i++) {
+            let ticksPassed = this.scheduler.nextEventTicks - this.scheduler.currTicks;
+            this.scheduler.currTicks = this.scheduler.nextEventTicks;
+            this.scheduler.popFirstEvent().callback(0);
+
+            this.cpu.cycles += ticksPassed;
+            this.haltSkippedCycles += ticksPassed;
+
+            if ((this.interrupts.ie & this.interrupts.if & 0x1F) != 0) {
+                return;
+            }
         }
+        alert(`Processed ${terminateAt} events and couldn't exit HALT! Assuming crashed.`);
     }
 }
