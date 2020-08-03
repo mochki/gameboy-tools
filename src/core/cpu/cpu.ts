@@ -43,6 +43,11 @@ export class CPU {
         this.bus.write8(addr, val);
     }
 
+    tick(cycles: number) {
+        this.cycles += cycles;
+        this.gb.tick(cycles);
+    }
+
     tickPending(cycles: number) {
         this.cycles += cycles;
         this.cyclesPending += cycles;
@@ -171,6 +176,14 @@ export class CPU {
         if (this.ime && (this.interrupts.if & this.interrupts.ie & 0x1F) != 0) {
             let vector = 0;
 
+            this.tick(4);
+
+            let upperPc = (this.pc >> 8) & 0xFF;
+            let lowerPc = (this.pc >> 0) & 0xFF;
+            this.sp = (this.sp - 1) & 0xFFFF;
+            this.write8(this.sp, upperPc);
+
+            this.tick(2);
             if (
                 bitTest(this.interrupts.ie, InterruptId.Vblank) &&
                 bitTest(this.interrupts.if, InterruptId.Vblank)
@@ -202,12 +215,21 @@ export class CPU {
                 this.interrupts.clearInterrupt(InterruptId.Joypad);
                 vector = JOYPAD_VECTOR;
             }
+            this.tick(2);
+
 
             this.ime = false;
 
-            this.push(this.pc);
+            this.sp = (this.sp - 1) & 0xFFFF;
+            this.write8(this.sp, lowerPc);
+
+            // 1 M-cycle for setting PC
+            this.tick(4);
+
             this.pc = vector;
         }
+
+
 
 
         // this.gb.info(`Addr:${hexN(origPc, 4)} Opcode:${hexN(val, 2)}`);

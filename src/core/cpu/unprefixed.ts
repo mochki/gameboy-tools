@@ -73,11 +73,14 @@ export function JP_CC(cpu: CPU, opcode: number) {
             break;
     }
 
-    let target = cpu.read16PcInc();
 
     if (cond) {
+        let target = cpu.read16PcInc();
         cpu.tickPending(4);
         cpu.pc = target;
+    } else {
+        cpu.pc = (cpu.pc + 2) & 0xFFFF;
+        cpu.tickPending(8);
     }
 }
 
@@ -106,12 +109,15 @@ export function CALL_CC(cpu: CPU, opcode: number) {
             break;
     }
 
-    let target = cpu.read16PcInc();
 
     if (cond) {
+        let target = cpu.read16PcInc();
         cpu.tickPending(4);
         cpu.push(cpu.pc);
         cpu.pc = target;
+    } else {
+        cpu.pc = (cpu.pc + 2) & 0xFFFF;
+        cpu.tickPending(8);
     }
 }
 
@@ -242,10 +248,13 @@ export function JR(cpu: CPU, opcode: number) {
             break;
     }
 
-    let offset = unTwo8b(cpu.read8PcInc());
     if (cond) {
+        let offset = unTwo8b(cpu.read8PcInc());
         cpu.tickPending(4);
         cpu.pc = (cpu.pc + offset) & 0xFFFF;
+    } else {
+        cpu.pc = (cpu.pc + 1) & 0xFFFF;
+        cpu.tickPending(4);
     }
 }
 
@@ -391,14 +400,14 @@ export function DEC_R8(cpu: CPU, opcode: number): void {
 
 };
 
-export function INC_BC(cpu: CPU) { cpu.setBc((cpu.getBc() + 1) & 0xFFFF); }
-export function DEC_BC(cpu: CPU) { cpu.setBc((cpu.getBc() - 1) & 0xFFFF); }
-export function INC_DE(cpu: CPU) { cpu.setDe((cpu.getDe() + 1) & 0xFFFF); }
-export function DEC_DE(cpu: CPU) { cpu.setDe((cpu.getDe() - 1) & 0xFFFF); }
-export function INC_HL(cpu: CPU) { cpu.setHl((cpu.getHl() + 1) & 0xFFFF); }
-export function DEC_HL(cpu: CPU) { cpu.setHl((cpu.getHl() - 1) & 0xFFFF); }
-export function INC_SP(cpu: CPU) { cpu.sp = (cpu.sp + 1) & 0xFFFF; }
-export function DEC_SP(cpu: CPU) { cpu.sp = (cpu.sp - 1) & 0xFFFF; }
+export function INC_BC(cpu: CPU) { cpu.setBc((cpu.getBc() + 1) & 0xFFFF); cpu.tickPending(4); }
+export function DEC_BC(cpu: CPU) { cpu.setBc((cpu.getBc() - 1) & 0xFFFF); cpu.tickPending(4); }
+export function INC_DE(cpu: CPU) { cpu.setDe((cpu.getDe() + 1) & 0xFFFF); cpu.tickPending(4); }
+export function DEC_DE(cpu: CPU) { cpu.setDe((cpu.getDe() - 1) & 0xFFFF); cpu.tickPending(4); }
+export function INC_HL(cpu: CPU) { cpu.setHl((cpu.getHl() + 1) & 0xFFFF); cpu.tickPending(4); }
+export function DEC_HL(cpu: CPU) { cpu.setHl((cpu.getHl() - 1) & 0xFFFF); cpu.tickPending(4); }
+export function INC_SP(cpu: CPU) { cpu.sp = (cpu.sp + 1) & 0xFFFF; cpu.tickPending(4); }
+export function DEC_SP(cpu: CPU) { cpu.sp = (cpu.sp - 1) & 0xFFFF; cpu.tickPending(4); }
 
 
 // #region Accumulator Arithmetic
@@ -697,7 +706,7 @@ export function HALT(cpu: CPU, opcode: number): void {
             cpu.gb.haltSkip();
         } else {
             cpu.haltBug = true;
-        }  
+        }
     }
 };
 
@@ -741,7 +750,7 @@ export function RET_CC(cpu: CPU, opcode: number) {
     }
 
     cpu.tickPending(4);
-    
+
     if (cond) {
         cpu.pc = cpu.pop();
         cpu.tickPending(4);

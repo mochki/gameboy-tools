@@ -205,7 +205,7 @@ function _loop(time: number): void {
         if (frameStep) {
             let startMs = performance.now();
 
-            let i = mgr.gb.frame();
+            let i = mgr.gb.halfFrame();
 
             let endMs = performance.now();
 
@@ -422,9 +422,9 @@ function DrawRoms() {
                 if (ImGui.Button('Load##' + i)) {
                     LoadRomFromURL(`../roms/${romsList[i]}`, false);
                 }
+                ImGui.SameLine(); ImGui.Text(romsList[i]);
             }
 
-            ImGui.SameLine(); ImGui.Text(romsList[i]);
         }
 
         if (romLoaded) {

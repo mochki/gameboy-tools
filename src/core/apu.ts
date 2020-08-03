@@ -494,13 +494,21 @@ export class APU {
             case 0xFF1A: case 0xFF1B: case 0xFF1C: case 0xFF1D: case 0xFF1E: // NR3X
             case 0xFF1F: case 0xFF20: case 0xFF21: case 0xFF22: case 0xFF23: // NR4X
             case 0xFF24: case 0xFF25: case 0xFF26: // NR5X
-                let index = addr - 0xFF10;
-                let regVal = this.registers[index];
-                let mask = regMask[index];
-                return regVal | mask;
+                {
+                    let index = addr - 0xFF10;
+                    let regVal = this.registers[index];
+                    let mask = regMask[index];
+                    return regVal | mask;
+                }
 
-            default:
-                console.log(`read ${hex(addr, 4)}`);
+            case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33: case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37: // Wave Table
+            case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B: case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F: // Wave Table
+                {
+                    let index = (addr - 0xFF30) * 2;
+                    let upper = (this.ch3.waveTable[index + 0] << 4) & 0xF;
+                    let lower = (this.ch3.waveTable[index + 1] << 0) & 0xF;
+                    return upper | lower;
+                }
         }
         return 0xFF;
     }

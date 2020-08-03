@@ -420,6 +420,7 @@ export class PPU {
 
     renderScanline() {
         let screenBase = this.ly * 160 * 3;
+        let windowPixel = this.wx - 7;
         if (this.bgWindowEnable) {
             {
                 let tilemapBase = (this.bgTilemapSelect ? 1024 : 0) + ((((this.scy + this.ly) >> 3) << 5) & 1023);
@@ -457,13 +458,12 @@ export class PPU {
                 }
             }
             if (this.windowEnable) {
-                let pixel = this.wx - 7;
-                if (this.ly >= this.wy && pixel < 160) {
+                if (this.ly >= this.wy && windowPixel < 160) {
 
                     let tilemapBase = (this.windowTilemapSelect ? 1024 : 0) + (((this.windowCurrentLine >> 3) << 5) & 1023);
                     let lineOffset = 0;
 
-                    screenBase = ((this.ly * 160) + pixel) * 3;
+                    screenBase = ((this.ly * 160) + windowPixel) * 3;
                     let tileY = this.windowCurrentLine & 7;
 
                     bgWindowLoop:
@@ -480,17 +480,17 @@ export class PPU {
                         let palette = this.bgPalette.shades[0];
                         // tp; tile pixel
                         for (let tp = 0; tp < 8; tp++) {
-                            if (pixel >= 0) {
+                            if (windowPixel >= 0) {
                                 let pixelCol = palette[data[tp]];
                                 this.screenBackBuf[screenBase + 0] = pixelCol[0];
                                 this.screenBackBuf[screenBase + 1] = pixelCol[1];
                                 this.screenBackBuf[screenBase + 2] = pixelCol[2];
-                                this.scanlineRaw[pixel] = data[tp];
+                                this.scanlineRaw[windowPixel] = data[tp];
                             }
                             screenBase += 3;
-                            pixel += 1;
+                            windowPixel += 1;
 
-                            if (pixel > 159) break bgWindowLoop;
+                            if (windowPixel > 159) break bgWindowLoop;
                         }
                     }
 

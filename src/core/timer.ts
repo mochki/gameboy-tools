@@ -17,15 +17,16 @@ export class Timer {
         this.gb = gb;
         this.scheduler = scheduler;
 
-        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 16384, this.gb.apu.advanceFrameSequencer);
-        this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel] * 2, this.incrementTima);
+        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 8192, this.gb.apu.advanceFrameSequencer);
+        this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel] * 2, this.scheduledTimaIncrement);
     }
 
     enabled = false;
     bitSel = 0;
 
     private div = 0;
-    lastDivModify = 0; // In scheduler ticks
+    lastDivResetTicks = 0; // In scheduler ticks
+    lastDivLazyResetTicks = 0;
 
     counter = 0;
     modulo = 0;
@@ -49,9 +50,12 @@ export class Timer {
         this.reloading = false;
     }.bind(this);
 
-    incrementTima = function (this: Timer, cyclesLate: number) {
-        // TODO: Implement basically all of the obscure behavior and edge cases with timer and TIMA increments.
+    scheduledTimaIncrement = function (this: Timer, cyclesLate: number) {
+        this.timaIncrement();
+        this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel] - cyclesLate, this.scheduledTimaIncrement);
+    }.bind(this);
 
+    timaIncrement() {
         if (this.enabled) {
             this.counter++;
             if (this.counter > 255) {
@@ -60,26 +64,47 @@ export class Timer {
                 this.scheduler.addEventRelative(SchedulerId.TimerReload, 4, this.interruptAndReloadTima);
             }
         }
+    }
 
-        this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel] - cyclesLate, this.incrementTima);
-    }.bind(this);
+    changeBitSel(newBitSel: number) {
+        let internal = (this.scheduler.currTicks - this.lastDivResetTicks) & 0xFFFF;
+        if (
+            newBitSel != this.bitSel &&
+            bitTest(internal, timerBits[this.bitSel]) &&
+            !bitTest(internal, timerBits[newBitSel]) &&
+            this.enabled
+        ) {
+            console.log("Unexpected timer increment from bit select change");
+            this.timaIncrement();
+        }
+        this.bitSel = newBitSel;
+    }
+
+    onDisable() {
+        let internal = (this.scheduler.currTicks - this.lastDivResetTicks) & 0xFFFF;
+        if (bitTest(internal, timerBits[this.bitSel])) {
+            console.log("Unexpected timer increment from disable");
+            this.timaIncrement();
+        }
+    }
 
     resetDiv() {
         this.div = 0;
-        this.lastDivModify = this.scheduler.currTicks;
-        if (bitTest(this.div, 5)) this.gb.apu.advanceFrameSequencer();
+        this.lastDivResetTicks = this.scheduler.currTicks;
+        this.lastDivLazyResetTicks = this.scheduler.currTicks;
+        if (bitTest(this.div, 5)) this.gb.apu.advanceFrameSequencer(); // Frame sequencer clock uses falling edge detector
 
         this.scheduler.cancelEventsById(SchedulerId.TimerAPUFrameSequencer);
-        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 16384, this.gb.apu.advanceFrameSequencer);
+        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 8192, this.gb.apu.advanceFrameSequencer);
 
         this.scheduler.cancelEventsById(SchedulerId.TimerIncrement);
-        this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel], this.incrementTima);
+        this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel], this.scheduledTimaIncrement);
     }
 
     getDiv() {
-        let cyclesBehind = this.scheduler.currTicks - this.lastDivModify;
+        let cyclesBehind = this.scheduler.currTicks - this.lastDivLazyResetTicks;
         let incrementDivBy = (cyclesBehind >> 8) & 0xFF;
-        this.lastDivModify += (cyclesBehind & 0xFFFFFF00);
+        this.lastDivLazyResetTicks += (cyclesBehind & 0xFFFFFF00);
         this.div += incrementDivBy;
         this.div &= 0xFF;
         return this.div;
@@ -121,7 +146,8 @@ export class Timer {
                 if (this.reloading) this.counter = val;
                 break;
             case 0xFF07: // TAC
-                this.bitSel = val & 0b11;
+                this.changeBitSel(val & 0b11);
+                if (this.enabled && !bitTest(val, 2)) this.onDisable();
                 this.enabled = bitTest(val, 2);
                 break;
         }

@@ -120,6 +120,16 @@ export class GameBoy {
         return i;
     }
 
+    public halfFrame(): number {
+        let i = 0;
+        let cpu = this.cpu;
+        while (i < 35112) {
+            i += cpu.execute();
+        }
+        return i;
+    }
+
+
     public tick(ticks: number): void {
         this.scheduler.currTicks += ticks;
         while (
@@ -148,5 +158,6 @@ export class GameBoy {
             }
         }
         alert(`Processed ${terminateAt} events and couldn't exit HALT! Assuming crashed.`);
+        this.errored = true;
     }
 }
