@@ -23,6 +23,7 @@ async function LoadArrayBuffer(url: string): Promise<ArrayBuffer> {
 }
 
 let romsList: string[] = [];
+let romsListLoadFailed = false;
 
 let mgr = new GameBoyManager();
 (window as any).mgr = mgr;
@@ -37,6 +38,7 @@ export default async function main(): Promise<void> {
     let client = new XMLHttpRequest();
     client.open("GET", romsDescUrl);
     client.onreadystatechange = () => {
+        if (client.status == 404) romsListLoadFailed = true;
         romsList = client.responseText.split('\n');
     };
     client.send();
@@ -410,6 +412,8 @@ function LoadRomFromURL(url: string, bootrom: boolean) {
 
 let romLoaded = false;
 function DrawRoms() {
+    if (romsListLoadFailed) return;
+    
     if (ImGui.Begin("ROMs")) {
 
         for (let i = 0; i < romsList.length; i++) {
