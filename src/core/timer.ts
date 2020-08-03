@@ -30,10 +30,23 @@ export class Timer {
     counter = 0;
     modulo = 0;
 
-    interruptAndReloadTima = function (this: Timer, cyclesLate: number) {
-        this.counter = this.modulo;
-        this.gb.interrupts.flagInterrupt(InterruptId.Timer);
+    reloadPending = false;
+    reloading = false;
+    reloadCancel = false;
 
+    interruptAndReloadTima = function (this: Timer, cyclesLate: number) {
+        this.reloadPending = false;
+        if (!this.reloadCancel) {
+            this.counter = this.modulo;
+            this.gb.interrupts.flagInterrupt(InterruptId.Timer);
+            this.reloadCancel = false;
+        }
+        this.reloading = true;
+        this.scheduler.addEventRelative(SchedulerId.TimerReload, 4, this.finishReloading);
+    }.bind(this);
+
+    finishReloading = function (this: Timer, cyclesLate: number) {
+        this.reloading = false;
     }.bind(this);
 
     incrementTima = function (this: Timer, cyclesLate: number) {
@@ -43,6 +56,7 @@ export class Timer {
             this.counter++;
             if (this.counter > 255) {
                 this.counter = 0;
+                this.reloadPending = true;
                 this.scheduler.addEventRelative(SchedulerId.TimerReload, 4, this.interruptAndReloadTima);
             }
         }
@@ -59,7 +73,7 @@ export class Timer {
         this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 16384, this.gb.apu.advanceFrameSequencer);
 
         this.scheduler.cancelEventsById(SchedulerId.TimerIncrement);
-        this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel] * 2, this.incrementTima);
+        this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel], this.incrementTima);
     }
 
     getDiv() {
@@ -95,10 +109,16 @@ export class Timer {
                 this.resetDiv();
                 break;
             case 0xFF05: // TIMA
-                this.counter = val;
+                if (!this.reloading) {
+                    this.counter = val;
+                } else {
+                    this.counter = this.modulo;
+                }
+                if (this.reloadPending) this.reloadCancel = true;
                 break;
             case 0xFF06: // TMA
                 this.modulo = val;
+                if (this.reloading) this.counter = val;
                 break;
             case 0xFF07: // TAC
                 this.bitSel = val & 0b11;
