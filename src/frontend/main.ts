@@ -167,7 +167,7 @@ async function _init(): Promise<void> {
         let input = document.createElement("input");
         input.type = "file";
         input.accept = ".gb,.gbc";
-        input.addEventListener("change", () => {
+        input.addEventListener("input", () => {
             if (input.files && input.files.length > 0) {
                 let file = input.files[0];
                 let reader = new FileReader();
