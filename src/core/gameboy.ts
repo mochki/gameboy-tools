@@ -111,6 +111,15 @@ export class GameBoy {
         this.infoText = [];
     }
 
+    public frame(): number {
+        let i = 0;
+        let cpu = this.cpu;
+        while (i < 70224) {
+            i += cpu.execute();
+        }
+        return i;
+    }
+
     public tick(ticks: number): void {
         this.scheduler.currTicks += ticks;
         while (

@@ -196,11 +196,7 @@ function _loop(time: number): void {
         if (frameStep) {
             let startMs = performance.now();
 
-            let i = 0;
-            let cpu = mgr.gb.cpu;
-            while (i < 70224) {
-                i += cpu.execute();
-            }
+            let i = mgr.gb.frame();
 
             let endMs = performance.now();
 

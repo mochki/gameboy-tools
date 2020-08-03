@@ -43,9 +43,9 @@ export class CPU {
         this.bus.write8(addr, val);
     }
 
-    tick(cycles: number) {
+    tickPending(cycles: number) {
         this.cycles += cycles;
-        this.gb.tick(cycles);
+        this.cyclesPending += cycles;
     }
 
     ime = false;
@@ -136,6 +136,7 @@ export class CPU {
     }
 
     cycles = 0;
+    cyclesPending = 0;
 
     execute(): number {
         // boundsCheck16(this.pc);
@@ -149,6 +150,23 @@ export class CPU {
 
         // this.gb.resetInfo();
         // if (this.pc == 0xC000) this.gb.error("sadfdfsd");
+
+        // let origPc = this.pc;
+        this.cycles = 0;
+        let val = this.read8PcInc();
+
+        if (val != 0xCB) {
+            t[val](this, val);
+        } else {
+            // this.gb.info(`Prefix: ${hexN(val, 2)}`);
+            val = this.read8PcInc();
+            CB_PREFIX_TABLE[val](this, val);
+        }
+
+        if (this.cyclesPending > 0) {
+            this.gb.tick(this.cyclesPending);
+            this.cyclesPending = 0;
+        }
 
         if (this.ime && (this.interrupts.if & this.interrupts.ie & 0x1F) != 0) {
             let vector = 0;
@@ -191,17 +209,6 @@ export class CPU {
             this.pc = vector;
         }
 
-        // let origPc = this.pc;
-        this.cycles = 0;
-        let val = this.read8PcInc();
-
-        if (val != 0xCB) {
-            t[val](this, val);
-        } else {
-            // this.gb.info(`Prefix: ${hexN(val, 2)}`);
-            val = this.read8PcInc();
-            CB_PREFIX_TABLE[val](this, val);
-        }
 
         // this.gb.info(`Addr:${hexN(origPc, 4)} Opcode:${hexN(val, 2)}`);
 
@@ -308,7 +315,7 @@ export class CPU {
         return (upper << 8) | lower;
     }
 
-    enableInterrupts = function(this: CPU) {
+    enableInterrupts = function (this: CPU) {
         this.ime = true;
     }.bind(this);
 }

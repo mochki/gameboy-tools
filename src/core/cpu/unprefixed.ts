@@ -52,7 +52,7 @@ export function JP(cpu: CPU, opcode: number): void {
     const u16 = cpu.read16PcInc();
     cpu.pc = u16;
 
-    cpu.tick(4); // Branching takes 4 cycles
+    cpu.tickPending(4); // Branching takes 4 cycles
 };
 
 export function JP_CC(cpu: CPU, opcode: number) {
@@ -76,14 +76,14 @@ export function JP_CC(cpu: CPU, opcode: number) {
     let target = cpu.read16PcInc();
 
     if (cond) {
-        cpu.tick(4);
+        cpu.tickPending(4);
         cpu.pc = target;
     }
 }
 
 export function CALL(cpu: CPU, opcode: number) {
     let target = cpu.read16PcInc();
-    cpu.tick(4);
+    cpu.tickPending(4);
     cpu.push(cpu.pc);
     cpu.pc = target;
 }
@@ -109,7 +109,7 @@ export function CALL_CC(cpu: CPU, opcode: number) {
     let target = cpu.read16PcInc();
 
     if (cond) {
-        cpu.tick(4);
+        cpu.tickPending(4);
         cpu.push(cpu.pc);
         cpu.pc = target;
     }
@@ -149,7 +149,7 @@ export function LD_HL_SPplusE8(cpu: CPU, opcode: number): void {
     cpu.setHl((unTwo8b(imm) + cpu.sp) & 0xFFFF);
 
     // Register read timing
-    cpu.tick(4);
+    cpu.tickPending(4);
 };
 
 export function ADD_SP_E8(cpu: CPU, opcode: number): void {
@@ -165,7 +165,7 @@ export function ADD_SP_E8(cpu: CPU, opcode: number): void {
     cpu.sp = (cpu.sp + value) & 0xFFFF;
 
     // Extra time
-    cpu.tick(8);
+    cpu.tickPending(8);
 
 };
 
@@ -244,7 +244,7 @@ export function JR(cpu: CPU, opcode: number) {
 
     let offset = unTwo8b(cpu.read8PcInc());
     if (cond) {
-        cpu.tick(4);
+        cpu.tickPending(4);
         cpu.pc = (cpu.pc + offset) & 0xFFFF;
     }
 }
@@ -325,7 +325,7 @@ export function LD_R8_U8(cpu: CPU, opcode: number): void {
 export function LD_SP_HL(cpu: CPU, opcode: number): void {
     cpu.sp = cpu.getHl();
     // Register read timing
-    cpu.tick(4);
+    cpu.tickPending(4);
 
 };
 
@@ -336,19 +336,19 @@ export function LD_R8_R8(cpu: CPU, opcode: number): void {
 };
 
 export function PUSH_BC(cpu: CPU) {
-    cpu.tick(4);
+    cpu.tickPending(4);
     cpu.push(cpu.getBc());
 }
 export function PUSH_DE(cpu: CPU) {
-    cpu.tick(4);
+    cpu.tickPending(4);
     cpu.push(cpu.getDe());
 }
 export function PUSH_HL(cpu: CPU) {
-    cpu.tick(4);
+    cpu.tickPending(4);
     cpu.push(cpu.getHl());
 }
 export function PUSH_AF(cpu: CPU) {
-    cpu.tick(4);
+    cpu.tickPending(4);
     cpu.push(cpu.getAf());
 }
 
@@ -546,7 +546,7 @@ export function CPL(cpu: CPU, opcode: number): void {
 
 export function RETI(cpu: CPU, opcode: number): void {
     cpu.pc = cpu.pop();
-    cpu.tick(4); // Branching takes 4 cycles
+    cpu.tickPending(4); // Branching takes 4 cycles
     cpu.ime = true;
 };
 
@@ -718,7 +718,7 @@ export function CCF(cpu: CPU, opcode: number): void {  // CCF
 export function RET(cpu: CPU, opcode: number): void {
     cpu.pc = cpu.pop();
 
-    cpu.tick(4); // Branching takes 4 cycles
+    cpu.tickPending(4); // Branching takes 4 cycles
 
 };
 
@@ -740,11 +740,11 @@ export function RET_CC(cpu: CPU, opcode: number) {
             break;
     }
 
-    cpu.tick(4);
+    cpu.tickPending(4);
     
     if (cond) {
         cpu.pc = cpu.pop();
-        cpu.tick(4);
+        cpu.tickPending(4);
     }
 }
 
@@ -753,7 +753,7 @@ export function RET_CC(cpu: CPU, opcode: number) {
 export function RST(cpu: CPU, opcode: number): void {
     const target = opcode & 0b111000;
 
-    cpu.tick(4);
+    cpu.tickPending(4);
     cpu.push(cpu.pc);
     cpu.pc = target;
 
@@ -768,7 +768,7 @@ export function ADD_HL_BC(cpu: CPU) {
     cpu.halfCarry = (hlVal & 0xFFF) + (r16Val & 0xFFF) > 0xFFF;
     cpu.carry = newVal > 0xFFFF;
 
-    cpu.tick(4);
+    cpu.tickPending(4);
 }
 export function ADD_HL_DE(cpu: CPU) {
     let r16Val = cpu.getDe();
@@ -779,7 +779,7 @@ export function ADD_HL_DE(cpu: CPU) {
     cpu.halfCarry = (hlVal & 0xFFF) + (r16Val & 0xFFF) > 0xFFF;
     cpu.carry = newVal > 0xFFFF;
 
-    cpu.tick(4);
+    cpu.tickPending(4);
 }
 export function ADD_HL_HL(cpu: CPU) {
     let r16Val = cpu.getHl();
@@ -790,7 +790,7 @@ export function ADD_HL_HL(cpu: CPU) {
     cpu.halfCarry = (hlVal & 0xFFF) + (r16Val & 0xFFF) > 0xFFF;
     cpu.carry = newVal > 0xFFFF;
 
-    cpu.tick(4);
+    cpu.tickPending(4);
 }
 export function ADD_HL_SP(cpu: CPU) {
     let r16Val = cpu.sp;
@@ -801,5 +801,5 @@ export function ADD_HL_SP(cpu: CPU) {
     cpu.halfCarry = (hlVal & 0xFFF) + (r16Val & 0xFFF) > 0xFFF;
     cpu.carry = newVal > 0xFFFF;
 
-    cpu.tick(4);
+    cpu.tickPending(4);
 }
