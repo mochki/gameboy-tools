@@ -304,21 +304,19 @@ function DrawDebug() {
             ImGui.Text(`Halted Cycles: \n${mgr.gb.haltSkippedCycles}`);
 
             ImGuiColumnSeparator();
-
+            
             let hostCpuRatio = 0;
             for (let i = 0; i < 16; i++) {
                 hostCpuRatio += hostCpuRatioSamples[i];
             }
             hostCpuRatio /= 16;
             ImGui.Text(`Host CPU:`);
-
             let pos: ImVec2 = ImGui.GetCursorScreenPos();
             let width: number = ImGui.GetColumnWidth();
             ImGui.GetWindowDrawList().AddRectFilled(new ImVec2(pos.x, pos.y), new ImVec2(pos.x + ((width - 24) * hostCpuRatio), pos.y + 8), ImGui.GetColorU32(ImGuiCol.PlotHistogram));
             ImGui.GetWindowDrawList().AddRect(new ImVec2(pos.x, pos.y), new ImVec2(pos.x + width - 24, pos.y + 8), ImGui.GetColorU32(ImGuiCol.Border));
-
             ImGui.Dummy(new ImVec2(0, 8));
-
+            
             ImGui.Checkbox("Frame Step", (v = frameStep) => frameStep = v);
             if (ImGui.Button("Unerror")) {
                 mgr.gb.errored = false;
@@ -327,6 +325,7 @@ function DrawDebug() {
                 mgr.gb.cpu.execute();
             }
 
+            ImGui.Checkbox("Skip Boot ROM", (v = mgr.skipBootrom) => mgr.skipBootrom = v);
 
             ImGui.NextColumn();
 

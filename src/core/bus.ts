@@ -277,7 +277,7 @@ export class Bus {
                     case 0xFF50: // Bootrom Disable
                         if (bitTest(val, 0) && this.bootromEnabled) {
                             this.unmapBootrom();
-                        };
+                        }
                         return;
 
                     case 0xFF0F: // IF
