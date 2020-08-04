@@ -1,4 +1,4 @@
-import { bitTest, bitSet, BIT_6 } from "./util/bits";
+import { bitTest, bitSet, BIT_6, BIT_7 } from "./util/bits";
 import { GameBoy } from "./gameboy";
 import { SchedulerId, Scheduler } from "./scheduler";
 import { AudioPlayer } from "./audioplayer";
@@ -423,8 +423,8 @@ export class APU {
         lfsr >>= 1;
         lfsr |= (xored << 14);
         if (this.ch4.sevenBit) {
-            lfsr &= ~BIT_6;
-            lfsr |= (xored << 5);
+            lfsr &= ~(1 << 7);
+            lfsr |= (xored << 6);
         }
         this.ch4.lfsr = lfsr;
 

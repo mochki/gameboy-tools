@@ -4,7 +4,6 @@ import { GameBoy } from "../gameboy";
 import { bitTest as bitTest, bitSet, bitSetValue, bitReset } from "../util/bits";
 import { hexN, hex } from "../util/misc";
 import { BIT, RES, SET, RLC, RRC, RL, RR, SLA, SRA, SWAP, JP_HL, SRL } from "./cb_prefix";
-import { Interrupts } from "../interrupts";
 import { LD_R8_R8, LD_BC_U16, LD_DE_U16, LD_HL_U16, LD_SP_U16, LD_A_iU16, LD_iU16_A, LD_iU16_SP, JP, JP_CC, CALL, CALL_CC, LD_A_iFF00plusU8, LD_iFF00plusU8_A, LD_iHL_U8, LD_HL_SPplusE8, ADD_SP_E8, AND_A_U8, OR_A_U8, XOR_A_U8, CP_A_U8, JR, ADD_A_U8, ADC_A_U8, SUB_A_U8, SBC_A_U8, LD_R8_U8, LD_SP_HL, PUSH_BC, PUSH_DE, PUSH_HL, PUSH_AF, POP_BC, POP_DE, POP_HL, POP_AF, INC_R8, DEC_R8, INC_BC, INC_DE, INC_HL, INC_SP, DEC_BC, DEC_DE, DEC_HL, DEC_SP, ADD_A_R8, ADC_A_R8, SUB_A_R8, SBC_A_R8, AND_A_R8, XOR_A_R8, OR_A_R8, CP_A_R8, CPL, RETI, DAA, NOP, LD_iBC_A, LD_iDE_A, LD_iHLinc_A, LD_iHLdec_A, LD_A_iBC, LD_A_iDE, LD_A_iHLinc, LD_A_iHLdec, LD_A_iFF00plusC, LD_iFF00plusC_A, DI, EI, RLCA, RRCA, RRA, RLA, HALT, SCF, CCF, RET, RET_CC, RST, ADD_HL_BC, ADD_HL_DE, ADD_HL_HL, ADD_HL_SP } from "./unprefixed";
 
 // function boundsCheck8(i: number): void {
@@ -24,12 +23,10 @@ const JOYPAD_VECTOR = 0x60;
 export class CPU {
     gb: GameBoy;
     bus: Bus;
-    interrupts: Interrupts;
 
-    constructor(gb: GameBoy, bus: Bus, interrupts: Interrupts) {
+    constructor(gb: GameBoy, bus: Bus) {
         this.gb = gb;
         this.bus = bus;
-        this.interrupts = interrupts;
     }
 
     read8(addr: number): number {
@@ -54,9 +51,6 @@ export class CPU {
     }
 
     ime = false;
-
-    haltAttempts = 0;
-    haltBug = true;
 
     zero = false;
     negative = false;
@@ -174,67 +168,88 @@ export class CPU {
         }
 
         if (this.ime && (this.if & this.ie & 0x1F) != 0) {
-            let vector = 0;
-
-            this.tick(4);
-
-            let upperPc = (this.pc >> 8) & 0xFF;
-            let lowerPc = (this.pc >> 0) & 0xFF;
-            this.sp = (this.sp - 1) & 0xFFFF;
-            this.write8(this.sp, upperPc);
-
-            this.tick(2);
-            if (
-                bitTest(this.ie, InterruptId.Vblank) &&
-                bitTest(this.if, InterruptId.Vblank)
-            ) {
-                this.clearInterrupt(InterruptId.Vblank);
-                vector = VBLANK_VECTOR;
-            } else if (
-                bitTest(this.ie, InterruptId.Stat) &&
-                bitTest(this.if, InterruptId.Stat)
-            ) {
-                this.clearInterrupt(InterruptId.Stat);
-                vector = STAT_VECTOR;
-            } else if (
-                bitTest(this.ie, InterruptId.Timer) &&
-                bitTest(this.if, InterruptId.Timer)
-            ) {
-                this.clearInterrupt(InterruptId.Timer);
-                vector = TIMER_VECTOR;
-            } else if (
-                bitTest(this.ie, InterruptId.Serial) &&
-                bitTest(this.if, InterruptId.Serial)
-            ) {
-                this.clearInterrupt(InterruptId.Serial);
-                vector = SERIAL_VECTOR;
-            } else if (
-                bitTest(this.ie, InterruptId.Joypad) &&
-                bitTest(this.if, InterruptId.Joypad)
-            ) {
-                this.clearInterrupt(InterruptId.Joypad);
-                vector = JOYPAD_VECTOR;
-            }
-            this.tick(2);
-
-
-            this.ime = false;
-
-            this.sp = (this.sp - 1) & 0xFFFF;
-            this.write8(this.sp, lowerPc);
-
-            // 1 M-cycle for setting PC
-            this.tick(4);
-
-            this.pc = vector;
+            this.dispatchInterrupt();
         }
-
-
-
 
         // this.gb.info(`Addr:${hexN(origPc, 4)} Opcode:${hexN(val, 2)}`);
 
         return this.cycles;
+    }
+
+    executeHaltBug(): void {
+        let val = this.read8(this.pc);
+
+        if (val != 0xCB) {
+            t[val](this, val);
+        } else {
+            val = this.read8PcInc();
+            CB_PREFIX_TABLE[val](this, val);
+        }
+
+        if (this.cyclesPending > 0) {
+            this.gb.tick(this.cyclesPending);
+            this.cyclesPending = 0;
+        }
+
+        if (this.ime && (this.if & this.ie & 0x1F) != 0) {
+            this.dispatchInterrupt();
+        }
+    }
+
+    dispatchInterrupt() {
+        let vector = 0;
+
+        this.tick(4);
+
+        let upperPc = (this.pc >> 8) & 0xFF;
+        let lowerPc = (this.pc >> 0) & 0xFF;
+        this.sp = (this.sp - 1) & 0xFFFF;
+        this.write8(this.sp, upperPc);
+
+        this.tick(2);
+        if (
+            bitTest(this.ie, InterruptId.Vblank) &&
+            bitTest(this.if, InterruptId.Vblank)
+        ) {
+            this.clearInterrupt(InterruptId.Vblank);
+            vector = VBLANK_VECTOR;
+        } else if (
+            bitTest(this.ie, InterruptId.Stat) &&
+            bitTest(this.if, InterruptId.Stat)
+        ) {
+            this.clearInterrupt(InterruptId.Stat);
+            vector = STAT_VECTOR;
+        } else if (
+            bitTest(this.ie, InterruptId.Timer) &&
+            bitTest(this.if, InterruptId.Timer)
+        ) {
+            this.clearInterrupt(InterruptId.Timer);
+            vector = TIMER_VECTOR;
+        } else if (
+            bitTest(this.ie, InterruptId.Serial) &&
+            bitTest(this.if, InterruptId.Serial)
+        ) {
+            this.clearInterrupt(InterruptId.Serial);
+            vector = SERIAL_VECTOR;
+        } else if (
+            bitTest(this.ie, InterruptId.Joypad) &&
+            bitTest(this.if, InterruptId.Joypad)
+        ) {
+            this.clearInterrupt(InterruptId.Joypad);
+            vector = JOYPAD_VECTOR;
+        }
+        this.tick(2);
+
+
+        this.ime = false;
+
+        this.sp = (this.sp - 1) & 0xFFFF;
+        this.write8(this.sp, lowerPc);
+
+        // 1 M-cycle for setting PC
+        this.tick(4);
+
+        this.pc = vector;
     }
 
     setReg(reg: number, val: number) {
@@ -339,10 +354,10 @@ export class CPU {
 
     enableInterrupts = () => {
         this.ime = true;
-    }
+    };
 
     ie = 0;
-    if = 0;
+    if = 0b11100000;
 
     flagInterrupt(id: InterruptId) {
         this.if = bitSet(this.if, id);
@@ -364,7 +379,7 @@ export class CPU {
     writeHwio8(addr: number, val: number): void {
         switch (addr) {
             case 0xFF0F: // IF
-                this.if = val & 0b11111;
+                this.if = (val & 0b11111) | 0b11100000;
                 break;
             case 0xFFFF: // IE
                 this.ie = val;

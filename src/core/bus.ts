@@ -1,4 +1,3 @@
-import { Interrupts } from './interrupts';
 import { PPU } from './ppu';
 import { GameBoy } from './gameboy';
 import { hex } from './util/misc';
@@ -13,15 +12,13 @@ import { GameBoyProvider } from './provider';
 export class Bus {
     gb: GameBoy;
     ppu: PPU;
-    interrupts: Interrupts;
     joypad: Joypad;
     timer: Timer;
     apu: APU;
 
-    constructor(gb: GameBoy, ppu: PPU, interrupts: Interrupts, joypad: Joypad, timer: Timer, sound: APU, provider?: GameBoyProvider) {
+    constructor(gb: GameBoy, ppu: PPU, joypad: Joypad, timer: Timer, sound: APU, provider?: GameBoyProvider) {
         this.gb = gb;
         this.ppu = ppu;
-        this.interrupts = interrupts;
         this.joypad = joypad;
         this.timer = timer;
         this.apu = sound;

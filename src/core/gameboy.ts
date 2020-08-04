@@ -1,4 +1,3 @@
-import { Interrupts } from './interrupts';
 import { Scheduler, SchedulerId } from './scheduler';
 import { GameBoyProvider } from './provider';
 import { Bus } from "./bus";
@@ -12,7 +11,6 @@ export class GameBoy {
     bus: Bus;
     ppu: PPU;
     cpu: CPU;
-    interrupts: Interrupts;
     joypad: Joypad;
     timer: Timer;
     apu: APU;
@@ -23,13 +21,12 @@ export class GameBoy {
 
     constructor(provider?: GameBoyProvider) {
         this.scheduler = new Scheduler();
-        this.interrupts = new Interrupts();
         this.joypad = new Joypad();
         this.ppu = new PPU(this, this.scheduler);
         this.apu = new APU(this, this.scheduler);
         this.timer = new Timer(this, this.scheduler);
-        this.bus = new Bus(this, this.ppu, this.interrupts, this.joypad, this.timer, this.apu, provider);
-        this.cpu = new CPU(this, this.bus, this.interrupts);
+        this.bus = new Bus(this, this.ppu, this.joypad, this.timer, this.apu, provider);
+        this.cpu = new CPU(this, this.bus);
 
         this.bus.updateMapper();
         this.dmgBootrom();

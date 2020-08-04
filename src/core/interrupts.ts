@@ -7,7 +7,3 @@ export enum InterruptId {
     Serial = 3,
     Joypad = 4,
 }
-
-export class Interrupts {
-
-}

@@ -301,7 +301,6 @@ function DrawDebug() {
             ImGui.Text(`PC: ${hexN(mgr.gb.cpu.pc, 4)}`);
 
             ImGui.Checkbox("IME", v => v = mgr.gb.cpu.ime);
-            ImGui.Text(`Halt Attempts: \n${mgr.gb.cpu.haltAttempts}`);
             ImGui.Text(`Halted Cycles: \n${mgr.gb.haltSkippedCycles}`);
 
             ImGuiColumnSeparator();
@@ -339,6 +338,15 @@ function DrawDebug() {
             ImGui.NextColumn();
 
             ImGui.Checkbox("Enabled", v => v = mgr.gb.ppu.lcdDisplayEnable);
+            ImGui.Checkbox("Window Tilemap", v => v = mgr.gb.ppu.windowTilemapSelect);
+            ImGui.Checkbox("Window Enable", v => v = mgr.gb.ppu.windowEnable);
+            ImGui.Checkbox("Tile Data Select", v => v = mgr.gb.ppu.bgWindowTiledataSelect);
+            ImGui.Checkbox("BG Tilemap", v => v = mgr.gb.ppu.bgTilemapSelect);
+            ImGui.Checkbox("Sprite Size", v => v = mgr.gb.ppu.objSize);
+            ImGui.Checkbox("Sprite Enable", v => v = mgr.gb.ppu.objEnable);
+            ImGui.Checkbox("BG / Window Enable", v => v = mgr.gb.ppu.bgWindowEnable);
+
+            ImGuiColumnSeparator();
 
             ImGui.Text(`LY: ${mgr.gb.ppu.ly}`);
             ImGui.Text(`SCX: ${mgr.gb.ppu.scx}`);
