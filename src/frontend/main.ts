@@ -202,7 +202,8 @@ function _loop(time: number): void {
     // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 
     // Use this to sync to audio
-    while (mgr.gb.apu.player.sources.length < 10 && !mgr.gb.errored) {
+    let attempts = 10;
+    while (mgr.gb.apu.player.sources.length < 10 && !mgr.gb.errored && attempts > 0) {
         if (frameStep) {
             let startMs = performance.now();
 
@@ -218,6 +219,7 @@ function _loop(time: number): void {
         } else {
             break;
         }
+        attempts--;
     }
 
     if ((window as any).renderUi) {

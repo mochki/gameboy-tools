@@ -130,26 +130,26 @@ export class PPU {
         this.screenFrontBuf = temp;
     }
 
-    enterMode2 = function (this: PPU, cyclesLate: number) { // Enter OAM Scan
+    enterMode2 = (cyclesLate: number) => { // Enter OAM Scan
         this.mode = PPUMode.OamScan;
         this.checkStat();
         this.scheduler.addEventRelative(SchedulerId.PPUMode, 80 - cyclesLate, this.endMode2);
-    }.bind(this);
+    }
 
-    endMode2 = function (this: PPU, cyclesLate: number) { // OAM Scan -> Drawing
+    endMode2 = (cyclesLate: number) => { // OAM Scan -> Drawing
         this.mode = PPUMode.Drawing;
         this.checkStat();
         this.scheduler.addEventRelative(SchedulerId.PPUMode, 172 - cyclesLate, this.endMode3);
-    }.bind(this);
+    }
 
-    endMode3 = function (this: PPU, cyclesLate: number) { // Drawing -> Hblank
+    endMode3 = (cyclesLate: number) => { // Drawing -> Hblank
         this.renderScanline();
         this.mode = PPUMode.Hblank;
         this.checkStat();
         this.scheduler.addEventRelative(SchedulerId.PPUMode, 204 - cyclesLate, this.endMode0);
-    }.bind(this);
+    }
 
-    endMode0 = function (this: PPU, cyclesLate: number) { // Hblank -> Vblank / OAM Scan
+    endMode0 = (cyclesLate: number) => { // Hblank -> Vblank / OAM Scan
         this.ly++;
         this.checkStat();
 
@@ -161,16 +161,16 @@ export class PPU {
             this.swapBuffers();
             this.windowCurrentLine = 0;
         }
-    }.bind(this);
+    }
 
-    enterMode1 = function (this: PPU, cyclesLate: number) { // Enter Vblank
+    enterMode1 = (cyclesLate: number) => { // Enter Vblank
         this.mode = PPUMode.Vblank;
         this.checkStat();
         this.scheduler.addEventRelative(SchedulerId.PPUMode, 456 - cyclesLate, this.continueMode1);
         this.gb.cpu.flagInterrupt(InterruptId.Vblank);
-    }.bind(this);
+    }
 
-    continueMode1 = function (this: PPU, cyclesLate: number) { // During Vblank
+    continueMode1 = (cyclesLate: number) => { // During Vblank
         this.ly++;
         this.checkStat();
 
@@ -184,12 +184,12 @@ export class PPU {
         if (this.ly < 153) {
             this.scheduler.addEventRelative(SchedulerId.PPUMode, 456 - cyclesLate, this.continueMode1);
         }
-    }.bind(this);
+    }
 
-    line153Quirk = function (this: PPU, cyclesLate: number) {
+    line153Quirk = (cyclesLate: number) => {
         this.ly = 0;
         this.checkStat();
-    }.bind(this);
+    }
 
     onEnable() {
         this.enterMode2(0);

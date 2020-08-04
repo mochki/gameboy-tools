@@ -1,7 +1,6 @@
 import { GameBoy } from "./gameboy";
 import { SchedulerEvent, SchedulerId, Scheduler } from "./scheduler";
 import { bitTest, bitSet } from "./util/bits";
-import { TickSignal } from "tone";
 import { InterruptId } from "./interrupts";
 
 const timerBits = Uint16Array.from([9, 3, 5, 7]);
@@ -35,7 +34,7 @@ export class Timer {
     reloading = false;
     reloadCancel = false;
 
-    interruptAndReloadTima = function (this: Timer, cyclesLate: number) {
+    interruptAndReloadTima = (cyclesLate: number) => {
         this.reloadPending = false;
         if (!this.reloadCancel) {
             this.counter = this.modulo;
@@ -44,16 +43,16 @@ export class Timer {
         }
         this.reloading = true;
         this.scheduler.addEventRelative(SchedulerId.TimerReload, 4, this.finishReloading);
-    }.bind(this);
+    }
 
-    finishReloading = function (this: Timer, cyclesLate: number) {
+    finishReloading = (cyclesLate: number) => {
         this.reloading = false;
-    }.bind(this);
+    }
 
-    scheduledTimaIncrement = function (this: Timer, cyclesLate: number) {
+    scheduledTimaIncrement = (cyclesLate: number) => {
         this.timaIncrement();
         this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel] - cyclesLate, this.scheduledTimaIncrement);
-    }.bind(this);
+    }
 
     timaIncrement() {
         if (this.enabled) {
@@ -90,9 +89,17 @@ export class Timer {
 
     resetDiv() {
         this.div = 0;
+
+
+        let internal = (this.scheduler.currTicks - this.lastDivResetTicks) & 0xFFFF;
+        if (bitTest(internal, timerBits[this.bitSel]) && this.enabled) {
+            console.log("Unexpected timer increment from DIV reset");
+            this.timaIncrement();
+        }
+
         this.lastDivResetTicks = this.scheduler.currTicks;
         this.lastDivLazyResetTicks = this.scheduler.currTicks;
-        if (bitTest(this.div, 5)) this.gb.apu.advanceFrameSequencer(); // Frame sequencer clock uses falling edge detector
+        if (bitTest(this.div, 5)) this.gb.apu.advanceFrameSequencer(0); // Frame sequencer clock uses falling edge detector
 
         this.scheduler.cancelEventsById(SchedulerId.TimerAPUFrameSequencer);
         this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 8192, this.gb.apu.advanceFrameSequencer);
@@ -102,11 +109,7 @@ export class Timer {
     }
 
     getDiv() {
-        let cyclesBehind = this.scheduler.currTicks - this.lastDivLazyResetTicks;
-        let incrementDivBy = (cyclesBehind >> 8) & 0xFF;
-        this.lastDivLazyResetTicks += (cyclesBehind & 0xFFFFFF00);
-        this.div += incrementDivBy;
-        this.div &= 0xFF;
+        this.div = ((this.scheduler.currTicks - this.lastDivResetTicks) & 0xFFFF) >> 8;
         return this.div;
     }
 

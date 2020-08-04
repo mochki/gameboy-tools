@@ -38,7 +38,7 @@ export class APU {
     }
 
     frameSequencerStep = 0;
-    advanceFrameSequencer = function (this: APU) {
+    advanceFrameSequencer = (cyclesLate: number) => {
         switch (this.frameSequencerStep) {
             case 0:
             case 4:
@@ -56,8 +56,8 @@ export class APU {
         this.frameSequencerStep++;
         this.frameSequencerStep &= 7;
 
-        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 8192, this.advanceFrameSequencer);
-    }.bind(this);
+        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 8192 - cyclesLate, this.advanceFrameSequencer);
+    };
 
     clockLength() {
         if (this.ch1.useLength) {
@@ -390,32 +390,32 @@ export class APU {
         this.ch4.lfsr = 0x7FFF;
     }
 
-    advanceCh1 = function (this: APU, cyclesLate: number) {
+    advanceCh1() {
         this.ch1.pos++;
         this.ch1.pos &= 7;
 
         this.ch1.currentVal = pulseDuty[this.ch1.duty][this.ch1.pos];
 
         this.ch1.updateDac();
-    }.bind(this);
+    }
 
-    advanceCh2 = function (this: APU, cyclesLate: number) {
+    advanceCh2() {
         this.ch2.pos++;
         this.ch2.pos &= 7;
 
         this.ch2.currentVal = pulseDuty[this.ch2.duty][this.ch2.pos];
 
         this.ch2.updateDac();
-    }.bind(this);
+    }
 
-    advanceCh3 = function (this: APU, cyclesLate: number) {
+    advanceCh3() {
         this.ch3.pos++;
         this.ch3.pos &= 31;
 
         this.ch3.currentVal = this.ch3.waveTable[this.ch3.pos];
 
         this.ch3.updateDac();
-    }.bind(this);
+    }
 
     advanceCh4() {
         let lfsr = this.ch4.lfsr;
@@ -440,7 +440,7 @@ export class APU {
     sampleBufR = new Float32Array(this.sampleBufMax);
     sampleBufPos = 0;
 
-    sample = function (this: APU, cyclesLate: number) {
+    sample = (cyclesLate: number) => {
         const channelSampleRate = 65536;
         const outputSampleRate = 65536;
 
@@ -452,7 +452,7 @@ export class APU {
             if (this.ch1.frequencyPeriod != 0) {
                 while (this.ch1.frequencyTimer <= 0) {
                     this.ch1.frequencyTimer += this.ch1.frequencyPeriod;
-                    this.advanceCh1(0);
+                    this.advanceCh1();
                 }
             }
 
@@ -464,7 +464,7 @@ export class APU {
             if (this.ch2.frequencyPeriod != 0) {
                 while (this.ch2.frequencyTimer <= 0) {
                     this.ch2.frequencyTimer += this.ch2.frequencyPeriod;
-                    this.advanceCh2(0);
+                    this.advanceCh2();
                 }
             }
 
@@ -476,7 +476,7 @@ export class APU {
             if (this.ch3.frequencyPeriod != 0) {
                 while (this.ch3.frequencyTimer <= 0) {
                     this.ch3.frequencyTimer += this.ch3.frequencyPeriod;
-                    this.advanceCh3(0);
+                    this.advanceCh3();
                 }
             }
 
@@ -509,7 +509,7 @@ export class APU {
         }
 
         this.scheduler.addEventRelative(SchedulerId.APUSample, (4194304 / outputSampleRate) - cyclesLate, this.sample);
-    }.bind(this);
+    };
 
     readHwio8(addr: number): number {
         switch (addr) {

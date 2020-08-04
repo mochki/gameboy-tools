@@ -337,9 +337,9 @@ export class CPU {
         return (upper << 8) | lower;
     }
 
-    enableInterrupts = function (this: CPU) {
+    enableInterrupts = () => {
         this.ime = true;
-    }.bind(this);
+    }
 
     ie = 0;
     if = 0;
