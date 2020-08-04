@@ -39,7 +39,7 @@ export class Timer {
         this.reloadPending = false;
         if (!this.reloadCancel) {
             this.counter = this.modulo;
-            this.gb.interrupts.flagInterrupt(InterruptId.Timer);
+            this.gb.cpu.flagInterrupt(InterruptId.Timer);
             this.reloadCancel = false;
         }
         this.reloading = true;

@@ -172,14 +172,14 @@ async function _init(): Promise<void> {
                 let file = input.files[0];
                 let reader = new FileReader();
                 reader.readAsArrayBuffer(file);
-                reader.onload = function() {
+                reader.onload = function () {
                     let result = reader.result;
                     if (result instanceof ArrayBuffer) {
                         mgr.loadRom(new Uint8Array(result));
                     } else {
                         alert("Failed to read ROM! Probably a result of a lack of API support.");
                     }
-                }
+                };
             }
         });
         input.dispatchEvent(new MouseEvent("click"));
@@ -191,6 +191,7 @@ let hostCpuRatioPos = 0;
 
 const gbHz = 4194304 * 1;
 
+(window as any).renderUi = true;
 
 // Main loop
 function _loop(time: number): void {
@@ -201,7 +202,7 @@ function _loop(time: number): void {
     // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 
     // Use this to sync to audio
-    if (mgr.gb.apu.player.sources.length < 10 && !mgr.gb.errored) {
+    while (mgr.gb.apu.player.sources.length < 10 && !mgr.gb.errored) {
         if (frameStep) {
             let startMs = performance.now();
 
@@ -214,37 +215,43 @@ function _loop(time: number): void {
 
             hostCpuRatioSamples[hostCpuRatioPos] = timeRealMs / timeEmulMs;
             hostCpuRatioPos = (hostCpuRatioPos + 1) & 15;
+        } else {
+            break;
         }
     }
 
-    // Start the Dear ImGui frame
-    ImGui_Impl.NewFrame(time);
-    ImGui.NewFrame();
+    if ((window as any).renderUi) {
 
-    DrawDebug();
-    DrawRoms();
-    DrawDisplay();
-    DrawSchedulerInfo();
+        // Start the Dear ImGui frame
+        ImGui_Impl.NewFrame(time);
+        ImGui.NewFrame();
 
-    ImGui.EndFrame();
+        DrawDebug();
+        DrawRoms();
+        DrawDisplay();
+        DrawSchedulerInfo();
+        DrawSaves();
 
-    // Rendering
-    ImGui.Render();
-    const gl: WebGLRenderingContext | null = ImGui_Impl.gl;
-    if (gl) {
-        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
-        gl.clearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
-        gl.clear(gl.COLOR_BUFFER_BIT);
-        //gl.useProgram(0); // You may want this if using this code in an OpenGL 3+ context where shaders may be bound
+        ImGui.EndFrame();
+
+        // Rendering
+        ImGui.Render();
+        const gl: WebGLRenderingContext | null = ImGui_Impl.gl;
+        if (gl) {
+            gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+            gl.clearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            //gl.useProgram(0); // You may want this if using this code in an OpenGL 3+ context where shaders may be bound
+        }
+
+        const ctx: CanvasRenderingContext2D | null = ImGui_Impl.ctx;
+        if (ctx) {
+            // ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            ctx.fillStyle = `rgba(${clearColor.x * 0xff}, ${clearColor.y * 0xff}, ${clearColor.z * 0xff}, ${clearColor.w})`;
+            ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        }
+        ImGui_Impl.RenderDrawData(ImGui.GetDrawData());
     }
-
-    const ctx: CanvasRenderingContext2D | null = ImGui_Impl.ctx;
-    if (ctx) {
-        // ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        ctx.fillStyle = `rgba(${clearColor.x * 0xff}, ${clearColor.y * 0xff}, ${clearColor.z * 0xff}, ${clearColor.w})`;
-        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    }
-    ImGui_Impl.RenderDrawData(ImGui.GetDrawData());
 
     if (typeof (window) !== "undefined") {
         window.requestAnimationFrame(done ? _done : _loop);
@@ -277,84 +284,87 @@ let frameStep = false;
 
 function DrawDebug() {
     if (ImGui.Begin("Optime GB")) {
+        if (mgr.romLoaded) {
+            ImGui.Text("Welcome to a new generation of Optime GB.");
+            ImGui.Separator();
+            ImGui.Columns(4);
 
-        ImGui.Text("Welcome to a new generation of Optime GB.");
-        ImGui.Separator();
-        ImGui.Columns(4);
+            ImGui.Text(`AF: ${hexN(mgr.gb.cpu.getAf(), 4)}`);
+            ImGui.Text(`BC: ${hexN(mgr.gb.cpu.getBc(), 4)}`);
+            ImGui.Text(`DE: ${hexN(mgr.gb.cpu.getDe(), 4)}`);
+            ImGui.Text(`HL: ${hexN(mgr.gb.cpu.getHl(), 4)}`);
+            ImGui.Text("");
+            ImGui.Text(`SP: ${hexN(mgr.gb.cpu.sp, 4)}`);
+            ImGui.Text("");
+            ImGui.Text(`PC: ${hexN(mgr.gb.cpu.pc, 4)}`);
 
-        ImGui.Text(`AF: ${hexN(mgr.gb.cpu.getAf(), 4)}`);
-        ImGui.Text(`BC: ${hexN(mgr.gb.cpu.getBc(), 4)}`);
-        ImGui.Text(`DE: ${hexN(mgr.gb.cpu.getDe(), 4)}`);
-        ImGui.Text(`HL: ${hexN(mgr.gb.cpu.getHl(), 4)}`);
-        ImGui.Text("");
-        ImGui.Text(`SP: ${hexN(mgr.gb.cpu.sp, 4)}`);
-        ImGui.Text("");
-        ImGui.Text(`PC: ${hexN(mgr.gb.cpu.pc, 4)}`);
+            ImGui.Checkbox("IME", v => v = mgr.gb.cpu.ime);
+            ImGui.Text(`Halt Attempts: \n${mgr.gb.cpu.haltAttempts}`);
+            ImGui.Text(`Halted Cycles: \n${mgr.gb.haltSkippedCycles}`);
 
-        ImGui.Checkbox("IME", v => v = mgr.gb.cpu.ime);
-        ImGui.Text(`Halt Attempts: \n${mgr.gb.cpu.haltAttempts}`);
-        ImGui.Text(`Halted Cycles: \n${mgr.gb.haltSkippedCycles}`);
+            ImGuiColumnSeparator();
 
-        ImGuiColumnSeparator();
+            let hostCpuRatio = 0;
+            for (let i = 0; i < 16; i++) {
+                hostCpuRatio += hostCpuRatioSamples[i];
+            }
+            hostCpuRatio /= 16;
+            ImGui.Text(`Host CPU:`);
 
-        let hostCpuRatio = 0;
-        for (let i = 0; i < 16; i++) {
-            hostCpuRatio += hostCpuRatioSamples[i];
+            let pos: ImVec2 = ImGui.GetCursorScreenPos();
+            let width: number = ImGui.GetColumnWidth();
+            ImGui.GetWindowDrawList().AddRectFilled(new ImVec2(pos.x, pos.y), new ImVec2(pos.x + ((width - 24) * hostCpuRatio), pos.y + 8), ImGui.GetColorU32(ImGuiCol.PlotHistogram));
+            ImGui.GetWindowDrawList().AddRect(new ImVec2(pos.x, pos.y), new ImVec2(pos.x + width - 24, pos.y + 8), ImGui.GetColorU32(ImGuiCol.Border));
+
+            ImGui.Dummy(new ImVec2(0, 8));
+
+            ImGui.Checkbox("Frame Step", (v = frameStep) => frameStep = v);
+            if (ImGui.Button("Unerror")) {
+                mgr.gb.errored = false;
+            }
+            if (ImGui.Button("Step")) {
+                mgr.gb.cpu.execute();
+            }
+
+
+            ImGui.NextColumn();
+
+            ImGui.Checkbox("Zero", v => v = mgr.gb.cpu.zero);
+            ImGui.Checkbox("Negative", v => v = mgr.gb.cpu.negative);
+            ImGui.Checkbox("Half Carry", v => v = mgr.gb.cpu.halfCarry);
+            ImGui.Checkbox("Carry", v => v = mgr.gb.cpu.carry);
+
+            ImGui.NextColumn();
+
+            ImGui.Checkbox("Enabled", v => v = mgr.gb.ppu.lcdDisplayEnable);
+
+            ImGui.Text(`LY: ${mgr.gb.ppu.ly}`);
+            ImGui.Text(`SCX: ${mgr.gb.ppu.scx}`);
+            ImGui.Text(`SCY: ${mgr.gb.ppu.scy}`);
+            ImGui.Text(`WY: ${mgr.gb.ppu.wy}`);
+            ImGui.Text(`WX: ${mgr.gb.ppu.wx}`);
+
+
+            ImGui.NextColumn();
+
+            ImGui.Text(`DIV: ${mgr.gb.timer.getDiv()}`);
+            ImGui.Text(`TIMA: ${mgr.gb.timer.counter}`);
+            ImGui.Text(`TMA: ${mgr.gb.timer.modulo}`);
+
+            ImGui.Columns(1);
+
+            ImGui.Separator();
+            ImGui.Text(mgr.gb.bus.serialOut);
+            ImGui.Separator();
+
+            for (let i = 0; i < mgr.gb.infoText.length; i++) {
+                ImGui.Text(mgr.gb.infoText[mgr.gb.infoText.length - i - 1]);
+            }
+
+            ImGui.End();
+        } else {
+            ImGui.Text("No ROM loaded :(");
         }
-        hostCpuRatio /= 16;
-        ImGui.Text(`Host CPU:`);
-
-        let pos: ImVec2 = ImGui.GetCursorScreenPos();
-        let width: number = ImGui.GetColumnWidth();
-        ImGui.GetWindowDrawList().AddRectFilled(new ImVec2(pos.x, pos.y), new ImVec2(pos.x + ((width - 24) * hostCpuRatio), pos.y + 8), ImGui.GetColorU32(ImGuiCol.PlotHistogram));
-        ImGui.GetWindowDrawList().AddRect(new ImVec2(pos.x, pos.y), new ImVec2(pos.x + width - 24, pos.y + 8), ImGui.GetColorU32(ImGuiCol.Border));
-
-        ImGui.Dummy(new ImVec2(0, 8));
-
-        ImGui.Checkbox("Frame Step", (v = frameStep) => frameStep = v);
-        if (ImGui.Button("Unerror")) {
-            mgr.gb.errored = false;
-        }
-        if (ImGui.Button("Step")) {
-            mgr.gb.cpu.execute();
-        }
-
-
-        ImGui.NextColumn();
-
-        ImGui.Checkbox("Zero", v => v = mgr.gb.cpu.zero);
-        ImGui.Checkbox("Negative", v => v = mgr.gb.cpu.negative);
-        ImGui.Checkbox("Half Carry", v => v = mgr.gb.cpu.halfCarry);
-        ImGui.Checkbox("Carry", v => v = mgr.gb.cpu.carry);
-
-        ImGui.NextColumn();
-
-        ImGui.Checkbox("Enabled", v => v = mgr.gb.ppu.lcdDisplayEnable);
-
-        ImGui.Text(`LY: ${mgr.gb.ppu.ly}`);
-        ImGui.Text(`SCX: ${mgr.gb.ppu.scx}`);
-        ImGui.Text(`SCY: ${mgr.gb.ppu.scy}`);
-        ImGui.Text(`WY: ${mgr.gb.ppu.wy}`);
-        ImGui.Text(`WX: ${mgr.gb.ppu.wx}`);
-
-
-        ImGui.NextColumn();
-
-        ImGui.Text(`DIV: ${mgr.gb.timer.getDiv()}`);
-        ImGui.Text(`TIMA: ${mgr.gb.timer.counter}`);
-        ImGui.Text(`TMA: ${mgr.gb.timer.modulo}`);
-
-        ImGui.Columns(1);
-
-        ImGui.Separator();
-        ImGui.Text(mgr.gb.bus.serialOut);
-        ImGui.Separator();
-
-        for (let i = 0; i < mgr.gb.infoText.length; i++) {
-            ImGui.Text(mgr.gb.infoText[mgr.gb.infoText.length - i - 1]);
-        }
-
-        ImGui.End();
     }
 }
 
@@ -473,6 +483,12 @@ function DrawDisplay() {
         }
 
         ImGui.End();
+    }
+}
+
+function DrawSaves() {
+    if (ImGui.Begin("Saves")) {
+
     }
 }
 

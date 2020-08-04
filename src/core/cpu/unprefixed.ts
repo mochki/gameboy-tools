@@ -628,7 +628,7 @@ export function DI(cpu: CPU, opcode: number): void {  // DI - Disable interrupts
     cpu.ime = false;
 };
 export function EI(cpu: CPU, opcode: number): void {  // EI - Enable interrupts master flag
-    cpu.gb.scheduler.addEventRelative(SchedulerId.EnableInterrupts, 8, cpu.enableInterrupts);
+    cpu.gb.scheduler.addEventRelative(SchedulerId.EnableInterrupts, 4, cpu.enableInterrupts);
 };
 
 /** JP */
@@ -702,7 +702,7 @@ export function HALT(cpu: CPU, opcode: number): void {
     if (cpu.ime) {
         cpu.gb.haltSkip();
     } else {
-        if ((cpu.interrupts.ie & cpu.interrupts.if & 0x1F) == 0) {
+        if ((cpu.ie & cpu.if & 0x1F) == 0) {
             cpu.gb.haltSkip();
         } else {
             cpu.haltBug = true;

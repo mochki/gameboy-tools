@@ -1,7 +1,7 @@
 import { InterruptId } from './../interrupts';
 import { Bus } from "../bus";
 import { GameBoy } from "../gameboy";
-import { bitTest as bitTest, bitSet, bitSetValue } from "../util/bits";
+import { bitTest as bitTest, bitSet, bitSetValue, bitReset } from "../util/bits";
 import { hexN, hex } from "../util/misc";
 import { BIT, RES, SET, RLC, RRC, RL, RR, SLA, SRA, SWAP, JP_HL, SRL } from "./cb_prefix";
 import { Interrupts } from "../interrupts";
@@ -173,7 +173,7 @@ export class CPU {
             this.cyclesPending = 0;
         }
 
-        if (this.ime && (this.interrupts.if & this.interrupts.ie & 0x1F) != 0) {
+        if (this.ime && (this.if & this.ie & 0x1F) != 0) {
             let vector = 0;
 
             this.tick(4);
@@ -185,34 +185,34 @@ export class CPU {
 
             this.tick(2);
             if (
-                bitTest(this.interrupts.ie, InterruptId.Vblank) &&
-                bitTest(this.interrupts.if, InterruptId.Vblank)
+                bitTest(this.ie, InterruptId.Vblank) &&
+                bitTest(this.if, InterruptId.Vblank)
             ) {
-                this.interrupts.clearInterrupt(InterruptId.Vblank);
+                this.clearInterrupt(InterruptId.Vblank);
                 vector = VBLANK_VECTOR;
             } else if (
-                bitTest(this.interrupts.ie, InterruptId.Stat) &&
-                bitTest(this.interrupts.if, InterruptId.Stat)
+                bitTest(this.ie, InterruptId.Stat) &&
+                bitTest(this.if, InterruptId.Stat)
             ) {
-                this.interrupts.clearInterrupt(InterruptId.Stat);
+                this.clearInterrupt(InterruptId.Stat);
                 vector = STAT_VECTOR;
             } else if (
-                bitTest(this.interrupts.ie, InterruptId.Timer) &&
-                bitTest(this.interrupts.if, InterruptId.Timer)
+                bitTest(this.ie, InterruptId.Timer) &&
+                bitTest(this.if, InterruptId.Timer)
             ) {
-                this.interrupts.clearInterrupt(InterruptId.Timer);
+                this.clearInterrupt(InterruptId.Timer);
                 vector = TIMER_VECTOR;
             } else if (
-                bitTest(this.interrupts.ie, InterruptId.Serial) &&
-                bitTest(this.interrupts.if, InterruptId.Serial)
+                bitTest(this.ie, InterruptId.Serial) &&
+                bitTest(this.if, InterruptId.Serial)
             ) {
-                this.interrupts.clearInterrupt(InterruptId.Serial);
+                this.clearInterrupt(InterruptId.Serial);
                 vector = SERIAL_VECTOR;
             } else if (
-                bitTest(this.interrupts.ie, InterruptId.Joypad) &&
-                bitTest(this.interrupts.if, InterruptId.Joypad)
+                bitTest(this.ie, InterruptId.Joypad) &&
+                bitTest(this.if, InterruptId.Joypad)
             ) {
-                this.interrupts.clearInterrupt(InterruptId.Joypad);
+                this.clearInterrupt(InterruptId.Joypad);
                 vector = JOYPAD_VECTOR;
             }
             this.tick(2);
@@ -340,6 +340,37 @@ export class CPU {
     enableInterrupts = function (this: CPU) {
         this.ime = true;
     }.bind(this);
+
+    ie = 0;
+    if = 0;
+
+    flagInterrupt(id: InterruptId) {
+        this.if = bitSet(this.if, id);
+    }
+    clearInterrupt(id: InterruptId) {
+        this.if = bitReset(this.if, id);
+    }
+
+    readHwio8(addr: number): number {
+        switch (addr) {
+            case 0xFF0F: // IF
+                return this.if;
+            case 0xFFFF: // IE
+                return this.ie;
+            default:
+                return 0xFF;
+        }
+    }
+    writeHwio8(addr: number, val: number): void {
+        switch (addr) {
+            case 0xFF0F: // IF
+                this.if = val & 0b11111;
+                break;
+            case 0xFFFF: // IE
+                this.ie = val;
+                break;
+        }
+    }
 }
 
 type Instruction = (cpu: CPU, opcode: number) => void;

@@ -9,6 +9,7 @@ import { APU } from './apu';
 import { MBC } from './mbc/mbc';
 import NullMBC from './mbc/nullmbc';
 import MBC3 from './mbc/mbc3';
+import { GameBoyProvider } from './provider';
 export class Bus {
     gb: GameBoy;
     ppu: PPU;
@@ -17,13 +18,31 @@ export class Bus {
     timer: Timer;
     apu: APU;
 
-    constructor(gb: GameBoy, ppu: PPU, interrupts: Interrupts, joypad: Joypad, timer: Timer, sound: APU) {
+    constructor(gb: GameBoy, ppu: PPU, interrupts: Interrupts, joypad: Joypad, timer: Timer, sound: APU, provider?: GameBoyProvider) {
         this.gb = gb;
         this.ppu = ppu;
         this.interrupts = interrupts;
         this.joypad = joypad;
         this.timer = timer;
         this.apu = sound;
+
+        if (provider) {
+            for (let i = 0; i < provider.rom.length; i++) {
+                if (i < this.rom.length) {
+                    this.rom[i] = provider.rom[i];
+                }
+            }
+            for (let i = 0; i < provider.bootrom.length; i++) {
+                if (i < this.bootrom.length) {
+                    this.bootrom[i] = provider.bootrom[i];
+                }
+            }
+        }
+
+        for (let i = 0; i < 0x100; i++) {
+            this.romBootromOverlay[i] = this.rom[i];;
+            this.rom[i] = this.bootrom[i];
+        }
     }
 
     mbc: MBC = new NullMBC();
@@ -57,11 +76,12 @@ export class Bus {
         }
 
         this.romOffset = this.mbc.getOffset();
-
     }
 
     bootrom = new Uint8Array(0x100);
     bootromEnabled = true;
+
+    romBootromOverlay = new Uint8Array(0x100);
 
     rom = new Uint8Array(8388608);
     romOffset = 0;
@@ -82,14 +102,16 @@ export class Bus {
 
     serialOut = "";
 
+    unmapBootrom() {
+        this.bootromEnabled = false;
+        for (let i = 0; i < 0x100; i++) {
+            this.rom[i] = this.romBootromOverlay[i];
+        }
+    }
+
     read8(addr: number): number {
         switch (addr >> 12) {
             case 0x0: // ROM0 - 0###
-                if (this.bootromEnabled && addr < 0x100) {
-                    return this.bootrom[addr];
-                } else {
-                    return this.rom[addr];
-                }
             case 0x1: // ROM0 - 1###
             case 0x2: // ROM0 - 2###
             case 0x3: // ROM0 - 3###
@@ -158,7 +180,7 @@ export class Bus {
 
                     case 0xFF0F: // IF
                     case 0xFFFF: // IE
-                        return this.interrupts.readHwio8(addr);
+                        return this.gb.cpu.readHwio8(addr);
                 }
                 if (addr >= 0xFF80 && addr <= 0xFFFE) { // HRAM
                     return this.hram[addr - 0xFF80];
@@ -256,12 +278,14 @@ export class Bus {
                         return;
 
                     case 0xFF50: // Bootrom Disable
-                        if (bitTest(val, 0)) this.bootromEnabled = false;
+                        if (bitTest(val, 0) && this.bootromEnabled) {
+                            this.unmapBootrom();
+                        };
                         return;
 
                     case 0xFF0F: // IF
                     case 0xFFFF: // IE
-                        this.interrupts.writeHwio8(addr, val);
+                        this.gb.cpu.writeHwio8(addr, val);
                         return;
                 }
 

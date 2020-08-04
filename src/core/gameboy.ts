@@ -28,29 +28,15 @@ export class GameBoy {
         this.ppu = new PPU(this, this.scheduler);
         this.apu = new APU(this, this.scheduler);
         this.timer = new Timer(this, this.scheduler);
-        this.bus = new Bus(this, this.ppu, this.interrupts, this.joypad, this.timer, this.apu);
+        this.bus = new Bus(this, this.ppu, this.interrupts, this.joypad, this.timer, this.apu, provider);
         this.cpu = new CPU(this, this.bus, this.interrupts);
 
-        if (provider) {
-            for (let i = 0; i < provider.rom.length; i++) {
-                if (i < this.bus.rom.length) {
-                    this.bus.rom[i] = provider.rom[i];
-                }
-            }
-            for (let i = 0; i < provider.bootrom.length; i++) {
-                if (i < this.bus.bootrom.length) {
-                    this.bus.bootrom[i] = provider.bootrom[i];
-                }
-            }
-            this.provider = provider;
-        }
         this.bus.updateMapper();
         this.dmgBootrom();
     }
 
     dmgBootrom() {
         this.cpu.pc = 0x100;
-        this.bus.bootromEnabled = false;
 
         this.cpu.setAf(0x01B0);
         this.cpu.setBc(0x0013);
@@ -90,6 +76,7 @@ export class GameBoy {
         this.bus.write8(0xFF4A, 0x00);
         this.bus.write8(0xFF4B, 0x00);
         this.bus.write8(0xFFFF, 0x00);
+        this.bus.write8(0xFF50, 0x01);
     }
 
     cgb = false;
@@ -153,7 +140,7 @@ export class GameBoy {
             this.cpu.cycles += ticksPassed;
             this.haltSkippedCycles += ticksPassed;
 
-            if ((this.interrupts.ie & this.interrupts.if & 0x1F) != 0) {
+            if ((this.cpu.ie & this.cpu.if & 0x1F) != 0) {
                 return;
             }
         }

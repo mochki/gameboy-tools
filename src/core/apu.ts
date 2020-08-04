@@ -34,10 +34,6 @@ export class APU {
         this.gb = gb;
         this.scheduler = scheduler;
 
-        this.scheduler.addEventRelative(SchedulerId.APUChannel1, 16, this.advanceCh1);
-        this.scheduler.addEventRelative(SchedulerId.APUChannel2, 16, this.advanceCh2);
-        this.scheduler.addEventRelative(SchedulerId.APUChannel3, 16, this.advanceCh3);
-
         this.sample(0);
     }
 
@@ -183,6 +179,8 @@ export class APU {
         currentVal: 0,
         dacOut: 0,
 
+        frequencyTimer: 0,
+
         envelopeTimer: 0,
         volume: 0,
 
@@ -229,6 +227,8 @@ export class APU {
         currentVal: 0,
         dacOut: 0,
 
+        frequencyTimer: 0,
+
         envelopeTimer: 0,
         volume: 0,
 
@@ -265,6 +265,8 @@ export class APU {
         pos: 0,
         currentVal: 0,
         dacOut: 0,
+
+        frequencyTimer: 0,
 
         envelopeTimer: 0,
         volume: 0,
@@ -353,6 +355,9 @@ export class APU {
     rightEnable3 = false;
     rightEnable4 = false;
 
+    leftVolMul = 0;
+    rightVolMul = 0;
+
     triggerCh1() {
         this.ch1.pos = 0;
         this.ch1.enabled = true;
@@ -363,9 +368,6 @@ export class APU {
         this.ch1.sweepTimer = this.ch1.sweepPeriod;
 
         this.ch1.sweepEnable = this.ch1.sweepPeriod + this.ch1.sweepShift != 0;
-
-        this.scheduler.cancelEventsById(SchedulerId.APUChannel1);
-        this.scheduler.addEventRelative(SchedulerId.APUChannel1, this.ch1.frequencyPeriod, this.advanceCh1);
     }
 
     triggerCh2() {
@@ -373,18 +375,12 @@ export class APU {
         this.ch2.enabled = true;
         this.ch2.volume = this.ch2.envelopeInitial;
         this.ch2.lengthTimer = 64 - this.ch2.length;
-
-        this.scheduler.cancelEventsById(SchedulerId.APUChannel2);
-        this.scheduler.addEventRelative(SchedulerId.APUChannel2, this.ch2.frequencyPeriod, this.advanceCh2);
     }
 
     triggerCh3() {
         this.ch3.pos = 0;
         if (this.ch3.dacEnabled) this.ch3.enabled = true;
         this.ch3.lengthTimer = 256 - this.ch3.length;
-
-        this.scheduler.cancelEventsById(SchedulerId.APUChannel3);
-        this.scheduler.addEventRelative(SchedulerId.APUChannel3, this.ch3.frequencyPeriod, this.advanceCh3);
     }
 
     triggerCh4() {
@@ -401,7 +397,6 @@ export class APU {
         this.ch1.currentVal = pulseDuty[this.ch1.duty][this.ch1.pos];
 
         this.ch1.updateDac();
-        this.scheduler.addEventRelative(SchedulerId.APUChannel1, this.ch1.frequencyPeriod - cyclesLate, this.advanceCh1);
     }.bind(this);
 
     advanceCh2 = function (this: APU, cyclesLate: number) {
@@ -411,7 +406,6 @@ export class APU {
         this.ch2.currentVal = pulseDuty[this.ch2.duty][this.ch2.pos];
 
         this.ch2.updateDac();
-        this.scheduler.addEventRelative(SchedulerId.APUChannel2, this.ch2.frequencyPeriod - cyclesLate, this.advanceCh2);
     }.bind(this);
 
     advanceCh3 = function (this: APU, cyclesLate: number) {
@@ -421,7 +415,6 @@ export class APU {
         this.ch3.currentVal = this.ch3.waveTable[this.ch3.pos];
 
         this.ch3.updateDac();
-        this.scheduler.addEventRelative(SchedulerId.APUChannel3, this.ch3.frequencyPeriod - cyclesLate, this.advanceCh3);
     }.bind(this);
 
     advanceCh4() {
@@ -448,43 +441,74 @@ export class APU {
     sampleBufPos = 0;
 
     sample = function (this: APU, cyclesLate: number) {
+        const channelSampleRate = 65536;
+        const outputSampleRate = 65536;
 
         let finalLeft = 0;
         let finalRight = 0;
 
         if (this.ch1.enabled) {
+            this.ch1.frequencyTimer -= 4194304 / channelSampleRate;
+            if (this.ch1.frequencyPeriod != 0) {
+                while (this.ch1.frequencyTimer <= 0) {
+                    this.ch1.frequencyTimer += this.ch1.frequencyPeriod;
+                    this.advanceCh1(0);
+                }
+            }
+
             if (this.leftEnable1) finalLeft += this.ch1.dacOut;
             if (this.rightEnable1) finalRight += this.ch1.dacOut;
         }
         if (this.ch2.enabled) {
+            this.ch2.frequencyTimer -= 4194304 / channelSampleRate;
+            if (this.ch2.frequencyPeriod != 0) {
+                while (this.ch2.frequencyTimer <= 0) {
+                    this.ch2.frequencyTimer += this.ch2.frequencyPeriod;
+                    this.advanceCh2(0);
+                }
+            }
+
             if (this.leftEnable2) finalLeft += this.ch2.dacOut;
             if (this.rightEnable2) finalRight += this.ch2.dacOut;
         }
         if (this.ch3.enabled) {
+            this.ch3.frequencyTimer -= 4194304 / channelSampleRate;
+            if (this.ch3.frequencyPeriod != 0) {
+                while (this.ch3.frequencyTimer <= 0) {
+                    this.ch3.frequencyTimer += this.ch3.frequencyPeriod;
+                    this.advanceCh3(0);
+                }
+            }
+
             if (this.leftEnable3) finalLeft += this.ch3.dacOut;
             if (this.rightEnable3) finalRight += this.ch3.dacOut;
         }
         if (this.ch4.enabled) {
             // Channel 4 can be advanced far too often to be efficient for the scheduler
-            this.ch4.frequencyTimer -= 4194304 / 65536;
-            while (this.ch4.frequencyTimer <= 0 && this.ch4.frequencyPeriod != 0) {
-                this.ch4.frequencyTimer += this.ch4.frequencyPeriod;
-                this.advanceCh4();
+            this.ch4.frequencyTimer -= 4194304 / channelSampleRate;
+            if (this.ch4.frequencyPeriod != 0) {
+                while (this.ch4.frequencyTimer <= 0) {
+                    this.ch4.frequencyTimer += this.ch4.frequencyPeriod;
+                    this.advanceCh4();
+                }
             }
 
             if (this.leftEnable4) finalLeft += this.ch4.dacOut;
             if (this.rightEnable4) finalRight += this.ch4.dacOut;
         }
 
+        finalLeft *= this.leftVolMul;
+        finalRight *= this.rightVolMul;
+
         this.sampleBufL[this.sampleBufPos] = finalLeft / 32;
         this.sampleBufR[this.sampleBufPos] = finalRight / 32;
         this.sampleBufPos++;
         if (this.sampleBufPos >= this.sampleBufMax) {
             this.sampleBufPos = 0;
-            this.player.queueAudio(this.sampleBufL, this.sampleBufR, 65536);
+            this.player.queueAudio(this.sampleBufL, this.sampleBufR, outputSampleRate);
         }
 
-        this.scheduler.addEventRelative(SchedulerId.APUSample, (4194304 / 65536) - cyclesLate, this.sample);
+        this.scheduler.addEventRelative(SchedulerId.APUSample, (4194304 / outputSampleRate) - cyclesLate, this.sample);
     }.bind(this);
 
     readHwio8(addr: number): number {
@@ -635,7 +659,11 @@ export class APU {
                 this.ch4.updateDac();
                 break;
 
-            case 0xFF25: // NR53
+            case 0xFF24: // NR50
+                this.leftVolMul = ((val >> 4) & 0b111) / 7;
+                this.rightVolMul = ((val >> 0) & 0b111) / 7;
+                break;
+            case 0xFF25: // NR51
                 this.leftEnable4 = bitTest(val, 7);
                 this.leftEnable3 = bitTest(val, 6);
                 this.leftEnable2 = bitTest(val, 5);

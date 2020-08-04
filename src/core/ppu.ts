@@ -167,7 +167,7 @@ export class PPU {
         this.mode = PPUMode.Vblank;
         this.checkStat();
         this.scheduler.addEventRelative(SchedulerId.PPUMode, 456 - cyclesLate, this.continueMode1);
-        this.gb.interrupts.flagInterrupt(InterruptId.Vblank);
+        this.gb.cpu.flagInterrupt(InterruptId.Vblank);
     }.bind(this);
 
     continueMode1 = function (this: PPU, cyclesLate: number) { // During Vblank
@@ -214,7 +214,7 @@ export class PPU {
             (this.mode == PPUMode.OamScan && this.enableMode2Intr);
 
         if (!this.previousStatCondition && currentCondition) {
-            this.gb.interrupts.flagInterrupt(InterruptId.Stat);
+            this.gb.cpu.flagInterrupt(InterruptId.Stat);
         }
 
         this.previousStatCondition = currentCondition;

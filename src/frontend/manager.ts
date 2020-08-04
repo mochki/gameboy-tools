@@ -8,9 +8,12 @@ export class GameBoyManager {
         this.gb = new GameBoy();
     }
 
+    romLoaded = false;
+
     loadRom(rom: Uint8Array) {
         let oldBootrom = this.gb.provider?.bootrom;
         this.gb = new GameBoy(new GameBoyProvider(rom, oldBootrom));
+        this.romLoaded = true;
     }
 
     loadBootrom(bootrom: Uint8Array) {
