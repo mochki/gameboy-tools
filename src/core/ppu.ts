@@ -134,20 +134,20 @@ export class PPU {
         this.mode = PPUMode.OamScan;
         this.checkStat();
         this.scheduler.addEventRelative(SchedulerId.PPUMode, 80 - cyclesLate, this.endMode2);
-    }
+    };
 
     endMode2 = (cyclesLate: number) => { // OAM Scan -> Drawing
         this.mode = PPUMode.Drawing;
         this.checkStat();
         this.scheduler.addEventRelative(SchedulerId.PPUMode, 172 - cyclesLate, this.endMode3);
-    }
+    };
 
     endMode3 = (cyclesLate: number) => { // Drawing -> Hblank
         this.renderScanline();
         this.mode = PPUMode.Hblank;
         this.checkStat();
         this.scheduler.addEventRelative(SchedulerId.PPUMode, 204 - cyclesLate, this.endMode0);
-    }
+    };
 
     endMode0 = (cyclesLate: number) => { // Hblank -> Vblank / OAM Scan
         this.ly++;
@@ -161,14 +161,14 @@ export class PPU {
             this.swapBuffers();
             this.windowCurrentLine = 0;
         }
-    }
+    };
 
     enterMode1 = (cyclesLate: number) => { // Enter Vblank
         this.mode = PPUMode.Vblank;
         this.checkStat();
         this.scheduler.addEventRelative(SchedulerId.PPUMode, 456 - cyclesLate, this.continueMode1);
         this.gb.cpu.flagInterrupt(InterruptId.Vblank);
-    }
+    };
 
     continueMode1 = (cyclesLate: number) => { // During Vblank
         this.ly++;
@@ -184,12 +184,12 @@ export class PPU {
         if (this.ly < 153) {
             this.scheduler.addEventRelative(SchedulerId.PPUMode, 456 - cyclesLate, this.continueMode1);
         }
-    }
+    };
 
     line153Quirk = (cyclesLate: number) => {
         this.ly = 0;
         this.checkStat();
-    }
+    };
 
     onEnable() {
         this.enterMode2(0);
@@ -221,11 +221,13 @@ export class PPU {
     }
 
     read8(addr: number): number {
-        addr -= 0x8000;
+        if (this.mode == PPUMode.Drawing) return 0xFF;
+
+        addr &= 0x1FFF;
         return this.vram[this.vramBank][addr];
     }
     write8(addr: number, val: number): void {
-        // if (this.mode == PPUMode.Drawing) return
+        if (this.mode == PPUMode.Drawing) return;
 
         addr &= 0x1FFF;
 
@@ -388,6 +390,19 @@ export class PPU {
             default:
                 return;
         }
+    }
+
+    readOam8(addr: number): number {
+        if (this.mode == PPUMode.OamScan) return 0xFF;
+        if (this.mode == PPUMode.Drawing) return 0xFF;
+
+        return this.oam[addr - 0xFE00];
+    }
+    writeOam8(addr: number, val: number) {
+        if (this.mode == PPUMode.OamScan) return;
+        if (this.mode == PPUMode.Drawing) return;
+
+        this.oam[addr - 0xFE00] = val;
     }
 
     setDmgBgPalette(palette: number, color: number) {

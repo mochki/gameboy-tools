@@ -1,4 +1,4 @@
-import { PPU } from './ppu';
+import { PPU, PPUMode } from './ppu';
 import { GameBoy } from './gameboy';
 import { hex } from './util/misc';
 import { bitTest } from './util/bits';
@@ -132,7 +132,7 @@ export class Bus {
                 return this.wram[0][addr & 0xFFF];
             case 0xF: // ZeroPage - F###
                 if (addr >= 0xFE00 && addr <= 0xFE9F) {
-                    return this.ppu.oam[addr - 0xFE00];
+                    return this.ppu.readOam8(addr);
                 }
 
                 switch (addr) {
@@ -222,7 +222,7 @@ export class Bus {
                 return;
             case 0xF: // ZeroPage - F###
                 if (addr >= 0xFE00 && addr <= 0xFE9F) {
-                    this.ppu.oam[addr - 0xFE00] = val;
+                    this.ppu.writeOam8(addr, val);
                     return;
                 }
 
