@@ -207,7 +207,7 @@ function _loop(time: number): void {
     if (frameStep) {
         if (cpuMeter) {
             let attempts = 10;
-            while (mgr.gb.apu.player.sources.length < 10 && !mgr.gb.errored && attempts > 0) {
+            while (mgr.gb.apu.player.sourcesPlaying < 10 && !mgr.gb.errored && attempts > 0) {
                 let startMs = performance.now();
 
                 let i = mgr.gb.halfFrame();
@@ -223,7 +223,7 @@ function _loop(time: number): void {
             }
         } else {
             let attempts = 10;
-            while (mgr.gb.apu.player.sources.length < 10 && !mgr.gb.errored && attempts > 0) {
+            while (mgr.gb.apu.player.sourcesPlaying < 10 && !mgr.gb.errored && attempts > 0) {
                 mgr.gb.halfFrame();
             }
         }
@@ -490,8 +490,8 @@ function DrawDisplay() {
                     144,
                     0,
                     gl.RGB,
-                    gl.UNSIGNED_BYTE,
-                    mgr.gb.ppu.screenFrontBuf
+                    gl.UNSIGNED_SHORT_5_6_5,
+                    mgr.gb.ppu.screenFrontBuf,
                 );
             }
 

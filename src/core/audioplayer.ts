@@ -14,13 +14,31 @@ export const SAMPLE_RATE = firefoxHax ? 131072 : (safariHax ? 65536 : NORMAL_SAM
 export const LATENCY = firefoxHax ? 4096 : (safariHax ? 2048 : 8192);
 export const LATENCY_SEC = LATENCY / SAMPLE_RATE;
 
-export class AudioPlayer {
+function genBufferPool(ctx: AudioContext, count: number, length: number, sampleRate: number): AudioBuffer[] {
+    let pool = new Array(count);
+    for (let i = 0; i < count; i++) {
+        pool[i] = ctx.createBuffer(2, length, sampleRate);
+    }
+    return pool;
+}
 
-    constructor() {
+export class AudioPlayer {
+    bufferLength: number;
+    sampleRate: number;
+
+    bufferPool: AudioBuffer[];
+    bufferPoolAt = 0;
+
+
+    constructor(bufferLength: number, sampleRate: number) {
+        this.bufferLength = bufferLength;
+        this.sampleRate = sampleRate;
         const AudioContext = window.AudioContext   // Normal browsers
             || (window as any).webkitAudioContext; // Sigh... Safari
 
         this.ctx = new AudioContext({ sampleRate: SAMPLE_RATE });
+
+        this.bufferPool = genBufferPool(this.ctx, 256, this.bufferLength, this.sampleRate);
 
         const fixAudioContext = () => {
             // Create empty buffer
@@ -50,13 +68,12 @@ export class AudioPlayer {
     gain: GainNode;
 
     ctx: AudioContext;
-    sources: AudioBufferSourceNode[] = [];
+    sourcesPlaying = 0;
 
-    sampleRate = SAMPLE_RATE;
-
-    queueAudio(bufferLeft: Float32Array, bufferRight: Float32Array, sampleRate: number) {
-        const length = Math.max(bufferLeft.length, bufferRight.length);
-        let buffer = this.ctx.createBuffer(2, length, sampleRate);
+    queueAudio(bufferLeft: Float32Array, bufferRight: Float32Array) {
+        let buffer = this.bufferPool[this.bufferPoolAt];
+        this.bufferPoolAt++;
+        this.bufferPoolAt &= 255;
 
         if (!safariHax) {
             buffer.copyToChannel(bufferLeft, 0);
@@ -68,8 +85,8 @@ export class AudioPlayer {
 
         let bufferSource = this.ctx.createBufferSource();
 
-        bufferSource.onended = () => { this.sources.shift(); };
-        
+        bufferSource.onended = () => { this.sourcesPlaying-- };
+
         if (this.audioSec <= this.ctx.currentTime + 0.02) {
             // Reset time if close to buffer underrun
             this.audioSec = this.ctx.currentTime + 0.06;
@@ -78,22 +95,15 @@ export class AudioPlayer {
         bufferSource.connect(this.gain);
         bufferSource.start(this.audioSec);
 
+        this.sampleRate = this.sampleRate;
+        this.audioSec += this.bufferLength / this.sampleRate;
 
-        this.sampleRate = sampleRate;
-        this.audioSec += length / sampleRate;
-
-        this.sources.push(bufferSource);
+        this.sourcesPlaying++;
     }
 
     audioSec = 0;
 
     reset() {
-        // Stop all sounds
-        this.sources.forEach((v, i, a) => {
-            v.stop();
-        });
-        this.sources = [];
-
         // 50 ms buffer
         this.audioSec = this.ctx.currentTime + 0.06;
         // console.log(`Latency in seconds: ${(LATENCY / this.sampleRate)}`)

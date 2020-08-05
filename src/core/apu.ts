@@ -22,8 +22,13 @@ const pulseDuty = [
     Uint8Array.from([0, 1, 1, 1, 1, 1, 1, 0]),
 ];
 
+const sampleBufMax = 512;
+
 const waveShiftCodes = Uint8Array.from([4, 0, 1, 2]);
 const noiseDivisors = Uint8Array.from([8, 16, 32, 48, 64, 80, 96, 112]);
+
+const channelSampleRate = 65536;
+const outputSampleRate = 65536;
 
 export class APU {
 
@@ -439,17 +444,13 @@ export class APU {
         this.ch4.updateOut();
     }
 
-    player = new AudioPlayer();
-
-    sampleBufMax = 512;
-    sampleBufL = new Float32Array(this.sampleBufMax);
-    sampleBufR = new Float32Array(this.sampleBufMax);
+    sampleBufL = new Float32Array(sampleBufMax);
+    sampleBufR = new Float32Array(sampleBufMax);
     sampleBufPos = 0;
 
-    sample = (cyclesLate: number) => {
-        const channelSampleRate = 65536;
-        const outputSampleRate = 65536;
+    player = new AudioPlayer(sampleBufMax, outputSampleRate);
 
+    sample = (cyclesLate: number) => {
         let finalLeft = 0;
         let finalRight = 0;
 
@@ -509,9 +510,9 @@ export class APU {
         this.sampleBufL[this.sampleBufPos] = finalLeft / 32;
         this.sampleBufR[this.sampleBufPos] = finalRight / 32;
         this.sampleBufPos++;
-        if (this.sampleBufPos >= this.sampleBufMax) {
+        if (this.sampleBufPos >= sampleBufMax) {
             this.sampleBufPos = 0;
-            this.player.queueAudio(this.sampleBufL, this.sampleBufR, outputSampleRate);
+            this.player.queueAudio(this.sampleBufL, this.sampleBufR);
         }
 
         this.scheduler.addEventRelative(SchedulerId.APUSample, (4194304 / outputSampleRate) - cyclesLate, this.sample);
