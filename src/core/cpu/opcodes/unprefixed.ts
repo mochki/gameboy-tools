@@ -1,6 +1,6 @@
-import { CPU } from "./cpu";
-import { unTwo8b } from "../util/misc";
-import { SchedulerId } from "../scheduler";
+import { CPU } from "../cpu";
+import { unTwo8b } from "../../util/misc";
+import { SchedulerId } from "../../scheduler";
 
 /** LD R16, U16 */
 export function LD_BC_U16(cpu: CPU) {
@@ -338,12 +338,6 @@ export function LD_SP_HL(cpu: CPU, opcode: number): void {
 
 };
 
-export function LD_R8_R8(cpu: CPU, opcode: number): void {
-    const source = opcode & 0b111;
-    const dest = (opcode & 0b111000) >> 3;
-    cpu.setReg(dest, cpu.getReg(source));
-};
-
 export function PUSH_BC(cpu: CPU) {
     cpu.tickPending(4);
     cpu.push(cpu.getBc());
@@ -410,141 +404,7 @@ export function INC_SP(cpu: CPU) { cpu.sp = (cpu.sp + 1) & 0xFFFF; cpu.tickPendi
 export function DEC_SP(cpu: CPU) { cpu.sp = (cpu.sp - 1) & 0xFFFF; cpu.tickPending(4); }
 
 
-// #region Accumulator Arithmetic
-export function ADD_A_R8(cpu: CPU, opcode: number): void {
-    const source = opcode & 0b111;
 
-    const value = cpu.getReg(source);
-
-    const newValue = (value + cpu.a) & 0xFF;
-
-    // Set flags
-    cpu.halfCarry = (cpu.a & 0xF) + (value & 0xF) > 0xF;
-    cpu.carry = (value + cpu.a) > 0xFF;
-    cpu.zero = newValue === 0;
-    cpu.negative = false;
-
-    // Set register values
-    cpu.a = newValue;
-
-};
-
-export function ADC_A_R8(cpu: CPU, opcode: number): void {
-    const source = opcode & 0b111;
-
-    const value = cpu.getReg(source);
-
-    const newValue = (value + cpu.a + (cpu.carry ? 1 : 0)) & 0xFF;
-
-    // Set flags
-    cpu.zero = newValue === 0;
-    cpu.negative = false;
-    cpu.halfCarry = (cpu.a & 0xF) + (value & 0xF) + (cpu.carry ? 1 : 0) > 0xF;
-    cpu.carry = (value + cpu.a + (cpu.carry ? 1 : 0)) > 0xFF;
-
-    // Set register values
-    cpu.a = newValue;
-
-};
-
-export function SUB_A_R8(cpu: CPU, opcode: number): void {
-    const source = opcode & 0b111;
-
-    const value = cpu.getReg(source);
-
-    const newValue = (cpu.a - value) & 0xFF;
-
-    // Set flags
-    cpu.zero = newValue === 0;
-    cpu.negative = true;
-    cpu.halfCarry = (value & 0xF) > (cpu.a & 0xF);
-    cpu.carry = value > cpu.a;
-
-    // Set register values
-    cpu.a = newValue;
-
-};
-
-export function SBC_A_R8(cpu: CPU, opcode: number): void {
-    const source = opcode & 0b111;
-
-    const value = cpu.getReg(source);
-
-    const newValue = (cpu.a - value - (cpu.carry ? 1 : 0)) & 0xFF;
-
-    // Set flags
-    cpu.zero = newValue === 0;
-    cpu.negative = true;
-    cpu.halfCarry = (value & 0xF) > (cpu.a & 0xF) - (cpu.carry ? 1 : 0);
-    cpu.carry = value > cpu.a - (cpu.carry ? 1 : 0);
-
-    // Set register values
-    cpu.a = newValue;
-
-};
-
-export function AND_A_R8(cpu: CPU, opcode: number): void {
-    const source = opcode & 0b111;
-
-    const value = cpu.getReg(source);
-
-    const final = value & cpu.a;
-    cpu.a = final;
-
-    // Set flags
-    cpu.zero = cpu.a === 0;
-    cpu.negative = false;
-    cpu.halfCarry = true;
-    cpu.carry = false;
-
-};
-
-export function XOR_A_R8(cpu: CPU, opcode: number): void {
-    const source = opcode & 0b111;
-
-    const value = cpu.getReg(source);
-
-    const final = value ^ cpu.a;
-    cpu.a = final;
-
-    cpu.zero = final === 0;
-    cpu.negative = false;
-    cpu.halfCarry = false;
-    cpu.carry = false;
-
-};
-
-export function OR_A_R8(cpu: CPU, opcode: number): void {
-    const source = opcode & 0b111;
-
-    const value = cpu.getReg(source);
-
-    const final = value | cpu.a;
-    cpu.a = final;
-
-    cpu.zero = final === 0;
-    cpu.negative = false;
-    cpu.halfCarry = false;
-    cpu.carry = false;
-
-};
-
-export function CP_A_R8(cpu: CPU, opcode: number): void {
-    const source = opcode & 0b111;
-
-    const r8 = cpu.getReg(source);
-
-    const newValue = (cpu.a - r8) & 0xFF;
-
-    // DO not set register values for CP
-
-    // Set flags
-    cpu.carry = r8 > cpu.a;
-    cpu.zero = newValue === 0;
-    cpu.negative = true;
-    cpu.halfCarry = (cpu.a & 0xF) - (r8 & 0xF) < 0;
-
-};
 
 export function CPL(cpu: CPU, opcode: number): void {
     cpu.a = cpu.a ^ 0b11111111;

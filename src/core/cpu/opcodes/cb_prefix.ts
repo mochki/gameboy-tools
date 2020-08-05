@@ -1,5 +1,5 @@
-import { CPU } from './cpu';
-import { bitTest, bitReset, bitSet } from '../util/bits';
+import { CPU } from '../cpu';
+import { bitTest, bitReset, bitSet } from '../../util/bits';
 
 export function RLC(cpu: CPU, opcode: number) {
     let regIndex = opcode & 0b111;
