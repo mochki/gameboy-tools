@@ -55,26 +55,40 @@ export function JP(cpu: CPU, opcode: number): void {
     cpu.tickPending(4); // Branching takes 4 cycles
 };
 
-export function JP_CC(cpu: CPU, opcode: number) {
-    let cond = false;
-
-    switch ((opcode >> 3) & 0b11) {
-        case 0:
-            cond = !cpu.zero;
-            break;
-        case 1:
-            cond = cpu.zero;
-            break;
-        case 2:
-            cond = !cpu.carry;
-            break;
-        case 3:
-            cond = cpu.carry;
-            break;
+export function JP_NZ(cpu: CPU, opcode: number) {
+    if (!cpu.zero) {
+        let target = cpu.read16PcInc();
+        cpu.tickPending(4);
+        cpu.pc = target;
+    } else {
+        cpu.pc = (cpu.pc + 2) & 0xFFFF;
+        cpu.tickPending(8);
     }
+}
+export function JP_Z(cpu: CPU, opcode: number) {
+    if (cpu.zero) {
+        let target = cpu.read16PcInc();
+        cpu.tickPending(4);
+        cpu.pc = target;
+    } else {
+        cpu.pc = (cpu.pc + 2) & 0xFFFF;
+        cpu.tickPending(8);
+    }
+}
 
+export function JP_NC(cpu: CPU, opcode: number) {
+    if (!cpu.carry) {
+        let target = cpu.read16PcInc();
+        cpu.tickPending(4);
+        cpu.pc = target;
+    } else {
+        cpu.pc = (cpu.pc + 2) & 0xFFFF;
+        cpu.tickPending(8);
+    }
+}
 
-    if (cond) {
+export function JP_C(cpu: CPU, opcode: number) {
+    if (cpu.carry) {
         let target = cpu.read16PcInc();
         cpu.tickPending(4);
         cpu.pc = target;
@@ -91,26 +105,41 @@ export function CALL(cpu: CPU, opcode: number) {
     cpu.pc = target;
 }
 
-export function CALL_CC(cpu: CPU, opcode: number) {
-    let cond = false;
-
-    switch ((opcode >> 3) & 0b111) {
-        case 0:
-            cond = !cpu.zero;
-            break;
-        case 1:
-            cond = cpu.zero;
-            break;
-        case 2:
-            cond = !cpu.carry;
-            break;
-        case 3:
-            cond = cpu.carry;
-            break;
+export function CALL_NZ(cpu: CPU, opcode: number) {
+    if (!cpu.zero) {
+        let target = cpu.read16PcInc();
+        cpu.tickPending(4);
+        cpu.push(cpu.pc);
+        cpu.pc = target;
+    } else {
+        cpu.pc = (cpu.pc + 2) & 0xFFFF;
+        cpu.tickPending(8);
     }
-
-
-    if (cond) {
+}
+export function CALL_Z(cpu: CPU, opcode: number) {
+    if (cpu.zero) {
+        let target = cpu.read16PcInc();
+        cpu.tickPending(4);
+        cpu.push(cpu.pc);
+        cpu.pc = target;
+    } else {
+        cpu.pc = (cpu.pc + 2) & 0xFFFF;
+        cpu.tickPending(8);
+    }
+}
+export function CALL_NC(cpu: CPU, opcode: number) {
+    if (!cpu.carry) {
+        let target = cpu.read16PcInc();
+        cpu.tickPending(4);
+        cpu.push(cpu.pc);
+        cpu.pc = target;
+    } else {
+        cpu.pc = (cpu.pc + 2) & 0xFFFF;
+        cpu.tickPending(8);
+    }
+}
+export function CALL_C(cpu: CPU, opcode: number) {
+    if (cpu.carry) {
         let target = cpu.read16PcInc();
         cpu.tickPending(4);
         cpu.push(cpu.pc);
@@ -229,26 +258,12 @@ export function CP_A_U8(cpu: CPU, opcode: number): void {
 /** JR */
 
 export function JR(cpu: CPU, opcode: number) {
-    let cond = false;
-    switch ((opcode >> 3) & 0b111) {
-        case 3:
-            cond = true;
-            break;
-        case 4:
-            cond = !cpu.zero;
-            break;
-        case 5:
-            cond = cpu.zero;
-            break;
-        case 6:
-            cond = !cpu.carry;
-            break;
-        case 7:
-            cond = cpu.carry;
-            break;
-    }
-
-    if (cond) {
+    let offset = unTwo8b(cpu.read8PcInc());
+    cpu.tickPending(4);
+    cpu.pc = (cpu.pc + offset) & 0xFFFF;
+}
+export function JR_NZ(cpu: CPU, opcode: number) {
+    if (!cpu.zero) {
         let offset = unTwo8b(cpu.read8PcInc());
         cpu.tickPending(4);
         cpu.pc = (cpu.pc + offset) & 0xFFFF;
@@ -257,6 +272,40 @@ export function JR(cpu: CPU, opcode: number) {
         cpu.tickPending(4);
     }
 }
+
+export function JR_Z(cpu: CPU, opcode: number) {
+    if (cpu.zero) {
+        let offset = unTwo8b(cpu.read8PcInc());
+        cpu.tickPending(4);
+        cpu.pc = (cpu.pc + offset) & 0xFFFF;
+    } else {
+        cpu.pc = (cpu.pc + 1) & 0xFFFF;
+        cpu.tickPending(4);
+    }
+}
+
+export function JR_NC(cpu: CPU, opcode: number) {
+    if (!cpu.carry) {
+        let offset = unTwo8b(cpu.read8PcInc());
+        cpu.tickPending(4);
+        cpu.pc = (cpu.pc + offset) & 0xFFFF;
+    } else {
+        cpu.pc = (cpu.pc + 1) & 0xFFFF;
+        cpu.tickPending(4);
+    }
+}
+export function JR_C(cpu: CPU, opcode: number) {
+    if (cpu.carry) {
+        let offset = unTwo8b(cpu.read8PcInc());
+        cpu.tickPending(4);
+        cpu.pc = (cpu.pc + offset) & 0xFFFF;
+    } else {
+        cpu.pc = (cpu.pc + 1) & 0xFFFF;
+        cpu.tickPending(4);
+    }
+}
+
+
 
 /** Arithmetic */
 export function ADD_A_U8(cpu: CPU, opcode: number): void {
@@ -590,26 +639,28 @@ export function RET(cpu: CPU, opcode: number): void {
 };
 
 /** RET */
-export function RET_CC(cpu: CPU, opcode: number) {
-    let cond = false;
-    switch ((opcode >> 3) & 0b111) {
-        case 0:
-            cond = !cpu.zero;
-            break;
-        case 1:
-            cond = cpu.zero;
-            break;
-        case 2:
-            cond = !cpu.carry;
-            break;
-        case 3:
-            cond = cpu.carry;
-            break;
-    }
-
+export function RET_NZ(cpu: CPU, opcode: number) {
     cpu.tickPending(4);
-
-    if (cond) {
+    if (!cpu.zero) {
+        cpu.pc = cpu.pop();
+        cpu.tickPending(4);
+    }
+}
+export function RET_Z(cpu: CPU, opcode: number) {
+    cpu.tickPending(4);
+    if (cpu.zero) {
+        cpu.pc = cpu.pop();
+        cpu.tickPending(4);
+    }
+}export function RET_NC(cpu: CPU, opcode: number) {
+    cpu.tickPending(4);
+    if (!cpu.carry) {
+        cpu.pc = cpu.pop();
+        cpu.tickPending(4);
+    }
+}export function RET_C(cpu: CPU, opcode: number) {
+    cpu.tickPending(4);
+    if (cpu.carry) {
         cpu.pc = cpu.pop();
         cpu.tickPending(4);
     }
