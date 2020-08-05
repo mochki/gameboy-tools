@@ -17,6 +17,8 @@ const clearColor: ImVec4 = new ImVec4(0.114, 0.114, 0.114, 1.00);
 
 let done: boolean = false;
 
+let cpuMeter = false;
+
 let romsList: string[] = [];
 let romsListLoadFailed = false;
 
@@ -186,7 +188,7 @@ async function _init(): Promise<void> {
     };
 }
 
-let hostCpuRatioSamples = new Float32Array(16);
+let hostCpuRatioSamples = new Float32Array(32);
 let hostCpuRatioPos = 0;
 
 const gbHz = 4194304 * 1;
@@ -202,24 +204,29 @@ function _loop(time: number): void {
     // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 
     // Use this to sync to audio
-    let attempts = 10;
-    while (mgr.gb.apu.player.sources.length < 10 && !mgr.gb.errored && attempts > 0) {
-        if (frameStep) {
-            let startMs = performance.now();
+    if (frameStep) {
+        if (cpuMeter) {
+            let attempts = 10;
+            while (mgr.gb.apu.player.sources.length < 10 && !mgr.gb.errored && attempts > 0) {
+                let startMs = performance.now();
 
-            let i = mgr.gb.halfFrame();
+                let i = mgr.gb.halfFrame();
 
-            let endMs = performance.now();
+                let endMs = performance.now();
 
-            let timeRealMs = endMs - startMs;
-            let timeEmulMs = (i / gbHz) * 1000;
+                let timeRealMs = endMs - startMs;
+                let timeEmulMs = (i / gbHz) * 1000;
 
-            hostCpuRatioSamples[hostCpuRatioPos] = timeRealMs / timeEmulMs;
-            hostCpuRatioPos = (hostCpuRatioPos + 1) & 15;
+                hostCpuRatioSamples[hostCpuRatioPos] = timeRealMs / timeEmulMs;
+                hostCpuRatioPos = (hostCpuRatioPos + 1) & 31;
+                attempts--;
+            }
         } else {
-            break;
+            let attempts = 10;
+            while (mgr.gb.apu.player.sources.length < 10 && !mgr.gb.errored && attempts > 0) {
+                mgr.gb.halfFrame();
+            }
         }
-        attempts--;
     }
 
     if ((window as any).renderUi) {
@@ -304,27 +311,27 @@ function DrawDebug() {
             ImGui.Text(`Halted Cycles: \n${mgr.gb.haltSkippedCycles}`);
 
             ImGuiColumnSeparator();
-            
-            let hostCpuRatio = 0;
-            for (let i = 0; i < 16; i++) {
-                hostCpuRatio += hostCpuRatioSamples[i];
-            }
-            hostCpuRatio /= 16;
-            ImGui.Text(`Host CPU:`);
-            let pos: ImVec2 = ImGui.GetCursorScreenPos();
-            let width: number = ImGui.GetColumnWidth();
-            ImGui.GetWindowDrawList().AddRectFilled(new ImVec2(pos.x, pos.y), new ImVec2(pos.x + ((width - 24) * hostCpuRatio), pos.y + 8), ImGui.GetColorU32(ImGuiCol.PlotHistogram));
-            ImGui.GetWindowDrawList().AddRect(new ImVec2(pos.x, pos.y), new ImVec2(pos.x + width - 24, pos.y + 8), ImGui.GetColorU32(ImGuiCol.Border));
-            ImGui.Dummy(new ImVec2(0, 8));
-            
-            ImGui.Checkbox("Frame Step", (v = frameStep) => frameStep = v);
-            if (ImGui.Button("Unerror")) {
-                mgr.gb.errored = false;
-            }
-            if (ImGui.Button("Step")) {
-                mgr.gb.cpu.execute();
-            }
 
+            if (cpuMeter) {
+
+                let hostCpuRatio = 0;
+                for (let i = 0; i < 32; i++) {
+                    hostCpuRatio += hostCpuRatioSamples[i];
+                }
+                hostCpuRatio /= 32;
+                ImGui.Text(`Host CPU:`);
+                let pos: ImVec2 = ImGui.GetCursorScreenPos();
+                let width: number = ImGui.GetColumnWidth();
+                ImGui.GetWindowDrawList().AddRectFilled(new ImVec2(pos.x, pos.y), new ImVec2(pos.x + ((width - 24) * hostCpuRatio), pos.y + 8), ImGui.GetColorU32(ImGuiCol.PlotHistogram));
+                ImGui.GetWindowDrawList().AddRect(new ImVec2(pos.x, pos.y), new ImVec2(pos.x + width - 24, pos.y + 8), ImGui.GetColorU32(ImGuiCol.Border));
+                ImGui.Dummy(new ImVec2(0, 8));
+
+            }
+            ImGui.Checkbox("CPU Meter", (v = cpuMeter) => cpuMeter = v);
+
+            ImGui.Checkbox("Frame Step", (v = frameStep) => frameStep = v);
+            if (ImGui.Button("Unerror")) mgr.gb.errored = false;
+            if (ImGui.Button("Step")) mgr.gb.cpu.execute();
             ImGui.Checkbox("Skip Boot ROM", (v = mgr.skipBootrom) => mgr.skipBootrom = v);
 
             ImGui.NextColumn();
