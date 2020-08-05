@@ -23,12 +23,7 @@ const RGB_5_TO_8 = [0, 5, 8, 11, 16, 22, 28, 36, 43, 51, 59, 67, 77, 87, 97, 107
 class PaletteData {
     data = new Uint8Array(64).fill(0xFF);
 
-    shades: Uint8Array[][] = new Array(8).fill(0).map(() => [
-        new Uint8Array(3),
-        new Uint8Array(3),
-        new Uint8Array(3),
-        new Uint8Array(3),
-    ]);
+    shades: Uint32Array[] = new Array(8).fill(0).map(() => new Uint32Array(4));
 
     constructor() {
         this.updateAll();
@@ -44,9 +39,7 @@ class PaletteData {
         const g = ((rgb555 >> 5) & 31);
         const b = ((rgb555 >> 10) & 31);
 
-        this.shades[pal][col][0] = RGB_5_TO_8[r];
-        this.shades[pal][col][1] = RGB_5_TO_8[g];
-        this.shades[pal][col][2] = RGB_5_TO_8[b];
+        this.shades[pal][col] = (r << 11) | (g << 6) | (b << 0);
     }
 
     updateAll() {
@@ -75,8 +68,8 @@ export class PPU {
     dmgObj0Palette = 0;
     dmgObj1Palette = 0;
 
-    screenBackBuf = new Uint8Array(160 * 144 * 3);
-    screenFrontBuf = new Uint8Array(160 * 144 * 3);
+    screenBackBuf = new Uint16Array(160 * 144);
+    screenFrontBuf = new Uint16Array(160 * 144);
     renderDone = false;
     scanlineRaw = new Uint8Array(160);
 
@@ -434,7 +427,7 @@ export class PPU {
     }
 
     renderScanline() {
-        let screenBase = this.ly * 160 * 3;
+        let screenBase = this.ly * 160;
         let windowPixel = this.wx - 7;
         if (this.bgWindowEnable) {
             {
@@ -459,12 +452,9 @@ export class PPU {
                     // tp; tile pixel
                     for (let tp = 0; tp < 8; tp++) {
                         if (pixel >= 0) {
-                            let pixelCol = palette[data[tp]];
-                            this.screenBackBuf[screenBase + 0] = pixelCol[0];
-                            this.screenBackBuf[screenBase + 1] = pixelCol[1];
-                            this.screenBackBuf[screenBase + 2] = pixelCol[2];
+                            this.screenBackBuf[screenBase] = palette[data[tp]];
                             this.scanlineRaw[pixel] = data[tp];
-                            screenBase += 3;
+                            screenBase += 1;
                         }
                         pixel += 1;
 
@@ -478,7 +468,7 @@ export class PPU {
                     let tilemapBase = (this.windowTilemapSelect ? 1024 : 0) + (((this.windowCurrentLine >> 3) << 5) & 1023);
                     let lineOffset = 0;
 
-                    screenBase = ((this.ly * 160) + windowPixel) * 3;
+                    screenBase = (this.ly * 160) + windowPixel;
                     let tileY = this.windowCurrentLine & 7;
 
                     bgWindowLoop:
@@ -496,13 +486,10 @@ export class PPU {
                         // tp; tile pixel
                         for (let tp = 0; tp < 8; tp++) {
                             if (windowPixel >= 0) {
-                                let pixelCol = palette[data[tp]];
-                                this.screenBackBuf[screenBase + 0] = pixelCol[0];
-                                this.screenBackBuf[screenBase + 1] = pixelCol[1];
-                                this.screenBackBuf[screenBase + 2] = pixelCol[2];
+                                this.screenBackBuf[screenBase] = palette[data[tp]];
                                 this.scanlineRaw[windowPixel] = data[tp];
                             }
-                            screenBase += 3;
+                            screenBase += 1;
                             windowPixel += 1;
 
                             if (windowPixel > 159) break bgWindowLoop;
@@ -514,11 +501,9 @@ export class PPU {
             }
         } else {
             for (let p = 0; p < 160; p++) {
-                this.screenBackBuf[screenBase + 0] = 0xFF;
-                this.screenBackBuf[screenBase + 1] = 0xFF;
-                this.screenBackBuf[screenBase + 2] = 0xFF;
+                this.screenBackBuf[screenBase] = 0xFFFF;
                 this.scanlineRaw[p] = 0;
-                screenBase += 3;
+                screenBase += 1;
             }
         }
 
@@ -526,29 +511,28 @@ export class PPU {
 
         if (displayObjs) {
             let spriteCount = 0;
+            let oamAddr = 0;
             for (let s = 0; s < 40; s++) {
-                let oamAddr = s * 4;
-
                 let yPos = this.oam[oamAddr + 0];
-                let xPos = this.oam[oamAddr + 1];
-                let tileIndex = this.oam[oamAddr + 2];
-                let flags = this.oam[oamAddr + 3];
-
-                let bgPriority = bitTest(flags, 7);
-                let yFlip = bitTest(flags, 6);
-                let xFlip = bitTest(flags, 5);
-                let dmgPalette = bitTest(flags, 4);
-                let cgbVramBank = bitTest(flags, 3);
-                let cgbPalette = flags & 0b111;
-
-                let screenX = xPos - 8;
                 let screenYStart = yPos - 16;
-                screenBase = ((this.ly * 160) + screenX) * 3;
-                let screenYEnd = screenYStart + (this.objSize ? 16 : 8);
 
-                if (this.ly >= screenYStart && this.ly < screenYEnd) {
+                if (this.ly >= screenYStart && this.ly < screenYStart + (this.objSize ? 16 : 8)) {
                     spriteCount++;
                     if (spriteCount > 10) return;
+
+                    let xPos = this.oam[oamAddr + 1];
+                    let tileIndex = this.oam[oamAddr + 2];
+                    let flags = this.oam[oamAddr + 3];
+
+                    let bgPriority = bitTest(flags, 7);
+                    let yFlip = bitTest(flags, 6);
+                    let xFlip = bitTest(flags, 5);
+                    let dmgPalette = bitTest(flags, 4);
+                    let cgbVramBank = bitTest(flags, 3);
+                    let cgbPalette = flags & 0b111;
+
+                    let screenX = xPos - 8;
+                    screenBase = (this.ly * 160) + screenX;
 
                     let spriteY = this.ly - screenYStart;
                     let tileY = spriteY & 0b111;
@@ -577,13 +561,10 @@ export class PPU {
                             let prePalette = tileData[px];
                             if (screenX >= 0 && prePalette != 0) {
                                 if (!bgPriority || this.scanlineRaw[screenX] == 0) {
-                                    let pixelCol = palette[prePalette];
-                                    this.screenBackBuf[screenBase + 0] = pixelCol[0];
-                                    this.screenBackBuf[screenBase + 1] = pixelCol[1];
-                                    this.screenBackBuf[screenBase + 2] = pixelCol[2];
+                                    this.screenBackBuf[screenBase] = palette[prePalette];
                                 }
                             }
-                            screenBase += 3;
+                            screenBase += 1;
                             screenX++;
                         }
                     } else {
@@ -591,17 +572,16 @@ export class PPU {
                             let prePalette = tileData[px];
                             if (screenX >= 0 && prePalette != 0) {
                                 if (!bgPriority || this.scanlineRaw[screenX] == 0) {
-                                    let pixelCol = palette[prePalette];
-                                    this.screenBackBuf[screenBase + 0] = pixelCol[0];
-                                    this.screenBackBuf[screenBase + 1] = pixelCol[1];
-                                    this.screenBackBuf[screenBase + 2] = pixelCol[2];
+                                    this.screenBackBuf[screenBase] = palette[prePalette];
                                 }
                             }
-                            screenBase += 3;
+                            screenBase += 1;
                             screenX++;
                         }
                     }
                 }
+
+                oamAddr += 4;
             }
         }
     }
