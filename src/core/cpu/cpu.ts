@@ -153,13 +153,15 @@ export class CPU {
 
         // let origPc = this.pc;
         this.cycles = 0;
-        let val = this.read8PcInc();
+        let val = this.read8(this.pc);
+        this.pc = (this.pc + 1) & 0xFFFF;
 
         if (val != 0xCB) {
             t[val](this, val);
         } else {
             // this.gb.info(`Prefix: ${hexN(val, 2)}`);
-            val = this.read8PcInc();
+            val = this.read8(this.pc);
+            this.pc = (this.pc + 1) & 0xFFFF;
             CB_PREFIX_TABLE[val](this, val);
         }
 
@@ -183,7 +185,8 @@ export class CPU {
         if (val != 0xCB) {
             t[val](this, val);
         } else {
-            val = this.read8PcInc();
+            val = this.read8(this.pc);
+            this.pc = (this.pc + 1) & 0xFFFF;
             CB_PREFIX_TABLE[val](this, val);
         }
 
@@ -320,36 +323,11 @@ export class CPU {
         this.write8(this.getHl(), val);
     }
 
-
-    read8PcInc(): number {
-        let val = this.read8(this.pc);
-        this.pc = (this.pc + 1) & 0xFFFF;
-        return val;
-    }
-
     read16PcInc(): number {
         let lower = this.read8(this.pc);
         this.pc = (this.pc + 1) & 0xFFFF;
         let upper = this.read8(this.pc);
         this.pc = (this.pc + 1) & 0xFFFF;
-        return (upper << 8) | lower;
-    }
-
-    push(u16: number) {
-        let upper = (u16 >> 8) & 0xFF;
-        let lower = (u16 >> 0) & 0xFF;
-        this.sp = (this.sp - 1) & 0xFFFF;
-        this.write8(this.sp, upper);
-        this.sp = (this.sp - 1) & 0xFFFF;
-        this.write8(this.sp, lower);
-    }
-
-    pop(): number {
-        let lower = this.read8(this.sp);
-        this.sp = (this.sp + 1) & 0xFFFF;
-        let upper = this.read8(this.sp);
-        this.sp = (this.sp + 1) & 0xFFFF;
-
         return (upper << 8) | lower;
     }
 

@@ -4,20 +4,28 @@ import { SchedulerId } from "../../scheduler";
 
 /** LD R16, U16 */
 export function LD_BC_U16(cpu: CPU) {
-    cpu.c = cpu.read8PcInc();
-    cpu.b = cpu.read8PcInc();
+    cpu.c = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
+    cpu.b = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 }
 export function LD_DE_U16(cpu: CPU) {
-    cpu.e = cpu.read8PcInc();
-    cpu.d = cpu.read8PcInc();
+    cpu.e = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
+    cpu.d = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 }
 export function LD_HL_U16(cpu: CPU) {
-    cpu.l = cpu.read8PcInc();
-    cpu.h = cpu.read8PcInc();
+    cpu.l = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
+    cpu.h = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 }
 export function LD_SP_U16(cpu: CPU) {
-    let lower = cpu.read8PcInc();
-    let upper = cpu.read8PcInc();
+    let lower = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
+    let upper = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
     cpu.sp = (upper << 8) | lower;
 }
@@ -101,7 +109,14 @@ export function JP_C(cpu: CPU, opcode: number) {
 export function CALL(cpu: CPU, opcode: number) {
     let target = cpu.read16PcInc();
     cpu.tickPending(4);
-    cpu.push(cpu.pc);
+    // <inline_push cpu.pc>
+    let pushVal = cpu.pc;
+    let upper = (pushVal >> 8) & 0xFF;
+    let lower = (pushVal >> 0) & 0xFF;
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, upper);
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, lower);
     cpu.pc = target;
 }
 
@@ -109,7 +124,14 @@ export function CALL_NZ(cpu: CPU, opcode: number) {
     if (!cpu.zero) {
         let target = cpu.read16PcInc();
         cpu.tickPending(4);
-        cpu.push(cpu.pc);
+        // <inline_push cpu.pc>
+        let pushVal = cpu.pc;
+        let upper = (pushVal >> 8) & 0xFF;
+        let lower = (pushVal >> 0) & 0xFF;
+        cpu.sp = (cpu.sp - 1) & 0xFFFF;
+        cpu.write8(cpu.sp, upper);
+        cpu.sp = (cpu.sp - 1) & 0xFFFF;
+        cpu.write8(cpu.sp, lower);
         cpu.pc = target;
     } else {
         cpu.pc = (cpu.pc + 2) & 0xFFFF;
@@ -120,7 +142,14 @@ export function CALL_Z(cpu: CPU, opcode: number) {
     if (cpu.zero) {
         let target = cpu.read16PcInc();
         cpu.tickPending(4);
-        cpu.push(cpu.pc);
+        // <inline_push cpu.pc>
+        let pushVal = cpu.pc;
+        let upper = (pushVal >> 8) & 0xFF;
+        let lower = (pushVal >> 0) & 0xFF;
+        cpu.sp = (cpu.sp - 1) & 0xFFFF;
+        cpu.write8(cpu.sp, upper);
+        cpu.sp = (cpu.sp - 1) & 0xFFFF;
+        cpu.write8(cpu.sp, lower);
         cpu.pc = target;
     } else {
         cpu.pc = (cpu.pc + 2) & 0xFFFF;
@@ -131,7 +160,14 @@ export function CALL_NC(cpu: CPU, opcode: number) {
     if (!cpu.carry) {
         let target = cpu.read16PcInc();
         cpu.tickPending(4);
-        cpu.push(cpu.pc);
+        // <inline_push cpu.pc>
+        let pushVal = cpu.pc;
+        let upper = (pushVal >> 8) & 0xFF;
+        let lower = (pushVal >> 0) & 0xFF;
+        cpu.sp = (cpu.sp - 1) & 0xFFFF;
+        cpu.write8(cpu.sp, upper);
+        cpu.sp = (cpu.sp - 1) & 0xFFFF;
+        cpu.write8(cpu.sp, lower);
         cpu.pc = target;
     } else {
         cpu.pc = (cpu.pc + 2) & 0xFFFF;
@@ -142,7 +178,14 @@ export function CALL_C(cpu: CPU, opcode: number) {
     if (cpu.carry) {
         let target = cpu.read16PcInc();
         cpu.tickPending(4);
-        cpu.push(cpu.pc);
+        // <inline_push cpu.pc>
+        let pushVal = cpu.pc;
+        let upper = (pushVal >> 8) & 0xFF;
+        let lower = (pushVal >> 0) & 0xFF;
+        cpu.sp = (cpu.sp - 1) & 0xFFFF;
+        cpu.write8(cpu.sp, upper);
+        cpu.sp = (cpu.sp - 1) & 0xFFFF;
+        cpu.write8(cpu.sp, lower);
         cpu.pc = target;
     } else {
         cpu.pc = (cpu.pc + 2) & 0xFFFF;
@@ -152,27 +195,31 @@ export function CALL_C(cpu: CPU, opcode: number) {
 
 /** LD between A and High RAM */
 export function LD_A_iFF00plusU8(cpu: CPU, opcode: number): void {
-    const imm = cpu.read8PcInc();
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
     cpu.a = cpu.read8((0xFF00 | imm) & 0xFFFF);
 
 };
 
 export function LD_iFF00plusU8_A(cpu: CPU, opcode: number): void {
-    const imm = cpu.read8PcInc();
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
     cpu.write8((0xFF00 | imm) & 0xFFFF, cpu.a);
 
 };
 
 export function LD_iHL_U8(cpu: CPU, opcode: number): void {
-    const imm = cpu.read8PcInc();
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
     cpu.write8(cpu.getHl(), imm);
 };
 
 export function LD_HL_SPplusE8(cpu: CPU, opcode: number): void {
-    const imm = cpu.read8PcInc();
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
     const signedVal = unTwo8b(imm);
 
@@ -188,7 +235,8 @@ export function LD_HL_SPplusE8(cpu: CPU, opcode: number): void {
 };
 
 export function ADD_SP_E8(cpu: CPU, opcode: number): void {
-    const imm = cpu.read8PcInc();
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
     const value = unTwo8b(imm);
 
@@ -205,7 +253,8 @@ export function ADD_SP_E8(cpu: CPU, opcode: number): void {
 };
 
 export function AND_A_U8(cpu: CPU, opcode: number): void {
-    const imm = cpu.read8PcInc();
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
     const final = imm & cpu.a;
     cpu.a = final;
@@ -218,7 +267,8 @@ export function AND_A_U8(cpu: CPU, opcode: number): void {
 };
 
 export function OR_A_U8(cpu: CPU, opcode: number): void {
-    const imm = cpu.read8PcInc();
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
     const final = imm | cpu.a;
     cpu.a = final;
@@ -230,7 +280,8 @@ export function OR_A_U8(cpu: CPU, opcode: number): void {
 };
 
 export function XOR_A_U8(cpu: CPU, opcode: number): void {
-    const imm = cpu.read8PcInc();
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
     const final = imm ^ cpu.a;
     cpu.a = final;
@@ -243,7 +294,8 @@ export function XOR_A_U8(cpu: CPU, opcode: number): void {
 };
 
 export function CP_A_U8(cpu: CPU, opcode: number): void {
-    const imm = cpu.read8PcInc();
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
     const newValue = (cpu.a - imm) & 0xFF;
 
@@ -258,13 +310,17 @@ export function CP_A_U8(cpu: CPU, opcode: number): void {
 /** JR */
 
 export function JR(cpu: CPU, opcode: number) {
-    let offset = unTwo8b(cpu.read8PcInc());
+    let val = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
+    let offset = unTwo8b(val);
     cpu.tickPending(4);
     cpu.pc = (cpu.pc + offset) & 0xFFFF;
 }
 export function JR_NZ(cpu: CPU, opcode: number) {
     if (!cpu.zero) {
-        let offset = unTwo8b(cpu.read8PcInc());
+        let val = cpu.read8(cpu.pc);
+        cpu.pc = (cpu.pc + 1) & 0xFFFF;
+        let offset = unTwo8b(val);
         cpu.tickPending(4);
         cpu.pc = (cpu.pc + offset) & 0xFFFF;
     } else {
@@ -275,7 +331,9 @@ export function JR_NZ(cpu: CPU, opcode: number) {
 
 export function JR_Z(cpu: CPU, opcode: number) {
     if (cpu.zero) {
-        let offset = unTwo8b(cpu.read8PcInc());
+        let val = cpu.read8(cpu.pc);
+        cpu.pc = (cpu.pc + 1) & 0xFFFF;
+        let offset = unTwo8b(val);
         cpu.tickPending(4);
         cpu.pc = (cpu.pc + offset) & 0xFFFF;
     } else {
@@ -286,7 +344,9 @@ export function JR_Z(cpu: CPU, opcode: number) {
 
 export function JR_NC(cpu: CPU, opcode: number) {
     if (!cpu.carry) {
-        let offset = unTwo8b(cpu.read8PcInc());
+        let val = cpu.read8(cpu.pc);
+        cpu.pc = (cpu.pc + 1) & 0xFFFF;
+        let offset = unTwo8b(val);
         cpu.tickPending(4);
         cpu.pc = (cpu.pc + offset) & 0xFFFF;
     } else {
@@ -296,7 +356,9 @@ export function JR_NC(cpu: CPU, opcode: number) {
 }
 export function JR_C(cpu: CPU, opcode: number) {
     if (cpu.carry) {
-        let offset = unTwo8b(cpu.read8PcInc());
+        let val = cpu.read8(cpu.pc);
+        cpu.pc = (cpu.pc + 1) & 0xFFFF;
+        let offset = unTwo8b(val);
         cpu.tickPending(4);
         cpu.pc = (cpu.pc + offset) & 0xFFFF;
     } else {
@@ -309,7 +371,8 @@ export function JR_C(cpu: CPU, opcode: number) {
 
 /** Arithmetic */
 export function ADD_A_U8(cpu: CPU, opcode: number): void {
-    const imm = cpu.read8PcInc();
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
     const newValue = (imm + cpu.a) & 0xFF;
 
@@ -325,7 +388,8 @@ export function ADD_A_U8(cpu: CPU, opcode: number): void {
 };
 
 export function ADC_A_U8(cpu: CPU, opcode: number): void {
-    const imm = cpu.read8PcInc();
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
     const newValue = (imm + cpu.a + (cpu.carry ? 1 : 0)) & 0xFF;
 
@@ -341,7 +405,8 @@ export function ADC_A_U8(cpu: CPU, opcode: number): void {
 };
 
 export function SUB_A_U8(cpu: CPU, opcode: number): void {
-    const imm = cpu.read8PcInc();
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
     const newValue = (cpu.a - imm) & 0xFF;
 
@@ -357,7 +422,8 @@ export function SUB_A_U8(cpu: CPU, opcode: number): void {
 };
 
 export function SBC_A_U8(cpu: CPU, opcode: number): void {
-    const imm = cpu.read8PcInc();
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
     const newValue = (cpu.a - imm - (cpu.carry ? 1 : 0)) & 0xFF;
 
@@ -374,7 +440,8 @@ export function SBC_A_U8(cpu: CPU, opcode: number): void {
 
 /** LD R8, U8 */
 export function LD_R8_U8(cpu: CPU, opcode: number): void {
-    const imm = cpu.read8PcInc();
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
     const target = (opcode & 0b111000) >> 3;
     cpu.setReg(target, imm);
@@ -389,32 +456,84 @@ export function LD_SP_HL(cpu: CPU, opcode: number): void {
 
 export function PUSH_BC(cpu: CPU) {
     cpu.tickPending(4);
-    cpu.push(cpu.getBc());
+    // <inline_push cpu.getBc()>
+    let pushVal = cpu.getBc();
+    let upper = (pushVal >> 8) & 0xFF;
+    let lower = (pushVal >> 0) & 0xFF;
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, upper);
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, lower);
 }
 export function PUSH_DE(cpu: CPU) {
     cpu.tickPending(4);
-    cpu.push(cpu.getDe());
+    // <inline_push cpu.getDe()>
+    let pushVal = cpu.getDe();
+    let upper = (pushVal >> 8) & 0xFF;
+    let lower = (pushVal >> 0) & 0xFF;
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, upper);
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, lower);
 }
 export function PUSH_HL(cpu: CPU) {
     cpu.tickPending(4);
-    cpu.push(cpu.getHl());
+    // <inline_push cpu.getHl()>
+    let pushVal = cpu.getHl();
+    let upper = (pushVal >> 8) & 0xFF;
+    let lower = (pushVal >> 0) & 0xFF;
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, upper);
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, lower);
 }
 export function PUSH_AF(cpu: CPU) {
     cpu.tickPending(4);
-    cpu.push(cpu.getAf());
+    // <inline_push cpu.getAf()>
+    let pushVal = cpu.getAf();
+    let upper = (pushVal >> 8) & 0xFF;
+    let lower = (pushVal >> 0) & 0xFF;
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, upper);
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, lower);
 }
 
 export function POP_BC(cpu: CPU) {
-    cpu.setBc(cpu.pop());
+    let lower = cpu.read8(cpu.sp);
+    cpu.sp = (cpu.sp + 1) & 0xFFFF;
+    let upper = cpu.read8(cpu.sp);
+    cpu.sp = (cpu.sp + 1) & 0xFFFF;
+
+    let val = (upper << 8) | lower;
+    cpu.setBc(val);
 }
 export function POP_DE(cpu: CPU) {
-    cpu.setDe(cpu.pop());
+    let lower = cpu.read8(cpu.sp);
+    cpu.sp = (cpu.sp + 1) & 0xFFFF;
+    let upper = cpu.read8(cpu.sp);
+    cpu.sp = (cpu.sp + 1) & 0xFFFF;
+
+    let val = (upper << 8) | lower;
+    cpu.setDe(val);
 }
 export function POP_HL(cpu: CPU) {
-    cpu.setHl(cpu.pop());
+    let lower = cpu.read8(cpu.sp);
+    cpu.sp = (cpu.sp + 1) & 0xFFFF;
+    let upper = cpu.read8(cpu.sp);
+    cpu.sp = (cpu.sp + 1) & 0xFFFF;
+
+    let val = (upper << 8) | lower;
+    cpu.setHl(val);
 }
 export function POP_AF(cpu: CPU) {
-    cpu.setAf(cpu.pop());
+    let lower = cpu.read8(cpu.sp);
+    cpu.sp = (cpu.sp + 1) & 0xFFFF;
+    let upper = cpu.read8(cpu.sp);
+    cpu.sp = (cpu.sp + 1) & 0xFFFF;
+
+    let val = (upper << 8) | lower;
+    cpu.setAf(val);
 }
 /** INC R8 */
 export function INC_R8(cpu: CPU, opcode: number): void {
@@ -463,7 +582,13 @@ export function CPL(cpu: CPU, opcode: number): void {
 };
 
 export function RETI(cpu: CPU, opcode: number): void {
-    cpu.pc = cpu.pop();
+    let lower = cpu.read8(cpu.sp);
+    cpu.sp = (cpu.sp + 1) & 0xFFFF;
+    let upper = cpu.read8(cpu.sp);
+    cpu.sp = (cpu.sp + 1) & 0xFFFF;
+
+    cpu.pc = (upper << 8) | lower;
+
     cpu.tickPending(4); // Branching takes 4 cycles
     cpu.ime = true;
 };
@@ -632,7 +757,12 @@ export function CCF(cpu: CPU, opcode: number): void {  // CCF
 
 /** RET */
 export function RET(cpu: CPU, opcode: number): void {
-    cpu.pc = cpu.pop();
+    let lower = cpu.read8(cpu.sp);
+    cpu.sp = (cpu.sp + 1) & 0xFFFF;
+    let upper = cpu.read8(cpu.sp);
+    cpu.sp = (cpu.sp + 1) & 0xFFFF;
+
+    cpu.pc = (upper << 8) | lower;
 
     cpu.tickPending(4); // Branching takes 4 cycles
 
@@ -642,26 +772,46 @@ export function RET(cpu: CPU, opcode: number): void {
 export function RET_NZ(cpu: CPU, opcode: number) {
     cpu.tickPending(4);
     if (!cpu.zero) {
-        cpu.pc = cpu.pop();
+        let lower = cpu.read8(cpu.sp);
+        cpu.sp = (cpu.sp + 1) & 0xFFFF;
+        let upper = cpu.read8(cpu.sp);
+        cpu.sp = (cpu.sp + 1) & 0xFFFF;
+
+        cpu.pc = (upper << 8) | lower;
         cpu.tickPending(4);
     }
 }
 export function RET_Z(cpu: CPU, opcode: number) {
     cpu.tickPending(4);
     if (cpu.zero) {
-        cpu.pc = cpu.pop();
+        let lower = cpu.read8(cpu.sp);
+        cpu.sp = (cpu.sp + 1) & 0xFFFF;
+        let upper = cpu.read8(cpu.sp);
+        cpu.sp = (cpu.sp + 1) & 0xFFFF;
+
+        cpu.pc = (upper << 8) | lower;
         cpu.tickPending(4);
     }
-}export function RET_NC(cpu: CPU, opcode: number) {
+} export function RET_NC(cpu: CPU, opcode: number) {
     cpu.tickPending(4);
     if (!cpu.carry) {
-        cpu.pc = cpu.pop();
+        let lower = cpu.read8(cpu.sp);
+        cpu.sp = (cpu.sp + 1) & 0xFFFF;
+        let upper = cpu.read8(cpu.sp);
+        cpu.sp = (cpu.sp + 1) & 0xFFFF;
+
+        cpu.pc = (upper << 8) | lower;
         cpu.tickPending(4);
     }
-}export function RET_C(cpu: CPU, opcode: number) {
+} export function RET_C(cpu: CPU, opcode: number) {
     cpu.tickPending(4);
     if (cpu.carry) {
-        cpu.pc = cpu.pop();
+        let lower = cpu.read8(cpu.sp);
+        cpu.sp = (cpu.sp + 1) & 0xFFFF;
+        let upper = cpu.read8(cpu.sp);
+        cpu.sp = (cpu.sp + 1) & 0xFFFF;
+
+        cpu.pc = (upper << 8) | lower;
         cpu.tickPending(4);
     }
 }
@@ -672,7 +822,14 @@ export function RST(cpu: CPU, opcode: number): void {
     const target = opcode & 0b111000;
 
     cpu.tickPending(4);
-    cpu.push(cpu.pc);
+    // <inline_push cpu.pc>
+    let pushVal = cpu.pc;
+    let upper = (pushVal >> 8) & 0xFF;
+    let lower = (pushVal >> 0) & 0xFF;
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, upper);
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, lower);
     cpu.pc = target;
 
 };
