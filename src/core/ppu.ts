@@ -118,6 +118,8 @@ export class PPU {
     lyMatch = false;
     mode: PPUMode = 0;
 
+    mode3StartCycles = 0;
+
     swapBuffers() {
         let temp = this.screenBackBuf;
         this.screenBackBuf = this.screenFrontBuf;
@@ -131,16 +133,23 @@ export class PPU {
     };
 
     endMode2 = (cyclesLate: number) => { // OAM Scan -> Drawing
+        this.fetcherReset();
+
         this.mode = PPUMode.Drawing;
         this.checkStat();
         this.scheduler.addEventRelative(SchedulerId.PPUMode, 172 - cyclesLate, this.endMode3);
+        this.mode3StartCycles = this.scheduler.currTicks - cyclesLate;
     };
 
     endMode3 = (cyclesLate: number) => { // Drawing -> Hblank
-        this.renderScanline();
+        // this.renderScanline();
         this.mode = PPUMode.Hblank;
         this.checkStat();
         this.scheduler.addEventRelative(SchedulerId.PPUMode, 204 - cyclesLate, this.endMode0);
+
+        while (this.fetcherX < 160) {
+            this.fetcherAdvance(8);
+        }
     };
 
     endMode0 = (cyclesLate: number) => { // Hblank -> Vblank / OAM Scan
@@ -270,6 +279,8 @@ export class PPU {
         return;
     }
 
+
+
     readHwio8(addr: number): number {
         let val = 0;
         switch (addr) {
@@ -317,6 +328,7 @@ export class PPU {
     writeHwio8(addr: number, val: number): void {
         switch (addr) {
             case 0xFF40:
+                this.catchup();
                 if (this.lcdDisplayEnable && !bitTest(val, 7)) this.onDisable();
                 if (!this.lcdDisplayEnable && bitTest(val, 7)) this.onEnable();
                 this.lcdDisplayEnable = bitTest(val, 7);
@@ -336,9 +348,11 @@ export class PPU {
                 this.checkStat();
                 return;
             case 0xFF42:
+                this.catchup();
                 this.scy = val;
                 return;
             case 0xFF43:
+                this.catchup();
                 this.scx = val;
                 return;
             case 0xFF45:
@@ -349,6 +363,7 @@ export class PPU {
                 this.oamDma(val);
                 return;
             case 0xFF47: // BG Palette
+                this.catchup();
                 this.dmgBgPalette = val;
                 if (this.gb.cgb == false) {
                     this.setDmgBgPalette(0, (val >> 0) & 0b11);
@@ -376,9 +391,11 @@ export class PPU {
                 }
                 break;
             case 0xFF4A: // WY
+                this.catchup();
                 this.wy = val;
                 return;
             case 0xFF4B: // WX
+                this.catchup();
                 this.wx = val;
                 return;
             default:
@@ -842,6 +859,140 @@ export class PPU {
 
                 oamAddr += 4;
             }
+        }
+    }
+
+    catchup() {
+        if (this.mode == PPUMode.Drawing) {
+            let current = this.scheduler.currTicks;
+            let diff = current - this.mode3StartCycles;
+            this.mode3StartCycles = current;
+
+            this.fetcherAdvance(diff);
+        }
+    }
+
+    fetcherStep = 0;
+    fetcherX = 0;
+    fetcherTile = -1;
+    fetcherTileIndex = 0;
+    fetcherTileData = new Uint8Array();
+    fetcherPushReady = false;
+    fetcherBgWindowFifo = new Uint8Array(8);
+    fetcherBgWindowFifoPos = 0;
+    fetcherFirstFetch = true;
+    fetcherWindow = false;
+    fetcherAdvance(cycles: number) {
+        while (cycles > 0) {
+            if (!this.fetcherPushReady) {
+                switch (this.fetcherStep) {
+                    case 0: // Fetch tile number
+                        if (!this.fetcherWindow) {
+                            let tilemapBase = (this.bgTilemapSelect ? 1024 : 0) + ((((this.scy + this.ly) >> 3) << 5) & 1023);
+                            let lineOffset = this.scx >> 3;
+                            let tilemapAddr = tilemapBase + ((lineOffset + this.fetcherTile) & 31);
+                            this.fetcherTile++;
+                            this.fetcherTileIndex = this.tilemap[tilemapAddr];
+                        } else {
+                            let tilemapBase = (this.windowTilemapSelect ? 1024 : 0) + (((this.windowCurrentLine >> 3) << 5) & 1023);
+                            let tilemapAddr = tilemapBase + (this.fetcherTile & 31);
+                            this.fetcherTile++;
+                            this.fetcherTileIndex = this.tilemap[tilemapAddr];
+                        }
+
+                        if (!this.bgWindowTiledataSelect) {
+                            // On high tileset, the tile number is signed with two's complement
+                            this.fetcherTileIndex = unTwo8b(this.fetcherTileIndex) + 256;
+                        }
+
+                        this.fetcherStep++;
+                        break;
+                    case 1: // Delay
+                    case 2:
+                    case 3:
+                    case 4:
+                        this.fetcherStep++;
+                        break;
+                    case 5:
+                        if (!this.fetcherFirstFetch) {
+                            let tileY;
+                            if (!this.fetcherWindow) {
+                                tileY = (this.scy + this.ly) & 7;
+                            } else {
+                                tileY = this.windowCurrentLine & 7;
+                            }
+                            this.fetcherTileData = this.tileset[0][this.fetcherTileIndex][tileY];
+                            this.fetcherPushReady = true;
+                        }
+                        this.fetcherStep = 0;
+                        this.fetcherFirstFetch = false;
+                        break;
+                }
+            } else {
+                if (this.fetcherBgWindowFifoPos == 0) {
+                    this.fetcherPushReady = false;
+
+                    for (let p = 0; p < 8; p++) {
+                        this.fetcherBgWindowFifo[p] = this.fetcherTileData[p ^ 7];
+                    }
+                    this.fetcherBgWindowFifoPos = 8;
+                }
+            }
+
+            if (this.fetcherBgWindowFifoPos > 0) {
+                if (this.fetcherX < 160) {
+                    this.fetcherBgWindowFifoPos--;
+                    if (this.fetcherX >= 0) {
+                        let pixel = this.fetcherBgWindowFifo[this.fetcherBgWindowFifoPos];
+                        let screenBase = (this.ly * 160) + this.fetcherX;
+                        if (this.bgWindowEnable) {
+                            this.screenBackBuf[screenBase] = this.bgPalette.shades[0][pixel];
+                        } else {
+                            this.screenBackBuf[screenBase] = 0xFFFF;
+                        }
+
+                        if (this.fetcherX == this.wx - 8 && this.windowEnable && this.ly >= this.wy) {
+                            // Window trigger
+                            if (!this.windowTriggeredThisFrame) {
+                                this.windowTriggeredThisFrame = true;
+                                this.windowCurrentLine = this.ly - this.wy;
+                            } else {
+                                this.windowCurrentLine++;
+                            }
+                            this.fetcherStep = 0;
+                            this.fetcherPushReady = false;
+                            this.fetcherTile = 0;
+                            this.fetcherWindow = true;
+                            this.fetcherBgWindowFifoPos = 0;
+                        }
+                    }
+                    this.fetcherX++;
+                }
+            }
+            cycles--;
+        }
+    }
+
+    fetcherReset() {
+        this.fetcherStep = 0;
+        this.fetcherX = -(this.scx & 0b111);
+        this.fetcherPushReady = false;
+        this.fetcherBgWindowFifoPos = 0;
+        this.fetcherTile = -1;
+        this.fetcherWindow = false;
+        this.fetcherFirstFetch = true;
+
+        // Special window trigger case
+        if (this.windowEnable && this.ly >= this.wy && this.wx < 8) {
+            if (!this.windowTriggeredThisFrame) {
+                this.windowTriggeredThisFrame = true;
+                this.windowCurrentLine = this.ly - this.wy;
+            } else {
+                this.windowCurrentLine++;
+            }
+            this.fetcherWindow = true;
+            this.fetcherX = -(this.wx & 0b111);
+            this.fetcherFirstFetch = false;
         }
     }
 
