@@ -6,6 +6,7 @@ import { PPU } from './ppu';
 import { Joypad } from './joypad';
 import { Timer } from './timer';
 import { APU } from './apu';
+import { bitSetValue, bitTest } from './util/bits';
 
 export class GameBoy {
     bus: Bus;
@@ -75,6 +76,74 @@ export class GameBoy {
         this.bus.write8(0xFF4B, 0x00);
         this.bus.write8(0xFFFF, 0x00);
         this.bus.write8(0xFF50, 0x01);
+
+        // Clear VRAM
+        const vramPointer = 0x8000;
+        for (let i = 0; i < 0x2000; i++) {
+            this.bus.write8(vramPointer + i, 0);
+        }
+
+        // Set palette
+        this.bus.write8(0xFF47, 0xFC);
+
+        // Reset scroll registers
+        this.ppu.scx = 0;
+        this.ppu.scy = 0;
+
+        // Copy Nintendo logo from cartridge
+        let logoData = new Uint8Array(48);
+        const base = 0x104;
+        for (let i = 0; i < 48; i++) {
+            let byte = this.bus.rom[base + i];
+            logoData[i] = byte;
+        }
+
+        // Put copyright symbol into tile data
+        let copyrightSymbol = Uint8Array.of(0x3C, 0x42, 0xB9, 0xA5, 0xB9, 0xA5, 0x42, 0x3C);
+        const copyrightPointer = 0x8190;
+        for (let i = 0; i < 8; i++) {
+            this.bus.write8(copyrightPointer + (i * 2) + 0, copyrightSymbol[i]);
+            this.bus.write8(copyrightPointer + (i * 2) + 1, 0);
+        }
+
+        // Write Nintendo logo tile map
+        const row1Pointer = 0x9904;
+        const row2Pointer = 0x9924;
+        for (let i = 0; i < 12; i++) {
+            this.bus.write8(row1Pointer + i, i + 0x1);
+            this.bus.write8(row2Pointer + i, i + 0xD);
+        }
+
+        // Expand Nintendo logo tile data
+        let logoTilesPointer = 0x8010;
+        for (let i = 0; i < 48; i++) {
+            let dataByte = logoData[i];
+            let upper = dataByte >> 4;
+            let lower = dataByte & 0xF;
+
+            let lowerFull = 0;
+            let upperFull = 0;
+            for (let j = 0; j < 8; j++) {
+                lowerFull = bitSetValue(lowerFull, j, bitTest(lower, j >> 1));
+                upperFull = bitSetValue(upperFull, j, bitTest(upper, j >> 1));
+            }
+
+            this.bus.write8(logoTilesPointer + (i * 8) + 0, upperFull);
+            this.bus.write8(logoTilesPointer + (i * 8) + 1, 0);
+            this.bus.write8(logoTilesPointer + (i * 8) + 2, upperFull);
+            this.bus.write8(logoTilesPointer + (i * 8) + 3, 0);
+            this.bus.write8(logoTilesPointer + (i * 8) + 4, lowerFull);
+            this.bus.write8(logoTilesPointer + (i * 8) + 5, 0);
+            this.bus.write8(logoTilesPointer + (i * 8) + 6, lowerFull);
+            this.bus.write8(logoTilesPointer + (i * 8) + 7, 0);
+        }
+
+        // Tile for copyright symbol
+        this.bus.write8(0x9910, 0x19);
+
+        // Turn on the LCD, enable Background, use Tileset 0x8000, 
+        this.bus.write8(0xFF40, 0x91);
+        this.bus.write8(0xFF0F, 0xE1);
     }
 
     cgb = false;
