@@ -30,6 +30,8 @@ const noiseDivisors = Uint8Array.from([8, 16, 32, 48, 64, 80, 96, 112]);
 const channelSampleRate = 65536;
 const outputSampleRate = 65536;
 
+const capacitorChargeFactor = Math.pow(0.999958, 4194304/65536);
+
 export class APU {
 
     gb: GameBoy;
@@ -182,8 +184,8 @@ export class APU {
 
         pos: 0,
         currentVal: 0,
-        outLeft: 0,
-        outRight: 0,
+        outL: 0,
+        outR: 0,
 
         frequencyTimer: 0,
 
@@ -197,8 +199,8 @@ export class APU {
         sweepTimer: 0,
         sweepShadowFrequency: 0,
 
-        leftEnable: false,
-        rightEnable: false,
+        enableL: false,
+        enableR: false,
         // -------
 
         // NR10
@@ -225,8 +227,8 @@ export class APU {
         updateOut: function () {
             let temp = this.currentVal * this.volume;
             if (!this.enabled) temp = 0;
-            if (this.leftEnable) { this.outLeft = temp / (15 / 2) - 1; } else { this.outLeft = 0; };
-            if (this.rightEnable) { this.outRight = temp / (15 / 2) - 1; } else { this.outRight = 0; };
+            if (this.enableL) { this.outL = temp / (15 / 2) - 1; } else { this.outL = 0; };
+            if (this.enableR) { this.outR = temp / (15 / 2) - 1; } else { this.outR = 0; };
         }
     };
 
@@ -237,8 +239,8 @@ export class APU {
 
         pos: 0,
         currentVal: 0,
-        outLeft: 0,
-        outRight: 0,
+        outL: 0,
+        outR: 0,
 
         frequencyTimer: 0,
 
@@ -248,8 +250,8 @@ export class APU {
         lengthCounter: 0,
         lengthTimer: 0,
 
-        leftEnable: false,
-        rightEnable: false,
+        enableL: false,
+        enableR: false,
         // -------
 
         // NR21
@@ -271,8 +273,8 @@ export class APU {
         updateOut: function () {
             let temp = this.currentVal * this.volume;
             if (!this.enabled) temp = 0;
-            if (this.leftEnable) { this.outLeft = temp / (15 / 2) - 1; } else { this.outLeft = 0; };
-            if (this.rightEnable) { this.outRight = temp / (15 / 2) - 1; } else { this.outRight = 0; };
+            if (this.enableL) { this.outL = temp / (15 / 2) - 1; } else { this.outL = 0; };
+            if (this.enableR) { this.outR = temp / (15 / 2) - 1; } else { this.outR = 0; };
         }
     };
 
@@ -283,8 +285,8 @@ export class APU {
 
         pos: 0,
         currentVal: 0,
-        outLeft: 0,
-        outRight: 0,
+        outL: 0,
+        outR: 0,
 
         frequencyTimer: 0,
 
@@ -298,8 +300,8 @@ export class APU {
 
         volumeShift: 0,
 
-        leftEnable: false,
-        rightEnable: false,
+        enableL: false,
+        enableR: false,
         // -------
 
         // NR31
@@ -318,8 +320,8 @@ export class APU {
         updateOut() {
             let temp = this.currentVal >> this.volumeShift;
             if (!this.enabled) temp = 0;
-            if (this.leftEnable) { this.outLeft = temp / (15 / 2) - 1; } else { this.outLeft = 0; };
-            if (this.rightEnable) { this.outRight = temp / (15 / 2) - 1; } else { this.outRight = 0; };
+            if (this.enableL) { this.outL = temp / (15 / 2) - 1; } else { this.outL = 0; };
+            if (this.enableR) { this.outR = temp / (15 / 2) - 1; } else { this.outR = 0; };
         }
     };
 
@@ -329,8 +331,8 @@ export class APU {
         dacEnabled: false,
 
         currentVal: 0,
-        outLeft: 0,
-        outRight: 0,
+        outL: 0,
+        outR: 0,
 
         frequencyTimer: 0,
 
@@ -342,8 +344,8 @@ export class APU {
 
         lfsr: 0,
 
-        leftEnable: false,
-        rightEnable: false,
+        enableL: false,
+        enableR: false,
         // -------
 
         // NR41
@@ -367,8 +369,8 @@ export class APU {
         updateOut: function () {
             let temp = this.currentVal * this.volume;
             if (!this.enabled) temp = 0;
-            if (this.leftEnable) { this.outLeft = temp / (15 / 2) - 1; } else { this.outLeft = 0; };
-            if (this.rightEnable) { this.outRight = temp / (15 / 2) - 1; } else { this.outRight = 0; };
+            if (this.enableL) { this.outL = temp / (15 / 2) - 1; } else { this.outL = 0; };
+            if (this.enableR) { this.outR = temp / (15 / 2) - 1; } else { this.outR = 0; };
         }
     };
 
@@ -376,18 +378,18 @@ export class APU {
 
     registers = new Uint8Array(23);
 
-    leftEnable1 = false;
-    leftEnable2 = false;
-    leftEnable3 = false;
-    leftEnable4 = false;
+    enableL1 = false;
+    enableL2 = false;
+    enableL3 = false;
+    enableL4 = false;
 
-    rightEnable1 = false;
-    rightEnable2 = false;
-    rightEnable3 = false;
-    rightEnable4 = false;
+    enableR1 = false;
+    enableR2 = false;
+    enableR3 = false;
+    enableR4 = false;
 
-    leftVolMul = 0;
-    rightVolMul = 0;
+    volMulL = 0;
+    volMulR = 0;
 
     triggerCh1() {
         this.ch1.pos = 0;
@@ -470,9 +472,12 @@ export class APU {
 
     player = new AudioPlayer(sampleBufMax, outputSampleRate);
 
+    capacitorL = 0;
+    capacitorR = 0;
+
     sample = (cyclesLate: number) => {
-        let finalLeft = 0;
-        let finalRight = 0;
+        let finalL = 0;
+        let finalR = 0;
 
         if (this.ch1.dacEnabled) {
             this.ch1.frequencyTimer -= 4194304 / channelSampleRate;
@@ -483,8 +488,8 @@ export class APU {
                 }
             }
 
-            finalLeft += this.ch1.outLeft;
-            finalRight += this.ch1.outRight;
+            finalL += this.ch1.outL;
+            finalR += this.ch1.outR;
         }
         if (this.ch2.dacEnabled) {
             this.ch2.frequencyTimer -= 4194304 / channelSampleRate;
@@ -495,8 +500,8 @@ export class APU {
                 }
             }
 
-            finalLeft += this.ch2.outLeft;
-            finalRight += this.ch2.outRight;
+            finalL += this.ch2.outL;
+            finalR += this.ch2.outR;
         }
         if (this.ch3.dacEnabled) {
             this.ch3.frequencyTimer -= 4194304 / channelSampleRate;
@@ -507,8 +512,8 @@ export class APU {
                 }
             }
 
-            finalLeft += this.ch3.outLeft;
-            finalRight += this.ch3.outRight;
+            finalL += this.ch3.outL;
+            finalR += this.ch3.outR;
         }
         if (this.ch4.dacEnabled) {
             // Channel 4 can be advanced far too often to be efficient for the scheduler
@@ -520,15 +525,21 @@ export class APU {
                 }
             }
 
-            finalLeft += this.ch4.outLeft;
-            finalRight += this.ch4.outRight;
+            finalL += this.ch4.outL;
+            finalR += this.ch4.outR;
         }
 
-        finalLeft *= this.leftVolMul;
-        finalRight *= this.rightVolMul;
+        finalL *= this.volMulL;
+        finalR *= this.volMulR;
 
-        this.sampleBufL[this.sampleBufPos] = finalLeft / 32;
-        this.sampleBufR[this.sampleBufPos] = finalRight / 32;
+        let outL = finalL - this.capacitorL;
+        let outR = finalR - this.capacitorR;
+
+        this.capacitorL = finalL - outL * capacitorChargeFactor;
+        this.capacitorR = finalR - outR * capacitorChargeFactor;
+
+        this.sampleBufL[this.sampleBufPos] = outL / 32;
+        this.sampleBufR[this.sampleBufPos] = outR / 32;
         this.sampleBufPos++;
         if (this.sampleBufPos >= sampleBufMax) {
             this.sampleBufPos = 0;
@@ -705,18 +716,18 @@ export class APU {
                 break;
 
             case 0xFF24: // NR50
-                this.leftVolMul = ((val >> 4) & 0b111) / 7;
-                this.rightVolMul = ((val >> 0) & 0b111) / 7;
+                this.volMulL = ((val >> 4) & 0b111) / 7;
+                this.volMulR = ((val >> 0) & 0b111) / 7;
                 break;
             case 0xFF25: // NR51
-                this.ch4.leftEnable = bitTest(val, 7);
-                this.ch3.leftEnable = bitTest(val, 6);
-                this.ch2.leftEnable = bitTest(val, 5);
-                this.ch1.leftEnable = bitTest(val, 4);
-                this.ch4.rightEnable = bitTest(val, 3);
-                this.ch3.rightEnable = bitTest(val, 2);
-                this.ch2.rightEnable = bitTest(val, 1);
-                this.ch1.rightEnable = bitTest(val, 0);
+                this.ch4.enableL = bitTest(val, 7);
+                this.ch3.enableL = bitTest(val, 6);
+                this.ch2.enableL = bitTest(val, 5);
+                this.ch1.enableL = bitTest(val, 4);
+                this.ch4.enableR = bitTest(val, 3);
+                this.ch3.enableR = bitTest(val, 2);
+                this.ch2.enableR = bitTest(val, 1);
+                this.ch1.enableR = bitTest(val, 0);
                 this.ch1.updateOut();
                 this.ch2.updateOut();
                 this.ch3.updateOut();
