@@ -396,6 +396,7 @@ function DrawSchedulerInfo() {
         ImGui.Columns(3);
 
         ImGui.Text("Index");
+        ImGui.SetColumnWidth(ImGui.GetColumnIndex(), 50);
         ImGui.NextColumn();
         ImGui.Text("Ticks");
         ImGui.NextColumn();

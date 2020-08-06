@@ -109,6 +109,7 @@ export class Bus {
     read8(addr: number): number {
         switch (addr >> 12) {
             case 0x0: // ROM0 - 0###
+            // There is no bootrom check to be found here. Bootrom unmapping is done in unmapBootrom().
             case 0x1: // ROM0 - 1###
             case 0x2: // ROM0 - 2###
             case 0x3: // ROM0 - 3###
