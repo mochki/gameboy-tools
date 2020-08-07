@@ -90,7 +90,8 @@ export class PPU {
 
     screenBackBuf = new Uint16Array(160 * 144);
     screenFrontBuf = new Uint16Array(160 * 144);
-    renderDone = false;
+    renderDoneScreen = false;
+    renderDoneTimingDiagram = false;
     scanlineRaw = new Uint8Array(160);
 
     vram = [
@@ -199,7 +200,8 @@ export class PPU {
             this.enterMode2(0); // OAM Scan
         } else {
             this.enterMode1(0); // Vblank
-            this.renderDone = true;
+            this.renderDoneScreen = true;
+            this.renderDoneTimingDiagram = true;
             this.swapBuffers();
             this.windowTriggeredThisFrame = false;
         }
