@@ -996,14 +996,16 @@ export class PPU {
     fetcherX = 0;
     fetcherTile = -1;
     fetcherTileIndex = 0;
-    fetcherTileData = new Uint8Array();
+    fetcherTileDataUpper = 0;
+    fetcherTileDataLower = 0;
     fetcherPushReady = false;
-    fetcherBgWindowFifo = new Uint8Array(8);
-    fetcherBgWindowFifoPos = 0;
-    fetcherObjFifoUpper = 0;
-    fetcherObjFifoLower = 0;
-    fetcherObjFifoPal = 0;
-    fetcherObjFifoBgPrio = 0;
+    fetcherBgWindowShiftUpper = 0;
+    fetcherBgWindowShiftLower = 0;
+    fetcherBgWindowShiftFilled = 0;
+    fetcherObjShiftUpper = 0;
+    fetcherObjShiftLower = 0;
+    fetcherObjShiftPal = 0;
+    fetcherObjShiftBgPrio = 0;
     fetcherWindow = false;
     fetcherStall = 0;
     fetcherCycles = 0;
@@ -1049,63 +1051,55 @@ export class PPU {
                                 } else {
                                     tileY = this.windowCurrentLine & 7;
                                 }
-                                this.fetcherTileData = this.tileset[0][this.fetcherTileIndex][tileY];
+                                let tiledataAddr = (this.fetcherTileIndex * 16) + (tileY * 2);
+                                let lower = this.vram[0][tiledataAddr + 0];
+                                let upper = this.vram[0][tiledataAddr + 1];
+                                // Evil bit-level magic to reverse bits in a byte
+                                this.fetcherTileDataLower = lower = ((lower * 0x0802 & 0x22110) | (lower * 0x8020 & 0x88440)) * 0x10101 >> 16;
+                                this.fetcherTileDataUpper = upper = ((upper * 0x0802 & 0x22110) | (upper * 0x8020 & 0x88440)) * 0x10101 >> 16;
                                 this.fetcherPushReady = true;
                                 this.fetcherStep = 0;
                                 break;
                         }
                     } else {
-                        if (this.fetcherBgWindowFifoPos == 0) {
+                        if ((this.fetcherBgWindowShiftFilled & 0xFF) == 0) {
                             this.fetcherPushReady = false;
-
-                            // #region LOOP
-                            // for (let p = 0; p < 8; p++) {
-                            //     this.fetcherBgWindowFifo[p] = this.fetcherTileData[p ^ 7];
-                            // }
-                            // #endregion
-                            // #region UNROLL
-                            this.fetcherBgWindowFifo[0] = this.fetcherTileData[7];
-                            this.fetcherBgWindowFifo[1] = this.fetcherTileData[6];
-                            this.fetcherBgWindowFifo[2] = this.fetcherTileData[5];
-                            this.fetcherBgWindowFifo[3] = this.fetcherTileData[4];
-                            this.fetcherBgWindowFifo[4] = this.fetcherTileData[3];
-                            this.fetcherBgWindowFifo[5] = this.fetcherTileData[2];
-                            this.fetcherBgWindowFifo[6] = this.fetcherTileData[1];
-                            this.fetcherBgWindowFifo[7] = this.fetcherTileData[0];
-
-                            // #endregion
-                            this.fetcherBgWindowFifoPos = 8;
+                            this.fetcherBgWindowShiftLower = this.fetcherTileDataLower;
+                            this.fetcherBgWindowShiftUpper = this.fetcherTileDataUpper;
+                            this.fetcherBgWindowShiftFilled = 0xFF;
                         }
                     }
 
-                    if (this.fetcherBgWindowFifoPos > 0) {
+                    if ((this.fetcherBgWindowShiftFilled & 0xFF) != 0) {
                         if (this.fetcherX < 160) {
-                            this.fetcherBgWindowFifoPos--;
                             if (this.fetcherX >= 0) {
-                                let bgWindowPixel = this.fetcherBgWindowFifo[this.fetcherBgWindowFifoPos];
+                                let bgWindowPixelUpper = this.fetcherBgWindowShiftUpper & 1;
+                                let bgWindowPixelLower = this.fetcherBgWindowShiftLower & 1;
+                                let bgWindowCol = (bgWindowPixelUpper << 1) | bgWindowPixelLower;
+
                                 let screenBase = (this.ly * 160) + this.fetcherX;
                                 if (this.bgWindowEnable) {
-                                    this.screenBackBuf[screenBase] = this.bgPalette.shades[0][bgWindowPixel];
+                                    this.screenBackBuf[screenBase] = this.bgPalette.shades[0][bgWindowCol];
                                 } else {
                                     this.screenBackBuf[screenBase] = 0xFFFF;
                                 }
 
-                                let pixelUpper = this.fetcherObjFifoUpper & 1;
-                                let pixelLower = this.fetcherObjFifoLower & 1;
-                                let col = (pixelUpper << 1) | pixelLower;
+                                let objPixelUpper = this.fetcherObjShiftUpper & 1;
+                                let objPixelLower = this.fetcherObjShiftLower & 1;
+                                let objCol = (objPixelUpper << 1) | objPixelLower;
 
-                                if (col != 0) {
-                                    let palette = this.objPalette.shades[this.fetcherObjFifoPal & 1];
-                                    let priority = this.fetcherObjFifoBgPrio & 1;
-                                    if (!priority || bgWindowPixel == 0) {
-                                        this.screenBackBuf[screenBase] = palette[col];
+                                if (objCol != 0) {
+                                    let palette = this.objPalette.shades[this.fetcherObjShiftPal & 1];
+                                    let priority = this.fetcherObjShiftBgPrio & 1;
+                                    if (!priority || bgWindowCol == 0) {
+                                        this.screenBackBuf[screenBase] = palette[objCol];
                                     }
                                 }
 
-                                this.fetcherObjFifoUpper >>= 1;
-                                this.fetcherObjFifoLower >>= 1;
-                                this.fetcherObjFifoPal >>= 1;
-                                this.fetcherObjFifoBgPrio >>= 1;
+                                this.fetcherObjShiftUpper >>= 1;
+                                this.fetcherObjShiftLower >>= 1;
+                                this.fetcherObjShiftPal >>= 1;
+                                this.fetcherObjShiftBgPrio >>= 1;
 
                                 if (this.fetcherX == this.wx - 8 && this.windowEnable && this.ly >= this.wy) {
                                     // Window trigger
@@ -1119,7 +1113,7 @@ export class PPU {
                                     this.fetcherPushReady = false;
                                     this.fetcherTile = 0;
                                     this.fetcherWindow = true;
-                                    this.fetcherBgWindowFifoPos = 0;
+                                    this.fetcherBgWindowShiftFilled = 0;
                                 }
 
                                 if (this.objEnable) {
@@ -1128,6 +1122,9 @@ export class PPU {
                                     }
                                 }
                             }
+                            this.fetcherBgWindowShiftUpper >>= 1;
+                            this.fetcherBgWindowShiftLower >>= 1;
+                            this.fetcherBgWindowShiftFilled >>= 1;
                             this.fetcherX++;
                         }
                     }
@@ -1142,17 +1139,20 @@ export class PPU {
         this.fetcherStep = 0;
         this.fetcherX = -(this.scx & 0b111);
         this.fetcherPushReady = false;
-        this.fetcherBgWindowFifoPos = 0;
         this.fetcherTile = 0;
         this.fetcherStall = 6;
         this.fetcherWindow = false;
         this.fetcherSprite = 0;
 
-        // Reset OBJ FIFOs
-        this.fetcherObjFifoUpper = 0;
-        this.fetcherObjFifoLower = 0;
-        this.fetcherObjFifoPal = 0;
-        this.fetcherObjFifoBgPrio = 0;
+        // Reset Shifts
+        this.fetcherObjShiftUpper = 0;
+        this.fetcherObjShiftLower = 0;
+        this.fetcherObjShiftPal = 0;
+        this.fetcherObjShiftBgPrio = 0;
+
+        this.fetcherBgWindowShiftLower = 0;
+        this.fetcherBgWindowShiftUpper = 0;
+        this.fetcherBgWindowShiftFilled = 0;
 
         // Special window trigger case
         if (this.windowEnable && this.ly >= this.wy && this.wx < 8) {
@@ -1187,27 +1187,20 @@ export class PPU {
             let preUpper = spriteData.tileDataUpper;
             let preLower = spriteData.tileDataLower;
 
-            for (let i = 0; i < 8; i++) {
-                postUpper <<= 1;
-                postLower <<= 1;
-
-                postUpper ^= (preUpper & 1);
-                postLower ^= (preLower & 1);
-
-                preUpper >>= 1;
-                preLower >>= 1;
-            }
+            // Evil bit-level magic to reverse an 8-bit integer
+            postUpper = (((preUpper * 0x0802 & 0x22110) | (preUpper * 0x8020 & 0x88440)) * 0x10101 >> 16) & 0xFF;
+            postLower = (((preLower * 0x0802 & 0x22110) | (preLower * 0x8020 & 0x88440)) * 0x10101 >> 16) & 0xFF;
         } else {
             postUpper = spriteData.tileDataUpper;
             postLower = spriteData.tileDataLower;
         }
 
-        let dontDraw = this.fetcherObjFifoUpper | this.fetcherObjFifoLower;
+        let dontDraw = this.fetcherObjShiftUpper | this.fetcherObjShiftLower;
 
-        this.fetcherObjFifoUpper = ((this.fetcherObjFifoUpper & dontDraw) | (postUpper & ~dontDraw)) >> shiftOut;
-        this.fetcherObjFifoLower = ((this.fetcherObjFifoLower & dontDraw) | (postLower & ~dontDraw)) >> shiftOut;
-        this.fetcherObjFifoBgPrio = (priority ? 0xFF : 0) >> shiftOut;
-        this.fetcherObjFifoPal = (pal ? 0xFF : 0) >> shiftOut;
+        this.fetcherObjShiftUpper = ((this.fetcherObjShiftUpper & dontDraw) | (postUpper & ~dontDraw)) >> shiftOut;
+        this.fetcherObjShiftLower = ((this.fetcherObjShiftLower & dontDraw) | (postLower & ~dontDraw)) >> shiftOut;
+        this.fetcherObjShiftBgPrio = (priority ? 0xFF : 0) >> shiftOut;
+        this.fetcherObjShiftPal = (pal ? 0xFF : 0) >> shiftOut;
 
         this.fetcherStall += 6;
         this.fetcherSprite++;
