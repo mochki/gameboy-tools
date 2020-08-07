@@ -208,9 +208,13 @@ export class PPU {
     };
 
     enterMode1 = (cyclesLate: number) => { // Enter Vblank
+        this.scheduler.addEventRelative(SchedulerId.PPUMode, 4 - cyclesLate, this.enterMode1LateEffects);
+        this.scheduler.addEventRelative(SchedulerId.PPUMode, 456 - cyclesLate, this.continueMode1);
+    };
+
+    enterMode1LateEffects = (cyclesLate: number) => {
         this.mode = PPUMode.Vblank;
         this.checkStat();
-        this.scheduler.addEventRelative(SchedulerId.PPUMode, 456 - cyclesLate, this.continueMode1);
         this.gb.cpu.flagInterrupt(InterruptId.Vblank);
     };
 
