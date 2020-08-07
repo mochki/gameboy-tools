@@ -1,6 +1,7 @@
 export interface MBC {
     romBank: number;
     ram: Uint8Array;
+    sramDirty: boolean;
 
     read8(addr: number): number;
 
