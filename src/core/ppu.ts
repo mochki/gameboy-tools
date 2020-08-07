@@ -78,6 +78,9 @@ export class PPU {
         this.scheduler = scheduler;
     }
 
+    scanlineTimingsBack = new Uint32Array(144);
+    scanlineTimingsFront = new Uint32Array(144);
+
     bgPalette = new PaletteData();
     objPalette = new PaletteData();
 
@@ -138,15 +141,28 @@ export class PPU {
     mode3StartCycles = 0;
 
     swapBuffers() {
-        let temp = this.screenBackBuf;
+        let tempScreenBuf = this.screenBackBuf;
         this.screenBackBuf = this.screenFrontBuf;
-        this.screenFrontBuf = temp;
+        this.screenFrontBuf = tempScreenBuf;
+
+        let tempScanlineTimings = this.scanlineTimingsBack;
+        this.scanlineTimingsBack = this.scanlineTimingsFront;
+        this.scanlineTimingsFront = tempScanlineTimings;
     }
 
     enterMode2 = (cyclesLate: number) => { // Enter OAM Scan
+        if (this.ly != 0) {
+            this.mode = PPUMode.OamScan;
+            this.checkStat();
+        } else {
+            this.scheduler.addEventRelative(SchedulerId.PPUMode, 4 - cyclesLate, this.enterMode2Late);
+        }
+        this.scheduler.addEventRelative(SchedulerId.PPUMode, 80 - cyclesLate, this.endMode2);
+    };
+
+    enterMode2Late = (cyclesLate: number) => {
         this.mode = PPUMode.OamScan;
         this.checkStat();
-        this.scheduler.addEventRelative(SchedulerId.PPUMode, 80 - cyclesLate, this.endMode2);
     };
 
     endMode2 = (cyclesLate: number) => { // OAM Scan -> Drawing
@@ -170,6 +186,9 @@ export class PPU {
         while (this.fetcherX < 160) {
             this.fetcherAdvance(8);
         }
+
+        this.scanlineTimingsBack[this.ly] = this.fetcherCycles;
+        this.fetcherCycles = 0;
     };
 
     endMode0 = (cyclesLate: number) => { // Hblank -> Vblank / OAM Scan
@@ -985,118 +1004,133 @@ export class PPU {
     fetcherObjFifoBgPrio = 0;
     fetcherWindow = false;
     fetcherStall = 0;
+    fetcherCycles = 0;
     fetcherAdvance(cycles: number) {
         while (cycles > 0) {
-            if (this.fetcherStall > 0) {
-                this.fetcherStall--;
-                cycles--;
-                continue;
-            }
+            if (this.fetcherX < 160) {
+                if (this.fetcherStall > 0) {
+                    this.fetcherStall--;
+                } else {
+                    if (!this.fetcherPushReady) {
+                        switch (this.fetcherStep) {
+                            case 0: // Fetch tile number
+                                if (!this.fetcherWindow) {
+                                    let tilemapBase = (this.bgTilemapSelect ? 1024 : 0) + ((((this.scy + this.ly) >> 3) << 5) & 1023);
+                                    let lineOffset = this.scx >> 3;
+                                    let tilemapAddr = tilemapBase + ((lineOffset + this.fetcherTile) & 31);
+                                    this.fetcherTile++;
+                                    this.fetcherTileIndex = this.tilemap[tilemapAddr];
+                                } else {
+                                    let tilemapBase = (this.windowTilemapSelect ? 1024 : 0) + (((this.windowCurrentLine >> 3) << 5) & 1023);
+                                    let tilemapAddr = tilemapBase + (this.fetcherTile & 31);
+                                    this.fetcherTile++;
+                                    this.fetcherTileIndex = this.tilemap[tilemapAddr];
+                                }
 
-            if (!this.fetcherPushReady) {
-                switch (this.fetcherStep) {
-                    case 0: // Fetch tile number
-                        if (!this.fetcherWindow) {
-                            let tilemapBase = (this.bgTilemapSelect ? 1024 : 0) + ((((this.scy + this.ly) >> 3) << 5) & 1023);
-                            let lineOffset = this.scx >> 3;
-                            let tilemapAddr = tilemapBase + ((lineOffset + this.fetcherTile) & 31);
-                            this.fetcherTile++;
-                            this.fetcherTileIndex = this.tilemap[tilemapAddr];
-                        } else {
-                            let tilemapBase = (this.windowTilemapSelect ? 1024 : 0) + (((this.windowCurrentLine >> 3) << 5) & 1023);
-                            let tilemapAddr = tilemapBase + (this.fetcherTile & 31);
-                            this.fetcherTile++;
-                            this.fetcherTileIndex = this.tilemap[tilemapAddr];
+                                if (!this.bgWindowTiledataSelect) {
+                                    // On high tileset, the tile number is signed with two's complement
+                                    this.fetcherTileIndex = unTwo8b(this.fetcherTileIndex) + 256;
+                                }
+
+                                this.fetcherStep++;
+                                break;
+                            case 1: // Delay
+                            case 2:
+                            case 3:
+                            case 4:
+                                this.fetcherStep++;
+                                break;
+                            case 5:
+                                let tileY;
+                                if (!this.fetcherWindow) {
+                                    tileY = (this.scy + this.ly) & 7;
+                                } else {
+                                    tileY = this.windowCurrentLine & 7;
+                                }
+                                this.fetcherTileData = this.tileset[0][this.fetcherTileIndex][tileY];
+                                this.fetcherPushReady = true;
+                                this.fetcherStep = 0;
+                                break;
                         }
-
-                        if (!this.bgWindowTiledataSelect) {
-                            // On high tileset, the tile number is signed with two's complement
-                            this.fetcherTileIndex = unTwo8b(this.fetcherTileIndex) + 256;
-                        }
-
-                        this.fetcherStep++;
-                        break;
-                    case 1: // Delay
-                    case 2:
-                    case 3:
-                    case 4:
-                        this.fetcherStep++;
-                        break;
-                    case 5:
-                        let tileY;
-                        if (!this.fetcherWindow) {
-                            tileY = (this.scy + this.ly) & 7;
-                        } else {
-                            tileY = this.windowCurrentLine & 7;
-                        }
-                        this.fetcherTileData = this.tileset[0][this.fetcherTileIndex][tileY];
-                        this.fetcherPushReady = true;
-                        this.fetcherStep = 0;
-                        break;
-                }
-            } else {
-                if (this.fetcherBgWindowFifoPos == 0) {
-                    this.fetcherPushReady = false;
-
-                    for (let p = 0; p < 8; p++) {
-                        this.fetcherBgWindowFifo[p] = this.fetcherTileData[p ^ 7];
-                    }
-                    this.fetcherBgWindowFifoPos = 8;
-                }
-            }
-
-            if (this.fetcherBgWindowFifoPos > 0) {
-                if (this.fetcherX < 160) {
-                    this.fetcherBgWindowFifoPos--;
-                    if (this.fetcherX >= 0) {
-                        let bgWindowPixel = this.fetcherBgWindowFifo[this.fetcherBgWindowFifoPos];
-                        let screenBase = (this.ly * 160) + this.fetcherX;
-                        if (this.bgWindowEnable) {
-                            this.screenBackBuf[screenBase] = this.bgPalette.shades[0][bgWindowPixel];
-                        } else {
-                            this.screenBackBuf[screenBase] = 0xFFFF;
-                        }
-
-                        let pixelUpper = this.fetcherObjFifoUpper & 1;
-                        let pixelLower = this.fetcherObjFifoLower & 1;
-                        let col = (pixelUpper << 1) | pixelLower;
-
-                        if (col != 0) {
-                            let palette = this.objPalette.shades[this.fetcherObjFifoPal & 1];
-                            let priority = this.fetcherObjFifoBgPrio & 1;
-                            if (!priority || bgWindowPixel == 0) {
-                                this.screenBackBuf[screenBase] = palette[col];
-                            }
-                        }
-
-                        this.fetcherObjFifoUpper >>= 1;
-                        this.fetcherObjFifoLower >>= 1;
-                        this.fetcherObjFifoPal >>= 1;
-                        this.fetcherObjFifoBgPrio >>= 1;
-
-                        if (this.fetcherX == this.wx - 8 && this.windowEnable && this.ly >= this.wy) {
-                            // Window trigger
-                            if (!this.windowTriggeredThisFrame) {
-                                this.windowTriggeredThisFrame = true;
-                                this.windowCurrentLine = this.ly - this.wy;
-                            } else {
-                                this.windowCurrentLine++;
-                            }
-                            this.fetcherStep = 0;
+                    } else {
+                        if (this.fetcherBgWindowFifoPos == 0) {
                             this.fetcherPushReady = false;
-                            this.fetcherTile = 0;
-                            this.fetcherWindow = true;
-                            this.fetcherBgWindowFifoPos = 0;
-                        }
 
-                        if (this.objEnable) {
-                            while (this.fetcherX == this.fetcherSpriteNextX - 1) {
-                                this.fetcherSpriteFetch(0);
-                            }
+                            // #region LOOP
+                            // for (let p = 0; p < 8; p++) {
+                            //     this.fetcherBgWindowFifo[p] = this.fetcherTileData[p ^ 7];
+                            // }
+                            // #endregion
+                            // #region UNROLL
+                            this.fetcherBgWindowFifo[0] = this.fetcherTileData[7];
+                            this.fetcherBgWindowFifo[1] = this.fetcherTileData[6];
+                            this.fetcherBgWindowFifo[2] = this.fetcherTileData[5];
+                            this.fetcherBgWindowFifo[3] = this.fetcherTileData[4];
+                            this.fetcherBgWindowFifo[4] = this.fetcherTileData[3];
+                            this.fetcherBgWindowFifo[5] = this.fetcherTileData[2];
+                            this.fetcherBgWindowFifo[6] = this.fetcherTileData[1];
+                            this.fetcherBgWindowFifo[7] = this.fetcherTileData[0];
+
+                            // #endregion
+                            this.fetcherBgWindowFifoPos = 8;
                         }
                     }
-                    this.fetcherX++;
+
+                    if (this.fetcherBgWindowFifoPos > 0) {
+                        if (this.fetcherX < 160) {
+                            this.fetcherBgWindowFifoPos--;
+                            if (this.fetcherX >= 0) {
+                                let bgWindowPixel = this.fetcherBgWindowFifo[this.fetcherBgWindowFifoPos];
+                                let screenBase = (this.ly * 160) + this.fetcherX;
+                                if (this.bgWindowEnable) {
+                                    this.screenBackBuf[screenBase] = this.bgPalette.shades[0][bgWindowPixel];
+                                } else {
+                                    this.screenBackBuf[screenBase] = 0xFFFF;
+                                }
+
+                                let pixelUpper = this.fetcherObjFifoUpper & 1;
+                                let pixelLower = this.fetcherObjFifoLower & 1;
+                                let col = (pixelUpper << 1) | pixelLower;
+
+                                if (col != 0) {
+                                    let palette = this.objPalette.shades[this.fetcherObjFifoPal & 1];
+                                    let priority = this.fetcherObjFifoBgPrio & 1;
+                                    if (!priority || bgWindowPixel == 0) {
+                                        this.screenBackBuf[screenBase] = palette[col];
+                                    }
+                                }
+
+                                this.fetcherObjFifoUpper >>= 1;
+                                this.fetcherObjFifoLower >>= 1;
+                                this.fetcherObjFifoPal >>= 1;
+                                this.fetcherObjFifoBgPrio >>= 1;
+
+                                if (this.fetcherX == this.wx - 8 && this.windowEnable && this.ly >= this.wy) {
+                                    // Window trigger
+                                    if (!this.windowTriggeredThisFrame) {
+                                        this.windowTriggeredThisFrame = true;
+                                        this.windowCurrentLine = this.ly - this.wy;
+                                    } else {
+                                        this.windowCurrentLine++;
+                                    }
+                                    this.fetcherStep = 0;
+                                    this.fetcherPushReady = false;
+                                    this.fetcherTile = 0;
+                                    this.fetcherWindow = true;
+                                    this.fetcherBgWindowFifoPos = 0;
+                                }
+
+                                if (this.objEnable) {
+                                    while (this.fetcherX == this.fetcherSpriteNextX - 1) {
+                                        this.fetcherSpriteFetch(0);
+                                    }
+                                }
+                            }
+                            this.fetcherX++;
+                        }
+                    }
                 }
+                this.fetcherCycles += 1;
             }
             cycles--;
         }
@@ -1127,6 +1161,7 @@ export class PPU {
                 this.windowCurrentLine++;
             }
             this.fetcherWindow = true;
+            this.fetcherX = -(this.wx - 7);
         }
 
         if (this.objEnable) {

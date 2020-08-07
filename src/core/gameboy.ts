@@ -183,6 +183,14 @@ export class GameBoy {
         return i;
     }
 
+    public quarterFrame(): number {
+        let i = 0;
+        let cpu = this.cpu;
+        while (i < 17556) {
+            i += cpu.execute();
+        }
+        return i;
+    }
 
     public tick(ticks: number): void {
         this.scheduler.currTicks += ticks;

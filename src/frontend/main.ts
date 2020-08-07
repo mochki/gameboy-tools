@@ -248,6 +248,7 @@ function _loop(time: number): void {
         DrawDisplay();
         DrawSchedulerInfo();
         DrawSaves();
+        DrawTimingDiagram();
 
         ImGui.EndFrame();
 
@@ -504,6 +505,35 @@ function DrawDisplay() {
                     gl.UNSIGNED_SHORT_5_6_5,
                     mgr.gb.ppu.screenFrontBuf,
                 );
+
+                let bufPos = 0;
+                for (let r = 0; r < 154; r++) {
+                    if (r < 144) {
+                        for (let c = 0; c < 80; c++) {
+                            timingDiagramBuf[bufPos++] = mode2[0];
+                            timingDiagramBuf[bufPos++] = mode2[1];
+                            timingDiagramBuf[bufPos++] = mode2[2];
+                        }
+                        let mode3Length = mgr.gb.ppu.scanlineTimingsFront[r];
+                        let mode0Length = 376 - mode3Length;
+                        for (let c = 0; c < mode3Length; c++) {
+                            timingDiagramBuf[bufPos++] = mode3[0];
+                            timingDiagramBuf[bufPos++] = mode3[1];
+                            timingDiagramBuf[bufPos++] = mode3[2];
+                        }
+                        for (let c = 0; c < mode0Length; c++) {
+                            timingDiagramBuf[bufPos++] = mode0[0];
+                            timingDiagramBuf[bufPos++] = mode0[1];
+                            timingDiagramBuf[bufPos++] = mode0[2];
+                        }
+                    } else {
+                        for (let c = 0; c < 456; c++) {
+                            timingDiagramBuf[bufPos++] = mode1[0];
+                            timingDiagramBuf[bufPos++] = mode1[1];
+                            timingDiagramBuf[bufPos++] = mode1[2];
+                        }
+                    }
+                }
             }
 
             ImGui.Image(tex, new ImVec2(160 * 2, 144 * 2));
@@ -545,6 +575,49 @@ function DrawSaves() {
             }
         } else {
             ImGui.Text("localForage not found :(");
+        }
+
+        ImGui.End();
+    }
+}
+
+let timingDiagramTex: WebGLTexture;
+
+const timingDiagramBuf = new Uint8Array(456 * 154 * 3);
+const mode2 = new Uint8Array([0xF3, 0xC9, 0x4A]);
+const mode3 = new Uint8Array([0xF3, 0x72, 0x4A]);
+const mode0 = new Uint8Array([0x4A, 0xF3, 0x66]);
+const mode1 = new Uint8Array([0x4A, 0xE3, 0xF3]);
+
+function DrawTimingDiagram() {
+    if (ImGui.Begin("Timing Diagram"), () => true, ImGui.ImGuiWindowFlags.NoResize) {
+        ImGui.SetWindowSize(new ImVec2((456) + 16, (154) + 36));
+
+        const gl: WebGLRenderingContext | null = ImGui_Impl.gl;
+        if (gl) {
+            if (!timingDiagramTex) timingDiagramTex = gl.createTexture()!;
+
+            gl.bindTexture(gl.TEXTURE_2D, timingDiagramTex);
+
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+            gl.texImage2D(
+                gl.TEXTURE_2D,
+                0,
+                gl.RGB,
+                456,
+                154,
+                0,
+                gl.RGB,
+                gl.UNSIGNED_BYTE,
+                timingDiagramBuf,
+            );
+
+            ImGui.Image(timingDiagramTex, new ImVec2(456, 154));
         }
 
         ImGui.End();
