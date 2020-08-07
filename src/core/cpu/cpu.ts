@@ -171,7 +171,7 @@ export class CPU {
         }
 
         if (this.ime && (this.if & this.ie & 0x1F) != 0) {
-            this.dispatchInterrupt();
+            this.dispatchInterrupt(false);
         }
 
         // this.gb.info(`Addr:${hexN(origPc, 4)} Opcode:${hexN(val, 2)}`);
@@ -196,11 +196,11 @@ export class CPU {
         }
 
         if (this.ime && (this.if & this.ie & 0x1F) != 0) {
-            this.dispatchInterrupt();
+            this.dispatchInterrupt(false);
         }
     }
 
-    dispatchInterrupt() {
+    dispatchInterrupt(fromHalt: boolean) {
         let vector = 0;
 
         this.tick(4);
@@ -210,7 +210,7 @@ export class CPU {
         this.sp = (this.sp - 1) & 0xFFFF;
         this.write8(this.sp, upperPc);
 
-        this.tick(2);
+        if (!fromHalt) this.tick(2);
         if (
             bitTest(this.ie, InterruptId.Vblank) &&
             bitTest(this.if, InterruptId.Vblank)
@@ -242,8 +242,9 @@ export class CPU {
             this.clearInterrupt(InterruptId.Joypad);
             vector = JOYPAD_VECTOR;
         }
-        this.tick(2);
+        if (!fromHalt) this.tick(2);
 
+        if (fromHalt) this.tick(4);
 
         this.ime = false;
 
