@@ -90,8 +90,8 @@ export class PPU {
 
     screenBackBuf = new Uint16Array(160 * 144);
     screenFrontBuf = new Uint16Array(160 * 144);
-    renderDoneScreen = false;
-    renderDoneTimingDiagram = false;
+    renderDoneScreen = true;
+    renderDoneTimingDiagram = true;
     scanlineRaw = new Uint8Array(160);
 
     vram = [
