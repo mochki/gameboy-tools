@@ -58,6 +58,12 @@ async function _init(): Promise<void> {
         updateSaves();
     }, 1000);
 
+    setInterval(() => {
+        let pct = cycles / 70224;
+        cycles = 0;
+        document.title = `Optime GB (${(pct * 1) | 0} fps)`;
+    }, 1000);
+
     let altControls = false;
     let block = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Enter", "\\", "z", "x", "Tab"];
 
@@ -199,7 +205,10 @@ const gbHz = 4194304 * 1;
 
 (window as any).renderUi = true;
 
-let syncToAudio = true;
+let syncToAudio = false;
+syncToAudio = true;
+
+let cycles = 0;
 
 // Main loop
 function _loop(time: number): void {
@@ -218,6 +227,7 @@ function _loop(time: number): void {
                     let startMs = performance.now();
 
                     let i = mgr.gb.frame();
+                    cycles += i;
 
                     let endMs = performance.now();
 
@@ -231,9 +241,27 @@ function _loop(time: number): void {
             } else {
                 let attempts = 10;
                 while (mgr.gb.apu.player.sourcesPlaying < 10 && !mgr.gb.errored && attempts > 0) {
-                    mgr.gb.frame();
+                    cycles += mgr.gb.frame();
                 }
             }
+        } else {
+            mgr.gb.turboMode = true;
+            cycles += mgr.gb.frame();
+            cycles += mgr.gb.frame();
+            cycles += mgr.gb.frame();
+            cycles += mgr.gb.frame();
+            cycles += mgr.gb.frame();
+            cycles += mgr.gb.frame();
+            cycles += mgr.gb.frame();
+            cycles += mgr.gb.frame();
+            cycles += mgr.gb.frame();
+            cycles += mgr.gb.frame();
+            cycles += mgr.gb.frame();
+            cycles += mgr.gb.frame();
+            cycles += mgr.gb.frame();
+            cycles += mgr.gb.frame();
+            cycles += mgr.gb.frame();
+            cycles += mgr.gb.frame();
         }
     }
 
@@ -482,10 +510,9 @@ function DrawDisplay() {
 
         const gl: WebGLRenderingContext | null = ImGui_Impl.gl;
         if (gl) {
-            if (!tex) tex = gl.createTexture()!;
+            if (!tex) {
+                tex = gl.createTexture()!;
 
-            if (mgr.gb.ppu.renderDoneScreen) {
-                mgr.gb.ppu.renderDoneScreen = false;
                 gl.bindTexture(gl.TEXTURE_2D, tex);
 
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -493,6 +520,11 @@ function DrawDisplay() {
 
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            }
+
+            if (mgr.gb.ppu.renderDoneScreen) {
+                mgr.gb.ppu.renderDoneScreen = false;
+                gl.bindTexture(gl.TEXTURE_2D, tex);
 
                 gl.texImage2D(
                     gl.TEXTURE_2D,
@@ -587,7 +619,17 @@ function DrawTimingDiagram() {
 
         const gl: WebGLRenderingContext | null = ImGui_Impl.gl;
         if (gl) {
-            if (!timingDiagramTex) timingDiagramTex = gl.createTexture()!;
+            if (!timingDiagramTex) {
+                timingDiagramTex = gl.createTexture()!;
+
+                gl.bindTexture(gl.TEXTURE_2D, timingDiagramTex);
+
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            }
 
             if (mgr.gb.ppu.renderDoneTimingDiagram) {
                 mgr.gb.ppu.renderDoneTimingDiagram = false;
@@ -611,12 +653,6 @@ function DrawTimingDiagram() {
                 }
 
                 gl.bindTexture(gl.TEXTURE_2D, timingDiagramTex);
-
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
                 gl.texImage2D(
                     gl.TEXTURE_2D,

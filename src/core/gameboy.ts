@@ -19,6 +19,8 @@ export class GameBoy {
     provider?: GameBoyProvider;
     scheduler: Scheduler;
 
+    turboMode = false;
+
     constructor(skipBootrom: boolean, provider?: GameBoyProvider) {
         this.scheduler = new Scheduler();
         this.joypad = new Joypad();
@@ -216,6 +218,9 @@ export class GameBoy {
             this.haltSkippedCycles += ticksPassed;
 
             if ((this.cpu.ie & this.cpu.if & 0x1F) != 0) {
+                if (this.cpu.ime) {
+                    this.cpu.dispatchInterrupt(true);
+                }
                 return;
             }
         }

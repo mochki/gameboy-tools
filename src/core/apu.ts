@@ -543,7 +543,9 @@ export class APU {
         this.sampleBufPos++;
         if (this.sampleBufPos >= sampleBufMax) {
             this.sampleBufPos = 0;
-            this.player.queueAudio(this.sampleBufL, this.sampleBufR);
+            if (!this.gb.turboMode) {
+                this.player.queueAudio(this.sampleBufL, this.sampleBufR);
+            }
         }
 
         this.scheduler.addEventRelative(SchedulerId.APUSample, (4194304 / outputSampleRate) - cyclesLate, this.sample);
