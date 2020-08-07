@@ -15,22 +15,48 @@ const regMask = Uint8Array.from([
 ]);
 
 
-const pulseDuty = [
+export const pulseDuty = [
     Uint8Array.from([0, 0, 0, 0, 0, 0, 0, 1]),
     Uint8Array.from([1, 0, 0, 0, 0, 0, 0, 1]),
     Uint8Array.from([1, 0, 0, 0, 0, 1, 1, 1]),
     Uint8Array.from([0, 1, 1, 1, 1, 1, 1, 0]),
 ];
 
+export const pulseDutyArray = [
+    [0, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 0, 0, 1],
+    [1, 0, 0, 0, 0, 1, 1, 1],
+    [0, 1, 1, 1, 1, 1, 1, 0],
+];
+
 const sampleBufMax = 512;
 
-const waveShiftCodes = Uint8Array.from([4, 0, 1, 2]);
-const noiseDivisors = Uint8Array.from([8, 16, 32, 48, 64, 80, 96, 112]);
+export const noiseDivisors = Uint8Array.from([8, 16, 32, 48, 64, 80, 96, 112]);
+export const waveShiftCodes = Uint8Array.from([4, 0, 1, 2]);
 
 const channelSampleRate = 65536;
 const outputSampleRate = 65536;
 
 const capacitorChargeFactor = Math.pow(0.999958, 4194304 / 65536);
+
+export const noise7Array: Uint8Array = genNoiseArray(true);
+export const noise15Array: Uint8Array = genNoiseArray(false);
+
+function genNoiseArray(sevenBit: boolean): Uint8Array {
+    let array = new Uint8Array(65536);
+    let lfsr = 0x7FFF;
+    for (let i = 0; i < 65536; i++) {
+        let xored = ((lfsr) ^ (lfsr >> 1)) & 1;
+        lfsr >>= 1;
+        lfsr |= (xored << 14);
+        if (sevenBit) {
+            lfsr &= ~(1 << 7);
+            lfsr |= (xored << 6);
+        }
+        array[i] = ~lfsr & 1;
+    }
+    return array;
+}
 
 export class APU {
 

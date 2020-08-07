@@ -1,3 +1,4 @@
+import { pulseDuty, pulseDutyArray, waveShiftCodes, noise7Array, noiseDivisors, noise15Array } from './../core/apu';
 
 import { GameBoyManager } from './manager';
 import * as ImGui from "../lib/imgui-js/imgui";
@@ -97,6 +98,12 @@ async function _init(): Promise<void> {
         switch (e.key) {
             case "Enter": mgr.gb.joypad.start = true; break;
             case "\\": mgr.gb.joypad.select = true; break;
+
+            // Emulator Control
+            case "Tab": {
+                mgr.gb.turboMode = true;
+                syncToAudio = false;
+            } break;
         }
     };
     document.onkeyup = function (e) {
@@ -128,6 +135,12 @@ async function _init(): Promise<void> {
         switch (e.key) {
             case "Enter": mgr.gb.joypad.start = false; break;
             case "\\": mgr.gb.joypad.select = false; break;
+
+            // Emulator Control
+            case "Tab": {
+                mgr.gb.turboMode = false;
+                syncToAudio = true;
+            } break;
         }
     };
 
@@ -223,7 +236,7 @@ function _loop(time: number): void {
         if (syncToAudio) {
             if (cpuMeter) {
                 let attempts = 10;
-                while (mgr.gb.apu.player.sourcesPlaying < 8 && !mgr.gb.errored && attempts > 0) {
+                while (mgr.gb.apu.player.sourcesPlaying < 2 && !mgr.gb.errored && attempts > 0) {
                     let startMs = performance.now();
 
                     let i = mgr.gb.frame();
@@ -254,14 +267,6 @@ function _loop(time: number): void {
             cycles += mgr.gb.frame();
             cycles += mgr.gb.frame();
             cycles += mgr.gb.frame();
-            cycles += mgr.gb.frame();
-            cycles += mgr.gb.frame();
-            cycles += mgr.gb.frame();
-            cycles += mgr.gb.frame();
-            cycles += mgr.gb.frame();
-            cycles += mgr.gb.frame();
-            cycles += mgr.gb.frame();
-            cycles += mgr.gb.frame();
         }
     }
 
@@ -277,6 +282,7 @@ function _loop(time: number): void {
         DrawSchedulerInfo();
         DrawSaves();
         DrawTimingDiagram();
+        DrawSoundVisualizer();
 
         ImGui.EndFrame();
 
@@ -673,6 +679,184 @@ function DrawTimingDiagram() {
     }
 }
 
+function drawPulseBox(duty: number, widthMul: number, heightMul: number) {
+    let dl = ImGui.GetWindowDrawList();
+    let pos: ImVec2 = ImGui.GetCursorScreenPos();
+    let width: number = ImGui.GetWindowContentRegionWidth();
+
+    ImGui.Dummy(new ImVec2(0, 128));
+    dl.AddRectFilled(pos, new ImVec2(pos.x + width, pos.y + 128), ImGui.GetColorU32(ImGuiCol.Button));
+    dl.AddRect(pos, new ImVec2(pos.x + width, pos.y + 128), ImGui.GetColorU32(ImGuiCol.Border));
+
+    let init = 0;
+    let xPerUnit = ((width) / 8) * widthMul;
+    let valX = pos.x;
+
+    const yCenter = (pos.y + 64);
+    const yHigh = (yCenter - (heightMul * 56));
+    const yLow = (yCenter + (heightMul * 56));
+
+    for (let i = 0; i < 2048; i++) {
+        let val = pulseDuty[duty][i & 7];
+        val = (val * -1) + 1;
+
+        let newX = valX + xPerUnit;
+        if (newX > pos.x + width) newX = pos.x + width;
+        if (valX > pos.x + width) valX = pos.x + width;
+        if (val != init) {
+            // Make sure vertical line isn't off the edge of the box
+            if (valX > pos.x && valX < pos.x + width) {
+                dl.AddLine(new ImVec2(valX, yHigh), new ImVec2(valX, yLow), ImGui.GetColorU32(ImGuiCol.PlotLines), 2);
+            }
+        }
+        if (val) {
+            dl.AddLine(new ImVec2(valX, yHigh), new ImVec2(newX, yHigh), ImGui.GetColorU32(ImGuiCol.PlotLines), 2);
+        } else {
+            dl.AddLine(new ImVec2(valX, yLow), new ImVec2(newX, yLow), ImGui.GetColorU32(ImGuiCol.PlotLines), 2);
+        }
+        valX += xPerUnit;
+
+        init = val;
+
+        if (valX > pos.x + width) return;
+    }
+}
+
+function drawWaveBox(waveTable: Uint8Array, widthMul: number, waveShift: number) {
+    let dl = ImGui.GetWindowDrawList();
+    let pos: ImVec2 = ImGui.GetCursorScreenPos();
+    let width: number = ImGui.GetWindowContentRegionWidth();
+
+    ImGui.Dummy(new ImVec2(0, 128));
+    dl.AddRectFilled(pos, new ImVec2(pos.x + width, pos.y + 128), ImGui.GetColorU32(ImGuiCol.Button));
+    dl.AddRect(pos, new ImVec2(pos.x + width, pos.y + 128), ImGui.GetColorU32(ImGuiCol.Border));
+
+    let prev = 0;
+    let xPerUnit = ((width) / 32) * widthMul;
+    let valX = pos.x;
+
+    const yCenter = (pos.y + 64);
+    const yHigh = yCenter - 56;
+    const yLow = yCenter + 56;
+
+    for (let i = 0; i < 2048; i++) {
+        let val = waveTable[i & 31];
+        val >>= waveShift;
+
+        const y = yLow - ((val / 16) * 112);
+        const yPrev = yLow - ((prev / 16) * 112);
+
+        let newX = valX + xPerUnit;
+        if (newX > pos.x + width) newX = pos.x + width;
+        if (valX > pos.x + width) valX = pos.x + width;
+        if (val != prev) {
+            // Make sure vertical line isn't off the edge of the box
+            if (valX > pos.x && valX < pos.x + width) {
+                dl.AddLine(new ImVec2(valX, y), new ImVec2(valX, yPrev), ImGui.GetColorU32(ImGuiCol.PlotLines), 2);
+            }
+        }
+        dl.AddLine(new ImVec2(valX, y), new ImVec2(newX, y), ImGui.GetColorU32(ImGuiCol.PlotLines), 2);
+        valX += xPerUnit;
+
+        prev = val;
+
+        if (valX > pos.x + width) return;
+    }
+}
+
+function drawNoiseBox(noiseArray: Uint8Array, widthMul: number, heightMul: number) {
+    let dl = ImGui.GetWindowDrawList();
+    let pos: ImVec2 = ImGui.GetCursorScreenPos();
+    let width: number = ImGui.GetWindowContentRegionWidth();
+
+    ImGui.Dummy(new ImVec2(0, 128));
+    dl.AddRectFilled(pos, new ImVec2(pos.x + width, pos.y + 128), ImGui.GetColorU32(ImGuiCol.Button));
+    dl.AddRect(pos, new ImVec2(pos.x + width, pos.y + 128), ImGui.GetColorU32(ImGuiCol.Border));
+
+    let init = 0;
+    let xPerUnit = ((width) / 8) * widthMul;
+    let valX = pos.x;
+
+    const yCenter = (pos.y + 64);
+    const yHigh = (yCenter - (heightMul * 56));
+    const yLow = (yCenter + (heightMul * 56));
+
+    for (let i = 0; i < 2048; i++) {
+        let val = noiseArray[i & 65535];
+        val = (val * -1) + 1;
+
+        let newX = valX + xPerUnit;
+        if (newX > pos.x + width) newX = pos.x + width;
+        if (valX > pos.x + width) valX = pos.x + width;
+        if (val != init) {
+            // Make sure vertical line isn't off the edge of the box
+            if (valX > pos.x && valX < pos.x + width) {
+                dl.AddLine(new ImVec2(valX, yHigh), new ImVec2(valX, yLow), ImGui.GetColorU32(ImGuiCol.PlotLines), 2);
+            }
+        }
+        if (val) {
+            dl.AddLine(new ImVec2(valX, yHigh), new ImVec2(newX, yHigh), ImGui.GetColorU32(ImGuiCol.PlotLines), 2);
+        } else {
+            dl.AddLine(new ImVec2(valX, yLow), new ImVec2(newX, yLow), ImGui.GetColorU32(ImGuiCol.PlotLines), 2);
+        }
+        valX += xPerUnit;
+
+        init = val;
+
+        if (valX > pos.x + width) return;
+    }
+}
+
+// Converts from Game Boy cycle period into hertz.
+function hzFromPeriod(period: number) {
+    return 4194304 / period;
+}
+
+function DrawSoundVisualizer() {
+    let gb = mgr.gb;
+
+    if (ImGui.Begin("Sound Visualizer")) {
+
+        ImGui.Text('Pulse 1');
+
+
+        let pulse1Hz = 131072 / (2048 - gb.apu.ch1.frequency);
+        drawPulseBox(gb.apu.ch1.duty, 64 / pulse1Hz, gb.apu.ch1.enabled && gb.apu.ch1.dacEnabled ? gb.apu.ch1.volume / 15 : 0);
+
+        ImGui.Text(`Pitch: ${pulse1Hz} hz`);
+        ImGui.Text(`Note: ${noteNameFromFrequency(pulse1Hz)}`);
+
+        ImGui.Separator();
+
+        ImGui.Text('Pulse 2');
+
+        let pulse2Hz = 131072 / (2048 - gb.apu.ch2.frequency);
+        drawPulseBox(gb.apu.ch2.duty, 64 / pulse2Hz, gb.apu.ch2.enabled && gb.apu.ch2.dacEnabled ? gb.apu.ch2.volume / 15 : 0);
+
+        ImGui.Text(`Pitch: ${pulse2Hz} hz`);
+        ImGui.Text(`Note: ${noteNameFromFrequency(pulse2Hz)}`);
+
+        ImGui.Separator();
+
+        ImGui.Text('Wave');
+
+        let waveHz = 65536 / (2048 - gb.apu.ch3.frequency);
+        drawWaveBox(gb.apu.ch3.waveTable, 64 / waveHz, gb.apu.ch3.enabled && gb.apu.ch3.dacEnabled ? waveShiftCodes[gb.apu.ch3.volumeCode] : 0);
+
+        ImGui.Text(`Pitch: ${waveHz} hz`);
+        ImGui.Text(`Note: ${noteNameFromFrequency(waveHz)}`);
+
+        ImGui.Separator();
+
+        ImGui.Text('Noise');
+
+        let noiseHz = 524288 / noiseDivisors[gb.apu.ch4.divisorCode] / 2 ^ (gb.apu.ch4.frequencyShift + 1);
+        drawNoiseBox(gb.apu.ch4.sevenBit ? noise7Array : noise15Array, 0.025, gb.apu.ch4.enabled && gb.apu.ch4.dacEnabled  ? gb.apu.ch4.volume / 15 : 0);
+
+        ImGui.End();
+    }
+}
+
 async function _done(): Promise<void> {
     const gl: WebGLRenderingContext | null = ImGui_Impl.gl;
     if (gl) {
@@ -716,4 +900,19 @@ function download(filename: string, arr: Uint8Array) {
     element.click();
 
     document.body.removeChild(element);
+}
+
+const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+function noteFromFrequency(frequency: number) {
+    var noteNum = 12 * (Math.log(frequency / 440) / Math.log(2));
+    return Math.round(noteNum) + 69;
+}
+
+function noteNameFromFrequency(frequency: number) {
+    return noteStrings[noteFromFrequency(frequency) % 12];
+}
+
+function centsOffFromPitch(frequency: number, note: number) {
+    return Math.floor(1200 * Math.log(frequency / noteFromFrequency(note)) / Math.log(2));
 }

@@ -297,8 +297,8 @@ export class Bus {
         this.gb.error(`Out of bounds write, addr: ${hex(addr, 4)}`);
     }
 
-    getTitle(): string {
-        let title = this.rom.subarray(0x134, 0x143);
+    static getTitle(rom: Uint8Array): string {
+        let title = rom.subarray(0x134, 0x143);
         return String.fromCharCode(...title);
     }
 } 
