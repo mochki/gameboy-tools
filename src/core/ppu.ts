@@ -51,6 +51,23 @@ class PaletteData {
     }
 }
 
+type SpriteData = {
+    x: number,
+    // y: number,
+    tileDataUpper: number,
+    tileDataLower: number,
+
+    bgPriority: boolean; // 7
+    // yFlip: boolean; // 6
+    xFlip: boolean; // 5
+    dmgPalette: boolean; // 4
+    cgbVramBank: boolean; // 3
+    cgbPalette: number;
+};
+
+function spriteXCompare(a: SpriteData, b: SpriteData) {
+    return a.x - b.x;
+}
 
 export class PPU {
     gb: GameBoy;
@@ -133,11 +150,14 @@ export class PPU {
     };
 
     endMode2 = (cyclesLate: number) => { // OAM Scan -> Drawing
+        this.fetcherOamScan();
         this.fetcherReset();
 
         this.mode = PPUMode.Drawing;
         this.checkStat();
-        this.scheduler.addEventRelative(SchedulerId.PPUMode, 172 - cyclesLate, this.endMode3);
+        let mode3Extra = 0;
+        mode3Extra += this.scx & 0b111;
+        this.scheduler.addEventRelative(SchedulerId.PPUMode, 172 + mode3Extra - cyclesLate, this.endMode3);
         this.mode3StartCycles = this.scheduler.currTicks - cyclesLate;
     };
 
@@ -872,6 +892,85 @@ export class PPU {
         }
     }
 
+    fetcherSprite = 0;
+    fetcherSpriteCount = 0;
+    fetcherSpriteNextX = 0;
+    fetcherSpriteData: SpriteData[] = new Array(10).fill(0).map(() => {
+        return {
+            x: 0,
+            // y: 0,
+            tileDataUpper: 0,
+            tileDataLower: 0,
+
+            bgPriority: false,
+            // yFlip: false,
+            xFlip: false,
+            dmgPalette: false,
+            cgbVramBank: false,
+            cgbPalette: 0
+        };
+    });
+
+    fetcherOamScan() {
+        let spriteCount = 0;
+        let oamAddr = 0;
+        for (let s = 0; s < 40; s++) {
+
+            let yPos = this.oam[oamAddr + 0];
+            let screenYStart = yPos - 16;
+
+            if (this.ly >= screenYStart && this.ly < screenYStart + (this.objSize ? 16 : 8)) {
+
+                let xPos = this.oam[oamAddr + 1];
+                let tileIndex = this.oam[oamAddr + 2];
+                let flags = this.oam[oamAddr + 3];
+
+                let data = this.fetcherSpriteData[spriteCount];
+
+                data.x = xPos - 8;
+                // data.y = yPos;
+
+                data.bgPriority = bitTest(flags, 7);
+                let yFlip = bitTest(flags, 6);
+                data.xFlip = bitTest(flags, 5);
+                data.dmgPalette = bitTest(flags, 4);
+                data.cgbVramBank = bitTest(flags, 3);
+                data.cgbPalette = flags & 0b111;
+
+                let spriteY = this.ly - screenYStart;
+                let tileY = spriteY & 0b111;
+                if (this.objSize) {
+                    tileIndex &= 0xFE; // Erase low bit for tall sprites
+                    if (yFlip) {
+                        if (spriteY <= 7) {
+                            tileIndex++; // Double height sprites
+                        }
+                    } else {
+                        if (spriteY > 7) {
+                            tileIndex++; // Double height sprites
+                        }
+                    }
+                }
+                if (yFlip) {
+                    tileY ^= 0b111;
+                }
+                let tiledataAddr = (tileIndex * 16) + (tileY * 2);
+                data.tileDataLower = this.vram[0][tiledataAddr + 0];
+                data.tileDataUpper = this.vram[0][tiledataAddr + 1];
+                spriteCount++;
+                if (spriteCount >= 10) break;
+            }
+
+            oamAddr += 4;
+        }
+        for (let s = spriteCount; s < 10; s++) {
+            this.fetcherSpriteData[s].x = 0xFF;
+        }
+        this.fetcherSpriteData.sort(spriteXCompare);
+        this.fetcherSpriteNextX = this.fetcherSpriteData[0].x;
+        this.fetcherSpriteCount = spriteCount;
+    }
+
     fetcherStep = 0;
     fetcherX = 0;
     fetcherTile = -1;
@@ -880,10 +979,20 @@ export class PPU {
     fetcherPushReady = false;
     fetcherBgWindowFifo = new Uint8Array(8);
     fetcherBgWindowFifoPos = 0;
-    fetcherFirstFetch = true;
+    fetcherObjFifoUpper = 0;
+    fetcherObjFifoLower = 0;
+    fetcherObjFifoPal = 0;
+    fetcherObjFifoBgPrio = 0;
     fetcherWindow = false;
+    fetcherStall = 0;
     fetcherAdvance(cycles: number) {
         while (cycles > 0) {
+            if (this.fetcherStall > 0) {
+                this.fetcherStall--;
+                cycles--;
+                continue;
+            }
+
             if (!this.fetcherPushReady) {
                 switch (this.fetcherStep) {
                     case 0: // Fetch tile number
@@ -914,18 +1023,15 @@ export class PPU {
                         this.fetcherStep++;
                         break;
                     case 5:
-                        if (!this.fetcherFirstFetch) {
-                            let tileY;
-                            if (!this.fetcherWindow) {
-                                tileY = (this.scy + this.ly) & 7;
-                            } else {
-                                tileY = this.windowCurrentLine & 7;
-                            }
-                            this.fetcherTileData = this.tileset[0][this.fetcherTileIndex][tileY];
-                            this.fetcherPushReady = true;
+                        let tileY;
+                        if (!this.fetcherWindow) {
+                            tileY = (this.scy + this.ly) & 7;
+                        } else {
+                            tileY = this.windowCurrentLine & 7;
                         }
+                        this.fetcherTileData = this.tileset[0][this.fetcherTileIndex][tileY];
+                        this.fetcherPushReady = true;
                         this.fetcherStep = 0;
-                        this.fetcherFirstFetch = false;
                         break;
                 }
             } else {
@@ -943,13 +1049,30 @@ export class PPU {
                 if (this.fetcherX < 160) {
                     this.fetcherBgWindowFifoPos--;
                     if (this.fetcherX >= 0) {
-                        let pixel = this.fetcherBgWindowFifo[this.fetcherBgWindowFifoPos];
+                        let bgWindowPixel = this.fetcherBgWindowFifo[this.fetcherBgWindowFifoPos];
                         let screenBase = (this.ly * 160) + this.fetcherX;
                         if (this.bgWindowEnable) {
-                            this.screenBackBuf[screenBase] = this.bgPalette.shades[0][pixel];
+                            this.screenBackBuf[screenBase] = this.bgPalette.shades[0][bgWindowPixel];
                         } else {
                             this.screenBackBuf[screenBase] = 0xFFFF;
                         }
+
+                        let pixelUpper = this.fetcherObjFifoUpper & 1;
+                        let pixelLower = this.fetcherObjFifoLower & 1;
+                        let col = (pixelUpper << 1) | pixelLower;
+
+                        if (col != 0) {
+                            let palette = this.objPalette.shades[this.fetcherObjFifoPal & 1];
+                            let priority = this.fetcherObjFifoBgPrio & 1;
+                            if (!priority || bgWindowPixel == 0) {
+                                this.screenBackBuf[screenBase] = palette[col];
+                            }
+                        }
+
+                        this.fetcherObjFifoUpper >>= 1;
+                        this.fetcherObjFifoLower >>= 1;
+                        this.fetcherObjFifoPal >>= 1;
+                        this.fetcherObjFifoBgPrio >>= 1;
 
                         if (this.fetcherX == this.wx - 8 && this.windowEnable && this.ly >= this.wy) {
                             // Window trigger
@@ -965,6 +1088,52 @@ export class PPU {
                             this.fetcherWindow = true;
                             this.fetcherBgWindowFifoPos = 0;
                         }
+
+                        if (this.objEnable) {
+                            while (this.fetcherX == this.fetcherSpriteNextX - 1) {
+                                let spriteData = this.fetcherSpriteData[this.fetcherSprite];
+                                // Sprite trigger
+                                let pal = spriteData.dmgPalette;
+                                let priority = spriteData.bgPriority;
+
+                                let postUpper = 0;
+                                let postLower = 0;
+
+                                if (!this.fetcherSpriteData[this.fetcherSprite].xFlip) {
+                                    let preUpper = spriteData.tileDataUpper;
+                                    let preLower = spriteData.tileDataLower;
+
+                                    for (let i = 0; i < 8; i++) {
+                                        postUpper <<= 1;
+                                        postLower <<= 1;
+
+                                        postUpper ^= (preUpper & 1);
+                                        postLower ^= (preLower & 1);
+
+                                        preUpper >>= 1;
+                                        preLower >>= 1;
+                                    }
+                                } else {
+                                    postUpper = spriteData.tileDataUpper;
+                                    postLower = spriteData.tileDataLower;
+                                }
+
+                                let dontDraw = this.fetcherObjFifoUpper | this.fetcherObjFifoLower;
+
+                                this.fetcherObjFifoUpper = (this.fetcherObjFifoUpper & dontDraw) | (postUpper & ~dontDraw);
+                                this.fetcherObjFifoLower = (this.fetcherObjFifoLower & dontDraw) | (postLower & ~dontDraw);
+                                this.fetcherObjFifoBgPrio = priority ? 0xFF : 0;
+                                this.fetcherObjFifoPal = pal ? 0xFF : 0;
+
+                                this.fetcherStall += 6;
+                                this.fetcherSprite++;
+                                if (this.fetcherSprite < 10) {
+                                    this.fetcherSpriteNextX = this.fetcherSpriteData[this.fetcherSprite].x;
+                                } else {
+                                    this.fetcherSpriteNextX = 0xFF;
+                                }
+                            }
+                        }
                     }
                     this.fetcherX++;
                 }
@@ -978,9 +1147,10 @@ export class PPU {
         this.fetcherX = -(this.scx & 0b111);
         this.fetcherPushReady = false;
         this.fetcherBgWindowFifoPos = 0;
-        this.fetcherTile = -1;
+        this.fetcherTile = 0;
+        this.fetcherStall = 6;
         this.fetcherWindow = false;
-        this.fetcherFirstFetch = true;
+        this.fetcherSprite = 0;
 
         // Special window trigger case
         if (this.windowEnable && this.ly >= this.wy && this.wx < 8) {
@@ -991,8 +1161,6 @@ export class PPU {
                 this.windowCurrentLine++;
             }
             this.fetcherWindow = true;
-            this.fetcherX = -(this.wx & 0b111);
-            this.fetcherFirstFetch = false;
         }
     }
 
