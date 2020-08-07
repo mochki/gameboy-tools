@@ -30,7 +30,7 @@ const noiseDivisors = Uint8Array.from([8, 16, 32, 48, 64, 80, 96, 112]);
 const channelSampleRate = 65536;
 const outputSampleRate = 65536;
 
-const capacitorChargeFactor = Math.pow(0.999958, 4194304/65536);
+const capacitorChargeFactor = Math.pow(0.999958, 4194304 / 65536);
 
 export class APU {
 
@@ -604,12 +604,32 @@ export class APU {
                 this.ch1.updateOut();
                 break;
             case 0xFF12: // NR12
-                this.ch1.dacEnabled = (val & 0b11111000) != 0;
-                if (!this.ch1.dacEnabled) this.ch1.enabled = false;
-                this.ch1.envelopePeriod = (val >> 0) & 0b111;
-                this.ch1.envelopeIncrease = bitTest(val, 3);
-                this.ch1.envelopeInitial = (val >> 4) & 0b1111;
-                this.ch1.updateOut();
+                {
+                    const oldEnvelopeIncrease = this.ch1.envelopeIncrease;
+
+                    this.ch1.dacEnabled = (val & 0b11111000) != 0;
+                    if (!this.ch1.dacEnabled) this.ch1.enabled = false;
+                    this.ch1.envelopePeriod = (val >> 0) & 0b111;
+                    this.ch1.envelopeIncrease = bitTest(val, 3);
+                    this.ch1.envelopeInitial = (val >> 4) & 0b1111;
+
+                    if (this.ch1.enabled) {
+                        if (this.ch1.envelopePeriod == 0) {
+                            if (this.ch1.envelopeIncrease) {
+                                this.ch1.volume += 1;
+                                this.ch1.volume &= 0xF;
+                            } else {
+                                this.ch1.volume += 2;
+                                this.ch1.volume &= 0xF;
+                            }
+                        }
+                        if (this.ch1.envelopeIncrease != oldEnvelopeIncrease) {
+                            this.ch1.volume = 0;
+                        }
+                    }
+
+                    this.ch1.updateOut();
+                }
                 break;
             case 0xFF13: // NR13
                 this.ch1.frequency &= 0b11100000000;
@@ -633,13 +653,33 @@ export class APU {
                 this.ch2.duty = (val >> 6) & 0b11;
                 this.ch2.updateOut();
                 break;
-            case 0xFF17: // NR22
-                this.ch2.dacEnabled = (val & 0b11111000) != 0;
-                if (!this.ch2.dacEnabled) this.ch2.enabled = false;
-                this.ch2.envelopePeriod = (val >> 0) & 0b111;
-                this.ch2.envelopeIncrease = bitTest(val, 3);
-                this.ch2.envelopeInitial = (val >> 4) & 0b1111;
-                this.ch2.updateOut();
+            case 0xFF17: // NR22 
+                {
+                    const oldEnvelopeIncrease = this.ch2.envelopeIncrease;
+
+                    this.ch2.dacEnabled = (val & 0b11111000) != 0;
+                    if (!this.ch2.dacEnabled) this.ch2.enabled = false;
+                    this.ch2.envelopePeriod = (val >> 0) & 0b111;
+                    this.ch2.envelopeIncrease = bitTest(val, 3);
+                    this.ch2.envelopeInitial = (val >> 4) & 0b1111;
+
+                    if (this.ch2.enabled) {
+                        if (this.ch2.envelopePeriod == 0) {
+                            if (this.ch2.envelopeIncrease) {
+                                this.ch2.volume += 1;
+                                this.ch2.volume &= 0xF;
+                            } else {
+                                this.ch2.volume += 2;
+                                this.ch2.volume &= 0xF;
+                            }
+                        }
+                        if (this.ch2.envelopeIncrease != oldEnvelopeIncrease) {
+                            this.ch2.volume = 0;
+                        }
+                    }
+
+                    this.ch2.updateOut();
+                }
                 break;
             case 0xFF18: // NR23
                 this.ch2.frequency &= 0b11100000000;
@@ -694,12 +734,32 @@ export class APU {
                 this.ch4.updateOut();
                 break;
             case 0xFF21: // NR42
-                this.ch4.dacEnabled = (val & 0b11111000) != 0;
-                if (!this.ch4.dacEnabled) this.ch4.enabled = false;
-                this.ch4.envelopePeriod = (val >> 0) & 0b111;
-                this.ch4.envelopeIncrease = bitTest(val, 3);
-                this.ch4.envelopeInitial = (val >> 4) & 0b1111;
-                this.ch4.updateOut();
+                {
+                    let oldEnvelopeIncrease = this.ch4.envelopeIncrease;
+
+                    this.ch4.dacEnabled = (val & 0b11111000) != 0;
+                    if (!this.ch4.dacEnabled) this.ch4.enabled = false;
+                    this.ch4.envelopePeriod = (val >> 0) & 0b111;
+                    this.ch4.envelopeIncrease = bitTest(val, 3);
+                    this.ch4.envelopeInitial = (val >> 4) & 0b1111;
+
+                    if (this.ch4.enabled) {
+                        if (this.ch4.envelopePeriod == 0) {
+                            if (this.ch4.envelopeIncrease) {
+                                this.ch4.volume += 1;
+                                this.ch4.volume &= 0xF;
+                            } else {
+                                this.ch4.volume += 2;
+                                this.ch4.volume &= 0xF;
+                            }
+                        }
+                        if (this.ch4.envelopeIncrease != oldEnvelopeIncrease) {
+                            this.ch4.volume = 0;
+                        }
+                    }
+
+                    this.ch4.updateOut();
+                }
                 break;
             case 0xFF22: // NR43
                 this.ch4.frequencyShift = (val >> 4) & 0b1111;
