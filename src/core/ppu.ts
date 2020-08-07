@@ -59,7 +59,6 @@ type SpriteData = {
 
     bgPriority: boolean; // 7
     // yFlip: boolean; // 6
-    xFlip: boolean; // 5
     dmgPalette: boolean; // 4
     cgbVramBank: boolean; // 3
     cgbPalette: number;
@@ -957,7 +956,7 @@ export class PPU {
 
                 data.bgPriority = bitTest(flags, 7);
                 let yFlip = bitTest(flags, 6);
-                data.xFlip = bitTest(flags, 5);
+                let xFlip = bitTest(flags, 5);
                 data.dmgPalette = bitTest(flags, 4);
                 data.cgbVramBank = bitTest(flags, 3);
                 data.cgbPalette = flags & 0b111;
@@ -980,8 +979,17 @@ export class PPU {
                     tileY ^= 0b111;
                 }
                 let tiledataAddr = (tileIndex * 16) + (tileY * 2);
-                data.tileDataLower = this.vram[0][tiledataAddr + 0];
-                data.tileDataUpper = this.vram[0][tiledataAddr + 1];
+
+                let lowerData = this.vram[0][tiledataAddr + 0];
+                let upperData = this.vram[0][tiledataAddr + 1];
+
+                if (xFlip) {
+                    data.tileDataLower = lowerData;
+                    data.tileDataUpper = upperData;
+                } else {
+                    data.tileDataLower = (((lowerData * 0x0802 & 0x22110) | (lowerData * 0x8020 & 0x88440)) * 0x10101 >> 16) & 0xFF;
+                    data.tileDataUpper = (((upperData * 0x0802 & 0x22110) | (upperData * 0x8020 & 0x88440)) * 0x10101 >> 16) & 0xFF;
+                }
                 spriteCount++;
                 if (spriteCount >= 10) break;
             }
@@ -1167,7 +1175,7 @@ export class PPU {
                 this.windowCurrentLine++;
             }
             this.fetcherWindow = true;
-            this.fetcherX = -(this.wx - 7);
+            this.fetcherX = this.wx - 7;
         }
 
         if (this.objEnable) {
@@ -1184,25 +1192,10 @@ export class PPU {
         let pal = spriteData.dmgPalette;
         let priority = spriteData.bgPriority;
 
-        let postUpper = 0;
-        let postLower = 0;
-
-        if (!this.fetcherSpriteData[this.fetcherSprite].xFlip) {
-            let preUpper = spriteData.tileDataUpper;
-            let preLower = spriteData.tileDataLower;
-
-            // Evil bit-level magic to reverse an 8-bit integer
-            postUpper = (((preUpper * 0x0802 & 0x22110) | (preUpper * 0x8020 & 0x88440)) * 0x10101 >> 16) & 0xFF;
-            postLower = (((preLower * 0x0802 & 0x22110) | (preLower * 0x8020 & 0x88440)) * 0x10101 >> 16) & 0xFF;
-        } else {
-            postUpper = spriteData.tileDataUpper;
-            postLower = spriteData.tileDataLower;
-        }
-
         let dontDraw = this.fetcherObjShiftUpper | this.fetcherObjShiftLower;
 
-        this.fetcherObjShiftUpper = ((this.fetcherObjShiftUpper & dontDraw) | (postUpper & ~dontDraw)) >> shiftOut;
-        this.fetcherObjShiftLower = ((this.fetcherObjShiftLower & dontDraw) | (postLower & ~dontDraw)) >> shiftOut;
+        this.fetcherObjShiftUpper = ((this.fetcherObjShiftUpper & dontDraw) | (spriteData.tileDataUpper & ~dontDraw)) >> shiftOut;
+        this.fetcherObjShiftLower = ((this.fetcherObjShiftLower & dontDraw) | (spriteData.tileDataLower & ~dontDraw)) >> shiftOut;
         this.fetcherObjShiftBgPrio = (priority ? 0xFF : 0) >> shiftOut;
         this.fetcherObjShiftPal = (pal ? 0xFF : 0) >> shiftOut;
 
