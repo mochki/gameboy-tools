@@ -1091,47 +1091,7 @@ export class PPU {
 
                         if (this.objEnable) {
                             while (this.fetcherX == this.fetcherSpriteNextX - 1) {
-                                let spriteData = this.fetcherSpriteData[this.fetcherSprite];
-                                // Sprite trigger
-                                let pal = spriteData.dmgPalette;
-                                let priority = spriteData.bgPriority;
-
-                                let postUpper = 0;
-                                let postLower = 0;
-
-                                if (!this.fetcherSpriteData[this.fetcherSprite].xFlip) {
-                                    let preUpper = spriteData.tileDataUpper;
-                                    let preLower = spriteData.tileDataLower;
-
-                                    for (let i = 0; i < 8; i++) {
-                                        postUpper <<= 1;
-                                        postLower <<= 1;
-
-                                        postUpper ^= (preUpper & 1);
-                                        postLower ^= (preLower & 1);
-
-                                        preUpper >>= 1;
-                                        preLower >>= 1;
-                                    }
-                                } else {
-                                    postUpper = spriteData.tileDataUpper;
-                                    postLower = spriteData.tileDataLower;
-                                }
-
-                                let dontDraw = this.fetcherObjFifoUpper | this.fetcherObjFifoLower;
-
-                                this.fetcherObjFifoUpper = (this.fetcherObjFifoUpper & dontDraw) | (postUpper & ~dontDraw);
-                                this.fetcherObjFifoLower = (this.fetcherObjFifoLower & dontDraw) | (postLower & ~dontDraw);
-                                this.fetcherObjFifoBgPrio = priority ? 0xFF : 0;
-                                this.fetcherObjFifoPal = pal ? 0xFF : 0;
-
-                                this.fetcherStall += 6;
-                                this.fetcherSprite++;
-                                if (this.fetcherSprite < 10) {
-                                    this.fetcherSpriteNextX = this.fetcherSpriteData[this.fetcherSprite].x;
-                                } else {
-                                    this.fetcherSpriteNextX = 0xFF;
-                                }
+                                this.fetcherSpriteFetch(0);
                             }
                         }
                     }
@@ -1169,50 +1129,55 @@ export class PPU {
             this.fetcherWindow = true;
         }
 
-        while (this.fetcherSpriteNextX <= 0) {
-            let shiftOut = -(this.fetcherSpriteNextX);
-
-            let spriteData = this.fetcherSpriteData[this.fetcherSprite];
-            // Sprite trigger
-            let pal = spriteData.dmgPalette;
-            let priority = spriteData.bgPriority;
-
-            let postUpper = 0;
-            let postLower = 0;
-
-            if (!this.fetcherSpriteData[this.fetcherSprite].xFlip) {
-                let preUpper = spriteData.tileDataUpper;
-                let preLower = spriteData.tileDataLower;
-
-                for (let i = 0; i < 8; i++) {
-                    postUpper <<= 1;
-                    postLower <<= 1;
-
-                    postUpper ^= (preUpper & 1);
-                    postLower ^= (preLower & 1);
-
-                    preUpper >>= 1;
-                    preLower >>= 1;
-                }
-            } else {
-                postUpper = spriteData.tileDataUpper;
-                postLower = spriteData.tileDataLower;
+        if (this.objEnable) {
+            while (this.fetcherSpriteNextX <= 0) {
+                let shiftOut = -(this.fetcherSpriteNextX);
+                this.fetcherSpriteFetch(shiftOut);
             }
+        }
+    }
 
-            let dontDraw = this.fetcherObjFifoUpper | this.fetcherObjFifoLower;
+    fetcherSpriteFetch(shiftOut: number) {
+        let spriteData = this.fetcherSpriteData[this.fetcherSprite];
+        // Sprite trigger
+        let pal = spriteData.dmgPalette;
+        let priority = spriteData.bgPriority;
 
-            this.fetcherObjFifoUpper = ((this.fetcherObjFifoUpper & dontDraw) | (postUpper & ~dontDraw)) >> shiftOut;
-            this.fetcherObjFifoLower = ((this.fetcherObjFifoLower & dontDraw) | (postLower & ~dontDraw)) >> shiftOut;
-            this.fetcherObjFifoBgPrio = (priority ? 0xFF : 0) >> shiftOut;
-            this.fetcherObjFifoPal = (pal ? 0xFF : 0) >> shiftOut;
+        let postUpper = 0;
+        let postLower = 0;
 
-            this.fetcherStall += 6;
-            this.fetcherSprite++;
-            if (this.fetcherSprite < 10) {
-                this.fetcherSpriteNextX = this.fetcherSpriteData[this.fetcherSprite].x;
-            } else {
-                this.fetcherSpriteNextX = 0xFF;
+        if (!this.fetcherSpriteData[this.fetcherSprite].xFlip) {
+            let preUpper = spriteData.tileDataUpper;
+            let preLower = spriteData.tileDataLower;
+
+            for (let i = 0; i < 8; i++) {
+                postUpper <<= 1;
+                postLower <<= 1;
+
+                postUpper ^= (preUpper & 1);
+                postLower ^= (preLower & 1);
+
+                preUpper >>= 1;
+                preLower >>= 1;
             }
+        } else {
+            postUpper = spriteData.tileDataUpper;
+            postLower = spriteData.tileDataLower;
+        }
+
+        let dontDraw = this.fetcherObjFifoUpper | this.fetcherObjFifoLower;
+
+        this.fetcherObjFifoUpper = ((this.fetcherObjFifoUpper & dontDraw) | (postUpper & ~dontDraw)) >> shiftOut;
+        this.fetcherObjFifoLower = ((this.fetcherObjFifoLower & dontDraw) | (postLower & ~dontDraw)) >> shiftOut;
+        this.fetcherObjFifoBgPrio = (priority ? 0xFF : 0) >> shiftOut;
+        this.fetcherObjFifoPal = (pal ? 0xFF : 0) >> shiftOut;
+
+        this.fetcherStall += 6;
+        this.fetcherSprite++;
+        if (this.fetcherSprite < 10) {
+            this.fetcherSpriteNextX = this.fetcherSpriteData[this.fetcherSprite].x;
+        } else {
+            this.fetcherSpriteNextX = 0xFF;
         }
     }
 
