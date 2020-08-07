@@ -14,7 +14,7 @@ export class GameBoyManager {
                 this.gb.bus.mbc.sramDirty = false;
                 console.log("Flushing SRAM...");
                 let title = this.gb.bus.getTitle();
-                (window as any).localforage.setItem(`${title}-sav`, this.gb.bus.mbc.ram);
+                (window as any).localforage.setItem(`${title}.sav`, this.gb.bus.mbc.ram);
             }
         }, 1000);
     }
@@ -28,7 +28,7 @@ export class GameBoyManager {
 
         let title = this.gb.bus.getTitle();
         if (!(window as any).localforage) alert('localForage not found!');
-        let sav = await (window as any).localforage.getItem(`${title}-sav`) as Uint8Array;
+        let sav = await (window as any).localforage.getItem(`${title}.sav`) as Uint8Array;
         if (!sav) {
             console.log(`Save not found for ${title}.`);
         } else {

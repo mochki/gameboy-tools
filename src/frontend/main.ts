@@ -54,6 +54,10 @@ export default async function main(): Promise<void> {
 
 async function _init(): Promise<void> {
 
+    setInterval(() => {
+        updateSaves();
+    }, 1000);
+
     let altControls = false;
     let block = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Enter", "\\", "z", "x", "Tab"];
 
@@ -195,6 +199,8 @@ const gbHz = 4194304 * 1;
 
 (window as any).renderUi = true;
 
+let syncToAudio = true;
+
 // Main loop
 function _loop(time: number): void {
     // Poll and handle events (inputs, window resize, etc.)
@@ -205,26 +211,28 @@ function _loop(time: number): void {
 
     // Use this to sync to audio
     if (frameStep) {
-        if (cpuMeter) {
-            let attempts = 10;
-            while (mgr.gb.apu.player.sourcesPlaying < 10 && !mgr.gb.errored && attempts > 0) {
-                let startMs = performance.now();
+        if (syncToAudio) {
+            if (cpuMeter) {
+                let attempts = 10;
+                while (mgr.gb.apu.player.sourcesPlaying < 8 && !mgr.gb.errored && attempts > 0) {
+                    let startMs = performance.now();
 
-                let i = mgr.gb.halfFrame();
+                    let i = mgr.gb.frame();
 
-                let endMs = performance.now();
+                    let endMs = performance.now();
 
-                let timeRealMs = endMs - startMs;
-                let timeEmulMs = (i / gbHz) * 1000;
+                    let timeRealMs = endMs - startMs;
+                    let timeEmulMs = (i / gbHz) * 1000;
 
-                hostCpuRatioSamples[hostCpuRatioPos] = timeRealMs / timeEmulMs;
-                hostCpuRatioPos = (hostCpuRatioPos + 1) & 31;
-                attempts--;
-            }
-        } else {
-            let attempts = 10;
-            while (mgr.gb.apu.player.sourcesPlaying < 10 && !mgr.gb.errored && attempts > 0) {
-                mgr.gb.halfFrame();
+                    hostCpuRatioSamples[hostCpuRatioPos] = timeRealMs / timeEmulMs;
+                    hostCpuRatioPos = (hostCpuRatioPos + 1) & 31;
+                    attempts--;
+                }
+            } else {
+                let attempts = 10;
+                while (mgr.gb.apu.player.sourcesPlaying < 10 && !mgr.gb.errored && attempts > 0) {
+                    mgr.gb.frame();
+                }
             }
         }
     }
@@ -360,6 +368,8 @@ function DrawDebug() {
             ImGui.Text(`WY: ${mgr.gb.ppu.wy}`);
             ImGui.Text(`WX: ${mgr.gb.ppu.wx}`);
 
+            ImGui.Text(`Fetcher Step: ${mgr.gb.ppu.fetcherStep}`);
+            ImGui.Text(`Fetcher Pixel X: ${mgr.gb.ppu.fetcherX}`);
 
             ImGui.NextColumn();
 
@@ -503,9 +513,41 @@ function DrawDisplay() {
     }
 }
 
+let savesInfo: string[] = [];
+
+function updateSaves() {
+    let localforage = (window as any).localforage;
+    if (localforage) {
+        let temp: string[] = [];
+        localforage.iterate((v: any, k: string, i: number) => {
+            temp.push(k);
+        }).then(() => {
+            savesInfo = temp;
+        });
+    }
+}
+
 function DrawSaves() {
     if (ImGui.Begin("Saves")) {
+        let localforage = (window as any).localforage;
+        if (localforage) {
+            if (savesInfo.length > 0) {
+                for (let i = 0; i < savesInfo.length; i++) {
+                    if (ImGui.Button('Download##' + i)) {
+                        localforage.getItem(savesInfo[i]).then((arr: Uint8Array) => {
+                            download(`${savesInfo[i].slice(0, -4)}.sav`, arr);
+                        });
+                    }
+                    ImGui.SameLine(); ImGui.Text(savesInfo[i]);
+                }
+            } else {
+                ImGui.Text("No saves found.");
+            }
+        } else {
+            ImGui.Text("localForage not found :(");
+        }
 
+        ImGui.End();
     }
 }
 
@@ -538,4 +580,18 @@ function ImGuiColumnSeparator() {
     drawList.AddLine(new ImVec2(pos.x - 9999, pos.y), new ImVec2(pos.x + 9999, pos.y), ImGui.GetColorU32(ImGuiCol.Separator));
 
     ImGui.Dummy(new ImVec2(0.0, 0.9));
+}
+
+function download(filename: string, arr: Uint8Array) {
+    let element = document.createElement('a');
+    let blob = new Blob([arr.buffer], { type: 'application/octet-stream' });
+    element.href = window.URL.createObjectURL(blob);
+    element.download = filename;
+
+    element.style.display = 'none';
+    document.body.appendChild(element);
+
+    element.click();
+
+    document.body.removeChild(element);
 }
