@@ -53,6 +53,8 @@ export default async function main(): Promise<void> {
     }
 }
 
+let lastFpsDisplayMs = 0;
+
 async function _init(): Promise<void> {
 
     setInterval(() => {
@@ -60,9 +62,15 @@ async function _init(): Promise<void> {
     }, 1000);
 
     setInterval(() => {
-        let pct = cycles / 70224;
+        let currentMs = performance.now();
+        let diff = currentMs - lastFpsDisplayMs;
+        lastFpsDisplayMs = currentMs;
+
+        let pct = cycles / (70224 * (diff / 1000));
         cycles = 0;
         document.title = `Optime GB (${(pct * 1) | 0} fps)`;
+
+
     }, 1000);
 
     let altControls = false;
@@ -236,7 +244,7 @@ function _loop(time: number): void {
         if (syncToAudio) {
             if (cpuMeter) {
                 let attempts = 10;
-                while (mgr.gb.apu.player.sourcesPlaying < 8 && !mgr.gb.errored && attempts > 0) {
+                while (mgr.gb.apu.player.sourcesPlaying < 10 && !mgr.gb.errored && attempts > 0) {
                     let startMs = performance.now();
 
                     let i = mgr.gb.frame();
@@ -253,20 +261,16 @@ function _loop(time: number): void {
                 }
             } else {
                 let attempts = 10;
-                while (mgr.gb.apu.player.sourcesPlaying < 8 && !mgr.gb.errored && attempts > 0) {
+                while (mgr.gb.apu.player.sourcesPlaying < 10 && !mgr.gb.errored && attempts > 0) {
                     cycles += mgr.gb.frame();
                 }
             }
         } else {
             mgr.gb.turboMode = true;
-            cycles += mgr.gb.frame();
-            cycles += mgr.gb.frame();
-            cycles += mgr.gb.frame();
-            cycles += mgr.gb.frame();
-            cycles += mgr.gb.frame();
-            cycles += mgr.gb.frame();
-            cycles += mgr.gb.frame();
-            cycles += mgr.gb.frame();
+            cycles += mgr.gb.doubleFrame();
+            cycles += mgr.gb.doubleFrame();
+            cycles += mgr.gb.doubleFrame();
+            cycles += mgr.gb.doubleFrame();
         }
     }
 
@@ -508,11 +512,12 @@ function DrawRoms() {
 }
 
 let tex: null | WebGLTexture;
+let displaySize = new ImVec2(160 * 4, 144 * 4);
 
 function DrawDisplay() {
     if (ImGui.Begin("Display", () => true, ImGui.ImGuiWindowFlags.NoResize)) {
 
-        ImGui.SetWindowSize(new ImVec2((160 * 2) + 16, (144 * 2) + 36));
+        ImGui.SetWindowSize(new ImVec2(displaySize.x + 16, displaySize.y + 36));
 
         const gl: WebGLRenderingContext | null = ImGui_Impl.gl;
         if (gl) {
@@ -545,7 +550,7 @@ function DrawDisplay() {
                 );
             }
 
-            ImGui.Image(tex, new ImVec2(160 * 2, 144 * 2));
+            ImGui.Image(tex, displaySize);
         }
 
         ImGui.End();
@@ -688,6 +693,8 @@ function drawPulseBox(duty: number, widthMul: number, heightMul: number) {
     dl.AddRectFilled(pos, new ImVec2(pos.x + width, pos.y + 128), ImGui.GetColorU32(ImGuiCol.Button));
     dl.AddRect(pos, new ImVec2(pos.x + width, pos.y + 128), ImGui.GetColorU32(ImGuiCol.Border));
 
+    const lineCol = ImGui.GetColorU32(ImGuiCol.PlotLines);
+
     let init = 0;
     let xPerUnit = ((width) / 8) * widthMul;
     let valX = pos.x;
@@ -706,13 +713,13 @@ function drawPulseBox(duty: number, widthMul: number, heightMul: number) {
         if (val != init) {
             // Make sure vertical line isn't off the edge of the box
             if (valX > pos.x && valX < pos.x + width) {
-                dl.AddLine(new ImVec2(valX, yHigh), new ImVec2(valX, yLow), ImGui.GetColorU32(ImGuiCol.PlotLines), 2);
+                dl.AddLine(new ImVec2(valX, yHigh), new ImVec2(valX, yLow), lineCol, 2);
             }
         }
         if (val) {
-            dl.AddLine(new ImVec2(valX, yHigh), new ImVec2(newX, yHigh), ImGui.GetColorU32(ImGuiCol.PlotLines), 2);
+            dl.AddLine(new ImVec2(valX, yHigh), new ImVec2(newX, yHigh), lineCol, 2);
         } else {
-            dl.AddLine(new ImVec2(valX, yLow), new ImVec2(newX, yLow), ImGui.GetColorU32(ImGuiCol.PlotLines), 2);
+            dl.AddLine(new ImVec2(valX, yLow), new ImVec2(newX, yLow), lineCol, 2);
         }
         valX += xPerUnit;
 
@@ -730,6 +737,8 @@ function drawWaveBox(waveTable: Uint8Array, widthMul: number, waveShift: number)
     ImGui.Dummy(new ImVec2(0, 128));
     dl.AddRectFilled(pos, new ImVec2(pos.x + width, pos.y + 128), ImGui.GetColorU32(ImGuiCol.Button));
     dl.AddRect(pos, new ImVec2(pos.x + width, pos.y + 128), ImGui.GetColorU32(ImGuiCol.Border));
+
+    const lineCol = ImGui.GetColorU32(ImGuiCol.PlotLines);
 
     let prev = 0;
     let xPerUnit = ((width) / 32) * widthMul;
@@ -752,10 +761,10 @@ function drawWaveBox(waveTable: Uint8Array, widthMul: number, waveShift: number)
         if (val != prev) {
             // Make sure vertical line isn't off the edge of the box
             if (valX > pos.x && valX < pos.x + width) {
-                dl.AddLine(new ImVec2(valX, y), new ImVec2(valX, yPrev), ImGui.GetColorU32(ImGuiCol.PlotLines), 2);
+                dl.AddLine(new ImVec2(valX, y), new ImVec2(valX, yPrev), lineCol, 2);
             }
         }
-        dl.AddLine(new ImVec2(valX, y), new ImVec2(newX, y), ImGui.GetColorU32(ImGuiCol.PlotLines), 2);
+        dl.AddLine(new ImVec2(valX, y), new ImVec2(newX, y), lineCol, 2);
         valX += xPerUnit;
 
         prev = val;
@@ -764,6 +773,7 @@ function drawWaveBox(waveTable: Uint8Array, widthMul: number, waveShift: number)
     }
 }
 
+let noisePos = 0;
 function drawNoiseBox(noiseArray: Uint8Array, widthMul: number, heightMul: number) {
     let dl = ImGui.GetWindowDrawList();
     let pos: ImVec2 = ImGui.GetCursorScreenPos();
@@ -772,6 +782,8 @@ function drawNoiseBox(noiseArray: Uint8Array, widthMul: number, heightMul: numbe
     ImGui.Dummy(new ImVec2(0, 128));
     dl.AddRectFilled(pos, new ImVec2(pos.x + width, pos.y + 128), ImGui.GetColorU32(ImGuiCol.Button));
     dl.AddRect(pos, new ImVec2(pos.x + width, pos.y + 128), ImGui.GetColorU32(ImGuiCol.Border));
+
+    const lineCol = ImGui.GetColorU32(ImGuiCol.PlotLines);
 
     let init = 0;
     let xPerUnit = ((width) / 8) * widthMul;
@@ -782,7 +794,7 @@ function drawNoiseBox(noiseArray: Uint8Array, widthMul: number, heightMul: numbe
     const yLow = (yCenter + (heightMul * 56));
 
     for (let i = 0; i < 2048; i++) {
-        let val = noiseArray[i & 65535];
+        let val = noiseArray[noisePos++ & 65535];
         val = (val * -1) + 1;
 
         let newX = valX + xPerUnit;
@@ -791,13 +803,13 @@ function drawNoiseBox(noiseArray: Uint8Array, widthMul: number, heightMul: numbe
         if (val != init) {
             // Make sure vertical line isn't off the edge of the box
             if (valX > pos.x && valX < pos.x + width) {
-                dl.AddLine(new ImVec2(valX, yHigh), new ImVec2(valX, yLow), ImGui.GetColorU32(ImGuiCol.PlotLines), 2);
+                dl.AddLine(new ImVec2(valX, yHigh), new ImVec2(valX, yLow), lineCol, 2);
             }
         }
         if (val) {
-            dl.AddLine(new ImVec2(valX, yHigh), new ImVec2(newX, yHigh), ImGui.GetColorU32(ImGuiCol.PlotLines), 2);
+            dl.AddLine(new ImVec2(valX, yHigh), new ImVec2(newX, yHigh), lineCol, 2);
         } else {
-            dl.AddLine(new ImVec2(valX, yLow), new ImVec2(newX, yLow), ImGui.GetColorU32(ImGuiCol.PlotLines), 2);
+            dl.AddLine(new ImVec2(valX, yLow), new ImVec2(newX, yLow), lineCol, 2);
         }
         valX += xPerUnit;
 
@@ -819,35 +831,35 @@ function DrawSoundVisualizer() {
 
         ImGui.Text('Pulse 1');
 
-
         let pulse1Hz = 131072 / (2048 - gb.apu.ch1.frequency);
         let pulse1Active = gb.apu.ch1.enabled && gb.apu.ch1.dacEnabled && (gb.apu.ch1.enableL || gb.apu.ch1.enableR);
         drawPulseBox(gb.apu.ch1.duty, 64 / pulse1Hz, pulse1Active ? gb.apu.ch1.volume / 15 : 0);
-
+        let pulse1Note = noteFromFrequency(pulse1Hz);
+        let pulse1CentsOff = centsOffFromPitch(pulse1Hz, pulse1Note);
         ImGui.Text(`Pitch: ${pulse1Hz} hz`);
-        ImGui.Text(`Note: ${noteNameFromFrequency(pulse1Hz)}${octaveFromFrequency(pulse1Hz)}`);
+        ImGui.Text(`Note: ${noteNameFromFrequency(pulse1Hz)}${octaveFromFrequency(pulse1Hz)} ${(pulse1CentsOff < 0 ? "" : "+") + pulse1CentsOff}`);
 
         ImGui.Separator();
 
         ImGui.Text('Pulse 2');
-
         let pulse2Hz = 131072 / (2048 - gb.apu.ch2.frequency);
         let pulse2Active = gb.apu.ch2.enabled && gb.apu.ch2.dacEnabled && (gb.apu.ch2.enableL || gb.apu.ch2.enableR);
         drawPulseBox(gb.apu.ch2.duty, 64 / pulse2Hz, pulse2Active ? gb.apu.ch2.volume / 15 : 0);
-
+        let pulse2Note = noteFromFrequency(pulse2Hz);
+        let pulse2CentsOff = centsOffFromPitch(pulse2Hz, pulse2Note);
         ImGui.Text(`Pitch: ${pulse2Hz} hz`);
-        ImGui.Text(`Note: ${noteNameFromFrequency(pulse2Hz)}${octaveFromFrequency(pulse2Hz)}`);
+        ImGui.Text(`Note: ${noteNameFromFrequency(pulse2Hz)}${octaveFromFrequency(pulse2Hz)} ${(pulse2CentsOff < 0 ? "" : "+") + pulse2CentsOff}`);
 
         ImGui.Separator();
 
         ImGui.Text('Wave');
-
         let waveHz = 65536 / (2048 - gb.apu.ch3.frequency);
         let waveActive = gb.apu.ch3.enabled && gb.apu.ch3.dacEnabled && (gb.apu.ch3.enableL || gb.apu.ch3.enableR);
         drawWaveBox(gb.apu.ch3.waveTable, 64 / waveHz, waveActive ? gb.apu.ch3.volumeShift : 0);
-
+        let waveNote = noteFromFrequency(waveHz);
+        let waveCentsOff = centsOffFromPitch(waveHz, waveNote);
         ImGui.Text(`Pitch: ${waveHz} hz`);
-        ImGui.Text(`Note: ${noteNameFromFrequency(waveHz)}${octaveFromFrequency(waveHz)}`);
+        ImGui.Text(`Note: ${noteNameFromFrequency(waveHz)}${octaveFromFrequency(waveHz)} ${(waveCentsOff < 0 ? "" : "+") + waveCentsOff}`);
 
         ImGui.Separator();
 
@@ -912,6 +924,10 @@ function noteFromFrequency(frequency: number) {
     return Math.round(noteNum) + 69;
 }
 
+function frequencyFromNote(note: number) {
+    return Math.pow(2, (note - 69) / 12) * 440;
+}
+
 function noteNameFromFrequency(frequency: number) {
     return noteStrings[noteFromFrequency(frequency) % 12];
 }
@@ -922,5 +938,5 @@ function octaveFromFrequency(frequency: number) {
 }
 
 function centsOffFromPitch(frequency: number, note: number) {
-    return Math.floor(1200 * Math.log(frequency / noteFromFrequency(note)) / Math.log(2));
+    return Math.floor(1200 * Math.log(frequency / frequencyFromNote(note)) / Math.log(2));
 }
