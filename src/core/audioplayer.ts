@@ -62,6 +62,7 @@ export class AudioPlayer {
         document.addEventListener('touchend', fixAudioContext);
 
         this.gain = this.ctx.createGain();
+        this.gain.gain.value = 0.25;
         this.gain.connect(this.ctx.destination);
     }
 

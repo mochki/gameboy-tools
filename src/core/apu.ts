@@ -569,8 +569,8 @@ export class APU {
         this.capacitorL = finalL - outL * capacitorChargeFactor;
         this.capacitorR = finalR - outR * capacitorChargeFactor;
 
-        this.sampleBufL[this.sampleBufPos] = outL / 32;
-        this.sampleBufR[this.sampleBufPos] = outR / 32;
+        this.sampleBufL[this.sampleBufPos] = outL;
+        this.sampleBufR[this.sampleBufPos] = outR;
         this.sampleBufPos++;
 
         if (this.sampleBufPos >= sampleBufMax) {
