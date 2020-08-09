@@ -174,7 +174,20 @@ export class GameBoy {
     public doubleFrame(): number {
         let i = 0;
         let cpu = this.cpu;
+        // Can I haz loop unroll?
         while (i < 70224 * 2) {
+            i += cpu.execute();
+            i += cpu.execute();
+            i += cpu.execute();
+            i += cpu.execute();
+            i += cpu.execute();
+            i += cpu.execute();
+            i += cpu.execute();
+            i += cpu.execute();
+            i += cpu.execute();
+            i += cpu.execute();
+            i += cpu.execute();
+            i += cpu.execute();
             i += cpu.execute();
             i += cpu.execute();
             i += cpu.execute();
