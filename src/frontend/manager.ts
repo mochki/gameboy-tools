@@ -25,9 +25,8 @@ export class GameBoyManager {
     reset() {
         let sram = new Uint8Array(this.gb.bus.mbc.ram.length);
         sram.set(this.gb.bus.mbc.ram);
-        let skipBootrom = this.gb.skipBootrom;
         let provider = this.gb.provider;
-        this.gb = new GameBoy(skipBootrom, provider);
+        this.gb = new GameBoy(this.skipBootrom, provider);
         this.gb.bus.mbc.ram.set(sram)
     }
 
