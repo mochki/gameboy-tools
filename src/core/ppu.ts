@@ -1,6 +1,6 @@
 import { SchedulerId, SchedulerEvent, Scheduler } from './scheduler';
 import { GameBoy } from './gameboy';
-import { BackendFlags } from '../lib/imgui-js/imgui';
+import { BackendFlags, GetTextLineHeightWithSpacing } from '../lib/imgui-js/imgui';
 import { bitTest, bitSet } from './util/bits';
 import { unTwo8b } from './util/misc';
 import { InterruptId } from './interrupts';
@@ -166,28 +166,38 @@ export class PPU {
     };
 
     endMode2 = (cyclesLate: number) => { // OAM Scan -> Drawing
-        this.fetcherOamScan();
-        this.fetcherReset();
+        if (this.objEnable) {
+            this.fastInitialOamScan();
+        }
 
         this.mode = PPUMode.Drawing;
         this.checkStat();
         let mode3Extra = 0;
         mode3Extra += this.scx & 0b111;
+        mode3Extra += this.fastInitialOamScanSpriteCount * 6;
+        if (this.wx > 7 && this.ly >= this.wy && this.windowEnable) mode3Extra += 6;
         this.scheduler.addEventRelative(SchedulerId.PPUMode, 172 + mode3Extra - cyclesLate, this.endMode3);
         this.mode3StartCycles = this.scheduler.currTicks - cyclesLate;
     };
 
     endMode3 = (cyclesLate: number) => { // Drawing -> Hblank
-        // this.renderScanline();
-        this.mode = PPUMode.Hblank;
-        this.checkStat();
-        this.scheduler.addEventRelative(SchedulerId.PPUMode, 204 - cyclesLate, this.endMode0);
-
-        while (this.fetcherX < 160) {
-            this.fetcherAdvance(8);
+        let mode3Length;
+        if (this.fetcherCycles > 0) {
+            // fetcherAdvance automatically returns when pixel rendering is done
+            this.fetcherCatchup();
+            mode3Length = this.fetcherCycles;
+        } else {
+            // If no writes by the predicted end of mode 3, use faster scanline render
+            this.renderScanline();
+            mode3Length = this.scheduler.currTicks - this.mode3StartCycles + cyclesLate;
         }
 
-        this.scanlineTimingsBack[this.ly] = this.fetcherCycles;
+        this.scanlineTimingsBack[this.ly] = mode3Length;
+
+        this.mode = PPUMode.Hblank;
+        this.checkStat();
+        this.scheduler.addEventRelative(SchedulerId.PPUMode, 376 - mode3Length - cyclesLate, this.endMode0);
+
         this.fetcherCycles = 0;
     };
 
@@ -372,7 +382,7 @@ export class PPU {
     writeHwio8(addr: number, val: number): void {
         switch (addr) {
             case 0xFF40:
-                this.catchup();
+                this.fetcherCatchup();
                 if (this.lcdDisplayEnable && !bitTest(val, 7)) this.onDisable();
                 if (!this.lcdDisplayEnable && bitTest(val, 7)) this.onEnable();
                 this.lcdDisplayEnable = bitTest(val, 7);
@@ -392,11 +402,11 @@ export class PPU {
                 this.checkStat();
                 return;
             case 0xFF42:
-                this.catchup();
+                if (this.scy != val) this.fetcherCatchup();
                 this.scy = val;
                 return;
             case 0xFF43:
-                this.catchup();
+                if (this.scx != val) this.fetcherCatchup();
                 this.scx = val;
                 return;
             case 0xFF45:
@@ -407,7 +417,7 @@ export class PPU {
                 this.oamDma(val);
                 return;
             case 0xFF47: // BG Palette
-                this.catchup();
+                if (this.dmgBgPalette != val) this.fetcherCatchup();
                 this.dmgBgPalette = val;
                 if (this.gb.cgb == false) {
                     this.setDmgBgPalette(0, (val >> 0) & 0b11);
@@ -435,11 +445,11 @@ export class PPU {
                 }
                 break;
             case 0xFF4A: // WY
-                this.catchup();
+                if (this.wy != val) this.fetcherCatchup();
                 this.wy = val;
                 return;
             case 0xFF4B: // WX
-                this.catchup();
+                if (this.wx != val) this.fetcherCatchup();
                 this.wx = val;
                 return;
             default:
@@ -589,6 +599,8 @@ export class PPU {
                     if (!this.windowTriggeredThisFrame) {
                         this.windowTriggeredThisFrame = true;
                         this.windowCurrentLine = this.ly - this.wy;
+                    } else {
+                        this.windowCurrentLine++;
                     }
 
                     let tilemapBase = (this.windowTilemapSelect ? 1024 : 0) + (((this.windowCurrentLine >> 3) << 5) & 1023);
@@ -680,8 +692,6 @@ export class PPU {
                         if (windowPixel > 159) break windowLoop;
                         // #endregion
                     }
-
-                    this.windowCurrentLine++;
                 }
             }
         } else {
@@ -702,7 +712,6 @@ export class PPU {
                 let screenYStart = yPos - 16;
 
                 if (this.ly >= screenYStart && this.ly < screenYStart + (this.objSize ? 16 : 8)) {
-                    spriteCount++;
                     if (spriteCount > 10) return;
 
                     let xPos = this.oam[oamAddr + 1];
@@ -906,8 +915,32 @@ export class PPU {
         }
     }
 
-    catchup() {
+    fetcherCatchup() {
         if (this.mode == PPUMode.Drawing) {
+            if (this.fetcherCycles == 0) {
+                this.fetcherReset();
+                this.fetcherOamScan();
+
+                // Special window trigger case
+                if (this.windowEnable && this.ly >= this.wy && this.wx < 8) {
+                    if (!this.windowTriggeredThisFrame) {
+                        this.windowTriggeredThisFrame = true;
+                        this.windowCurrentLine = this.ly - this.wy;
+                    } else {
+                        this.windowCurrentLine++;
+                    }
+                    this.fetcherWindow = true;
+                    this.fetcherX = this.wx - 7;
+                }
+
+                if (this.objEnable) {
+                    while (this.fetcherSpriteNextX <= 0) {
+                        let shiftOut = -(this.fetcherSpriteNextX);
+                        this.fetcherSpriteFetch(shiftOut);
+                    }
+                }
+            }
+
             let current = this.scheduler.currTicks;
             let diff = current - this.mode3StartCycles;
             this.mode3StartCycles = current;
@@ -934,6 +967,23 @@ export class PPU {
             cgbPalette: 0
         };
     });
+
+    fastInitialOamScanSpriteCount = 0;
+    fastInitialOamScan(): void {
+        this.fastInitialOamScanSpriteCount = 0;
+
+        let objHeight = this.objSize ? 16 : 8;
+
+        for (let s = 0; s < 160; s += 4) {
+            let yPos = this.oam[s];
+            let screenYStart = yPos - 16;
+
+            if (this.ly >= screenYStart && this.ly < screenYStart + objHeight) {
+                this.fastInitialOamScanSpriteCount++;
+                if (this.fastInitialOamScanSpriteCount >= 10) break;
+            }
+        }
+    }
 
     fetcherOamScan() {
         let spriteCount = 0;
@@ -1083,65 +1133,65 @@ export class PPU {
                     }
 
                     if ((this.fetcherBgWindowShiftFilled & 0xFF) != 0) {
-                        if (this.fetcherX < 160) {
-                            if (this.fetcherX >= 0) {
-                                let bgWindowPixelUpper = this.fetcherBgWindowShiftUpper & 1;
-                                let bgWindowPixelLower = this.fetcherBgWindowShiftLower & 1;
-                                let bgWindowCol = (bgWindowPixelUpper << 1) | bgWindowPixelLower;
+                        if (this.fetcherX >= 0) {
+                            let bgWindowPixelUpper = this.fetcherBgWindowShiftUpper & 1;
+                            let bgWindowPixelLower = this.fetcherBgWindowShiftLower & 1;
+                            let bgWindowCol = (bgWindowPixelUpper << 1) | bgWindowPixelLower;
 
-                                let screenBase = (this.ly * 160) + this.fetcherX;
-                                if (this.bgWindowEnable) {
-                                    this.screenBackBuf[screenBase] = this.bgPalette.shades[0][bgWindowCol];
-                                } else {
-                                    this.screenBackBuf[screenBase] = 0xFFFF;
-                                }
+                            let screenBase = (this.ly * 160) + this.fetcherX;
+                            if (this.bgWindowEnable) {
+                                this.screenBackBuf[screenBase] = this.bgPalette.shades[0][bgWindowCol];
+                            } else {
+                                this.screenBackBuf[screenBase] = 0xFFFF;
+                            }
 
-                                let objPixelUpper = this.fetcherObjShiftUpper & 1;
-                                let objPixelLower = this.fetcherObjShiftLower & 1;
-                                let objCol = (objPixelUpper << 1) | objPixelLower;
+                            let objPixelUpper = this.fetcherObjShiftUpper & 1;
+                            let objPixelLower = this.fetcherObjShiftLower & 1;
+                            let objCol = (objPixelUpper << 1) | objPixelLower;
 
-                                if (objCol != 0) {
-                                    let palette = this.objPalette.shades[this.fetcherObjShiftPal & 1];
-                                    let priority = this.fetcherObjShiftBgPrio & 1;
-                                    if (!priority || bgWindowCol == 0) {
-                                        this.screenBackBuf[screenBase] = palette[objCol];
-                                    }
-                                }
-
-                                this.fetcherObjShiftUpper >>= 1;
-                                this.fetcherObjShiftLower >>= 1;
-                                this.fetcherObjShiftPal >>= 1;
-                                this.fetcherObjShiftBgPrio >>= 1;
-
-                                if (this.fetcherX == this.wx - 8 && this.windowEnable && this.ly >= this.wy) {
-                                    // Window trigger
-                                    if (!this.windowTriggeredThisFrame) {
-                                        this.windowTriggeredThisFrame = true;
-                                        this.windowCurrentLine = this.ly - this.wy;
-                                    } else {
-                                        this.windowCurrentLine++;
-                                    }
-                                    this.fetcherStep = 0;
-                                    this.fetcherPushReady = false;
-                                    this.fetcherTile = 0;
-                                    this.fetcherWindow = true;
-                                    this.fetcherBgWindowShiftFilled = 0;
-                                }
-
-                                if (this.objEnable) {
-                                    while (this.fetcherX == this.fetcherSpriteNextX - 1) {
-                                        this.fetcherSpriteFetch(0);
-                                    }
+                            if (objCol != 0) {
+                                let palette = this.objPalette.shades[this.fetcherObjShiftPal & 1];
+                                let priority = this.fetcherObjShiftBgPrio & 1;
+                                if (!priority || bgWindowCol == 0) {
+                                    this.screenBackBuf[screenBase] = palette[objCol];
                                 }
                             }
-                            this.fetcherBgWindowShiftUpper >>= 1;
-                            this.fetcherBgWindowShiftLower >>= 1;
-                            this.fetcherBgWindowShiftFilled >>= 1;
-                            this.fetcherX++;
+
+                            this.fetcherObjShiftUpper >>= 1;
+                            this.fetcherObjShiftLower >>= 1;
+                            this.fetcherObjShiftPal >>= 1;
+                            this.fetcherObjShiftBgPrio >>= 1;
+
+                            if (this.fetcherX == this.wx - 8 && this.windowEnable && this.ly >= this.wy) {
+                                // Window trigger
+                                if (!this.windowTriggeredThisFrame) {
+                                    this.windowTriggeredThisFrame = true;
+                                    this.windowCurrentLine = this.ly - this.wy;
+                                } else {
+                                    this.windowCurrentLine++;
+                                }
+                                this.fetcherStep = 0;
+                                this.fetcherPushReady = false;
+                                this.fetcherTile = 0;
+                                this.fetcherWindow = true;
+                                this.fetcherBgWindowShiftFilled = 0;
+                            }
+
+                            if (this.objEnable) {
+                                while (this.fetcherX == this.fetcherSpriteNextX - 1) {
+                                    this.fetcherSpriteFetch(0);
+                                }
+                            }
                         }
+                        this.fetcherBgWindowShiftUpper >>= 1;
+                        this.fetcherBgWindowShiftLower >>= 1;
+                        this.fetcherBgWindowShiftFilled >>= 1;
+                        this.fetcherX++;
                     }
                 }
                 this.fetcherCycles += 1;
+            } else {
+                return;
             }
             cycles--;
         }
@@ -1165,25 +1215,6 @@ export class PPU {
         this.fetcherBgWindowShiftLower = 0;
         this.fetcherBgWindowShiftUpper = 0;
         this.fetcherBgWindowShiftFilled = 0;
-
-        // Special window trigger case
-        if (this.windowEnable && this.ly >= this.wy && this.wx < 8) {
-            if (!this.windowTriggeredThisFrame) {
-                this.windowTriggeredThisFrame = true;
-                this.windowCurrentLine = this.ly - this.wy;
-            } else {
-                this.windowCurrentLine++;
-            }
-            this.fetcherWindow = true;
-            this.fetcherX = this.wx - 7;
-        }
-
-        if (this.objEnable) {
-            while (this.fetcherSpriteNextX <= 0) {
-                let shiftOut = -(this.fetcherSpriteNextX);
-                this.fetcherSpriteFetch(shiftOut);
-            }
-        }
     }
 
     fetcherSpriteFetch(shiftOut: number) {

@@ -22,22 +22,31 @@ export class GameBoyManager {
 
     romLoaded = false;
 
+    reset() {
+        let sram = new Uint8Array(this.gb.bus.mbc.ram.length);
+        sram.set(this.gb.bus.mbc.ram);
+        let skipBootrom = this.gb.skipBootrom;
+        let provider = this.gb.provider;
+        this.gb = new GameBoy(skipBootrom, provider);
+        this.gb.bus.mbc.ram.set(sram)
+    }
+
     async loadRom(rom: Uint8Array) {
-        let title = Bus.getTitle(rom);
-        
         this.romLoaded = true;
+
+        if (!(window as any).localforage) alert('localForage not found!');
+
+        let title = Bus.getTitle(rom);
+        let sav = await (window as any).localforage.getItem(`${title}.sav`) as Uint8Array;
+
         let oldBootrom = this.gb.provider?.bootrom;
         this.gb = new GameBoy(this.skipBootrom, new GameBoyProvider(rom, oldBootrom));
-        
-        if (!(window as any).localforage) alert('localForage not found!');
-        let sav = await (window as any).localforage.getItem(`${title}.sav`) as Uint8Array;
         if (!sav) {
             console.log(`Save not found for ${title}.`);
         } else {
             console.log(`Save found for ${title}, loading...`);
-            this.gb.bus.mbc.ram.set(sav, 0);
+            this.gb.bus.mbc.ram.set(sav);
         }
-        
     }
 
     loadBootrom(bootrom: Uint8Array) {

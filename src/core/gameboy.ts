@@ -21,6 +21,8 @@ export class GameBoy {
 
     turboMode = false;
 
+    skipBootrom = false;
+
     constructor(skipBootrom: boolean, provider?: GameBoyProvider) {
         this.scheduler = new Scheduler();
         this.joypad = new Joypad();
@@ -34,6 +36,8 @@ export class GameBoy {
 
         this.bus.updateMapper();
         if (skipBootrom) this.dmgBootrom();
+
+        this.skipBootrom = skipBootrom;
     }
 
     dmgBootrom() {
@@ -165,6 +169,18 @@ export class GameBoy {
     // }
     resetInfo() {
         this.infoText = [];
+    }
+
+    public doubleFrame(): number {
+        let i = 0;
+        let cpu = this.cpu;
+        while (i < 70224 * 2) {
+            i += cpu.execute();
+            i += cpu.execute();
+            i += cpu.execute();
+            i += cpu.execute();
+        }
+        return i;
     }
 
     public frame(): number {

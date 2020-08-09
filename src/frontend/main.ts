@@ -57,6 +57,32 @@ let lastFpsDisplayMs = 0;
 
 async function _init(): Promise<void> {
 
+    function dropHandler(ev: Event | any) {
+        if (ev.dataTransfer.files[0] instanceof Blob) {
+            console.log('File(s) dropped');
+
+            // Prevent default behavior (Prevent file from being opened)
+            ev.preventDefault();
+
+            let reader = new FileReader();
+            reader.onload = function () {
+                let arrayBuffer = this.result;
+                if (arrayBuffer instanceof ArrayBuffer) {
+                    let array = new Uint8Array(arrayBuffer);
+
+                    mgr.loadRom(array);
+                }
+            };
+            reader.readAsArrayBuffer(ev.dataTransfer.files[0]);
+        }
+    }
+
+    function dragoverHandler(ev: Event | any) {
+        ev.preventDefault();
+    }
+    window.addEventListener("drop", dropHandler);
+    window.addEventListener("dragover", dragoverHandler);
+
     setInterval(() => {
         updateSaves();
     }, 1000);
@@ -379,6 +405,7 @@ function DrawDebug() {
             ImGui.Checkbox("Frame Step", (v = frameStep) => frameStep = v);
             if (ImGui.Button("Unerror")) mgr.gb.errored = false;
             if (ImGui.Button("Step")) mgr.gb.cpu.execute();
+            if (ImGui.Button("Reset")) mgr.reset();
             ImGui.Checkbox("Skip Boot ROM", (v = mgr.skipBootrom) => mgr.skipBootrom = v);
 
             ImGui.NextColumn();
@@ -752,8 +779,8 @@ function drawWaveBox(waveTable: Uint8Array, widthMul: number, waveShift: number)
         let val = waveTable[i & 31];
         val >>= waveShift;
 
-        const y = yLow - ((val / 16) * 112);
-        const yPrev = yLow - ((prev / 16) * 112);
+        const y = yLow - ((val / 15) * 112);
+        const yPrev = yLow - ((prev / 15) * 112);
 
         let newX = valX + xPerUnit;
         if (newX > pos.x + width) newX = pos.x + width;
@@ -854,7 +881,7 @@ function DrawSoundVisualizer() {
 
         ImGui.Text('Wave');
         let waveHz = 65536 / (2048 - gb.apu.ch3.frequency);
-        let waveActive = gb.apu.ch3.enabled && gb.apu.ch3.dacEnabled && (gb.apu.ch3.enableL || gb.apu.ch3.enableR);
+        let waveActive = gb.apu.ch3.enabled && gb.apu.ch3.dacEnabled && (gb.apu.ch3.enableL || gb.apu.ch3.enableR) && gb.apu.ch3.volumeCode != 0;
         drawWaveBox(gb.apu.ch3.waveTable, 64 / waveHz, waveActive ? gb.apu.ch3.volumeShift : 0);
         let waveNote = noteFromFrequency(waveHz);
         let waveCentsOff = centsOffFromPitch(waveHz, waveNote);
