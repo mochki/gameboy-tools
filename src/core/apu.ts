@@ -227,6 +227,9 @@ export class APU {
 
         enableL: false,
         enableR: false,
+
+        volMulL: 0,
+        volMulR: 0,
         // -------
 
         // NR10
@@ -253,8 +256,10 @@ export class APU {
         updateOut: function () {
             let temp = this.currentVal * this.volume;
             if (!this.enabled) temp = 0;
-            if (this.enableL) { this.outL = temp / (15 / 2) - 1; } else { this.outL = 0; };
-            if (this.enableR) { this.outR = temp / (15 / 2) - 1; } else { this.outR = 0; };
+            if (this.dacEnabled) {
+                if (this.enableL) { this.outL = (temp / (15 / 2) - 1) * this.volMulL; } else { this.outL = 0; };
+                if (this.enableR) { this.outR = (temp / (15 / 2) - 1) * this.volMulR; } else { this.outR = 0; };
+            }
         }
     };
 
@@ -278,6 +283,9 @@ export class APU {
 
         enableL: false,
         enableR: false,
+
+        volMulL: 0,
+        volMulR: 0,
         // -------
 
         // NR21
@@ -299,8 +307,10 @@ export class APU {
         updateOut: function () {
             let temp = this.currentVal * this.volume;
             if (!this.enabled) temp = 0;
-            if (this.enableL) { this.outL = temp / (15 / 2) - 1; } else { this.outL = 0; };
-            if (this.enableR) { this.outR = temp / (15 / 2) - 1; } else { this.outR = 0; };
+            if (this.dacEnabled) {
+                if (this.enableL) { this.outL = (temp / (15 / 2) - 1) * this.volMulL; } else { this.outL = 0; };
+                if (this.enableR) { this.outR = (temp / (15 / 2) - 1) * this.volMulR; } else { this.outR = 0; };
+            }
         }
     };
 
@@ -328,6 +338,9 @@ export class APU {
 
         enableL: false,
         enableR: false,
+
+        volMulL: 0,
+        volMulR: 0,
         // -------
 
         // NR31
@@ -346,8 +359,10 @@ export class APU {
         updateOut() {
             let temp = this.currentVal >> this.volumeShift;
             if (!this.enabled) temp = 0;
-            if (this.enableL) { this.outL = temp / (15 / 2) - 1; } else { this.outL = 0; };
-            if (this.enableR) { this.outR = temp / (15 / 2) - 1; } else { this.outR = 0; };
+            if (this.dacEnabled) {
+                if (this.enableL) { this.outL = (temp / (15 / 2) - 1) * this.volMulL; } else { this.outL = 0; };
+                if (this.enableR) { this.outR = (temp / (15 / 2) - 1) * this.volMulR; } else { this.outR = 0; };
+            }
         }
     };
 
@@ -372,6 +387,9 @@ export class APU {
 
         enableL: false,
         enableR: false,
+
+        volMulL: 0,
+        volMulR: 0,
         // -------
 
         // NR41
@@ -395,8 +413,10 @@ export class APU {
         updateOut: function () {
             let temp = this.currentVal * this.volume;
             if (!this.enabled) temp = 0;
-            if (this.enableL) { this.outL = temp / (15 / 2) - 1; } else { this.outL = 0; };
-            if (this.enableR) { this.outR = temp / (15 / 2) - 1; } else { this.outR = 0; };
+            if (this.dacEnabled) {
+                if (this.enableL) { this.outL = (temp / (15 / 2) - 1) * this.volMulL; } else { this.outL = 0; };
+                if (this.enableR) { this.outR = (temp / (15 / 2) - 1) * this.volMulR; } else { this.outR = 0; };
+            }
         }
     };
 
@@ -418,6 +438,7 @@ export class APU {
     volMulR = 0;
 
     triggerCh1() {
+        this.ch1.frequencyTimer = this.ch1.frequencyPeriod;
         this.ch1.pos = 0;
         if (this.ch1.dacEnabled) this.ch1.enabled = true;
         this.ch1.volume = this.ch1.envelopeInitial;
@@ -430,6 +451,7 @@ export class APU {
     }
 
     triggerCh2() {
+        this.ch2.frequencyTimer = this.ch2.frequencyPeriod;
         this.ch2.pos = 0;
         if (this.ch2.dacEnabled) this.ch2.enabled = true;
         this.ch2.volume = this.ch2.envelopeInitial;
@@ -437,12 +459,14 @@ export class APU {
     }
 
     triggerCh3() {
+        this.ch3.frequencyTimer = this.ch3.frequencyPeriod;
         this.ch3.pos = 0;
         if (this.ch3.dacEnabled) this.ch3.enabled = true;
         this.ch3.lengthTimer = 256 - this.ch3.length;
     }
 
     triggerCh4() {
+        this.ch4.frequencyTimer = this.ch4.frequencyPeriod;
         this.ch4.lfsr = 0x7FFF;
         if (this.ch4.dacEnabled) this.ch4.enabled = true;
         this.ch4.volume = this.ch4.envelopeInitial;
@@ -505,58 +529,49 @@ export class APU {
         let finalL = 0;
         let finalR = 0;
 
-        if (this.ch1.dacEnabled) {
-            this.ch1.frequencyTimer -= 4194304 / channelSampleRate;
-            if (this.ch1.frequencyPeriod != 0) {
-                while (this.ch1.frequencyTimer <= 0) {
-                    this.ch1.frequencyTimer += this.ch1.frequencyPeriod;
-                    this.advanceCh1();
-                }
+        this.ch1.frequencyTimer -= 4194304 / channelSampleRate;
+        if (this.ch1.frequencyPeriod != 0) {
+            while (this.ch1.frequencyTimer <= 0) {
+                this.ch1.frequencyTimer += this.ch1.frequencyPeriod;
+                this.advanceCh1();
             }
-
-            finalL += this.ch1.outL;
-            finalR += this.ch1.outR;
         }
-        if (this.ch2.dacEnabled) {
-            this.ch2.frequencyTimer -= 4194304 / channelSampleRate;
-            if (this.ch2.frequencyPeriod != 0) {
-                while (this.ch2.frequencyTimer <= 0) {
-                    this.ch2.frequencyTimer += this.ch2.frequencyPeriod;
-                    this.advanceCh2();
-                }
-            }
+        finalL += this.ch1.outL;
+        finalR += this.ch1.outR;
 
-            finalL += this.ch2.outL;
-            finalR += this.ch2.outR;
-        }
-        if (this.ch3.dacEnabled) {
-            this.ch3.frequencyTimer -= 4194304 / channelSampleRate;
-            if (this.ch3.frequencyPeriod != 0) {
-                while (this.ch3.frequencyTimer <= 0) {
-                    this.ch3.frequencyTimer += this.ch3.frequencyPeriod;
-                    this.advanceCh3();
-                }
+        this.ch2.frequencyTimer -= 4194304 / channelSampleRate;
+        if (this.ch2.frequencyPeriod != 0) {
+            while (this.ch2.frequencyTimer <= 0) {
+                this.ch2.frequencyTimer += this.ch2.frequencyPeriod;
+                this.advanceCh2();
             }
-
-            finalL += this.ch3.outL;
-            finalR += this.ch3.outR;
-        }
-        if (this.ch4.dacEnabled) {
-            // Channel 4 can be advanced far too often to be efficient for the scheduler
-            this.ch4.frequencyTimer -= 4194304 / channelSampleRate;
-            if (this.ch4.frequencyPeriod != 0) {
-                while (this.ch4.frequencyTimer <= 0) {
-                    this.ch4.frequencyTimer += this.ch4.frequencyPeriod;
-                    this.advanceCh4();
-                }
-            }
-
-            finalL += this.ch4.outL;
-            finalR += this.ch4.outR;
         }
 
-        finalL *= this.volMulL;
-        finalR *= this.volMulR;
+        finalL += this.ch2.outL;
+        finalR += this.ch2.outR;
+
+        this.ch3.frequencyTimer -= 4194304 / channelSampleRate;
+        if (this.ch3.frequencyPeriod != 0) {
+            while (this.ch3.frequencyTimer <= 0) {
+                this.ch3.frequencyTimer += this.ch3.frequencyPeriod;
+                this.advanceCh3();
+            }
+        }
+
+        finalL += this.ch3.outL;
+        finalR += this.ch3.outR;
+
+        // Channel 4 can be advanced far too often to be efficient for the scheduler
+        this.ch4.frequencyTimer -= 4194304 / channelSampleRate;
+        if (this.ch4.frequencyPeriod != 0) {
+            while (this.ch4.frequencyTimer <= 0) {
+                this.ch4.frequencyTimer += this.ch4.frequencyPeriod;
+                this.advanceCh4();
+            }
+        }
+
+        finalL += this.ch4.outL;
+        finalR += this.ch4.outR;
 
         let outL = finalL - this.capacitorL;
         let outR = finalR - this.capacitorR;
@@ -567,10 +582,15 @@ export class APU {
         this.sampleBufL[this.sampleBufPos] = outL / 32;
         this.sampleBufR[this.sampleBufPos] = outR / 32;
         this.sampleBufPos++;
+
         if (this.sampleBufPos >= sampleBufMax) {
             this.sampleBufPos = 0;
             if (!this.gb.turboMode) {
                 this.player.queueAudio(this.sampleBufL, this.sampleBufR);
+            } else {
+                if (this.player.sourcesPlaying < 16) {
+                    this.player.queueAudio(this.sampleBufL, this.sampleBufR);
+                }
             }
         }
 
@@ -804,8 +824,21 @@ export class APU {
                 break;
 
             case 0xFF24: // NR50
-                this.volMulL = ((val >> 4) & 0b111) / 7;
-                this.volMulR = ((val >> 0) & 0b111) / 7;
+                let volMulL = ((val >> 4) & 0b111) / 7;
+                let volMulR = ((val >> 0) & 0b111) / 7;
+                this.ch1.volMulL = volMulL;
+                this.ch1.volMulR = volMulR;
+                this.ch2.volMulL = volMulL;
+                this.ch2.volMulR = volMulR;
+                this.ch3.volMulL = volMulL;
+                this.ch3.volMulR = volMulR;
+                this.ch4.volMulL = volMulL;
+                this.ch4.volMulR = volMulR;
+
+                this.ch1.updateOut();
+                this.ch2.updateOut();
+                this.ch3.updateOut();
+                this.ch4.updateOut();
                 break;
             case 0xFF25: // NR51
                 this.ch4.enableL = bitTest(val, 7);
@@ -832,5 +865,5 @@ export class APU {
                 this.ch3.waveTable[index + 1] = (val >> 0) & 0xF;
                 break;
         }
-    }
+    };
 }
