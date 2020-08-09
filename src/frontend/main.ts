@@ -55,8 +55,14 @@ export default async function main(): Promise<void> {
 
 let lastFpsDisplayMs = 0;
 
-async function _init(): Promise<void> {
+(window as any).sanic = function () {
+    syncToAudio = false;
+    mgr.gb.turboMode = true;
+    runEmulator = true;
+    (window as any).renderUi = false;
+};
 
+async function _init(): Promise<void> {
     function dropHandler(ev: Event | any) {
         if (ev.dataTransfer.files[0] instanceof Blob) {
             console.log('File(s) dropped');
@@ -95,8 +101,6 @@ async function _init(): Promise<void> {
         let pct = cycles / (70224 * (diff / 1000));
         cycles = 0;
         document.title = `Optime GB (${(pct * 1) | 0} fps)`;
-
-
     }, 1000);
 
     let altControls = false;
@@ -196,18 +200,13 @@ async function _init(): Promise<void> {
     io.Fonts.AddFontDefault();
 
     if (typeof (window) !== "undefined") {
-        const output: HTMLElement = document.getElementById("output") || document.body;
-        const canvas: HTMLCanvasElement = document.createElement("canvas");
-        output.appendChild(canvas);
-        canvas.tabIndex = 1;
-        canvas.style.position = "absolute";
-        canvas.style.left = "0px";
-        canvas.style.right = "0px";
-        canvas.style.top = "0px";
-        canvas.style.bottom = "0px";
-        canvas.style.width = "100%";
-        canvas.style.height = "100%";
-        ImGui_Impl.Init(canvas);
+        const canvas: HTMLCanvasElement = document.getElementById("imgui-canvas") as HTMLCanvasElement;
+        if (canvas) {
+            canvas.tabIndex = 1;
+            ImGui_Impl.Init(canvas);
+        } else {
+            alert("<canvas> with ID \"imgui-canvas\" not found!");
+        }
     } else {
         ImGui_Impl.Init(null);
     }
@@ -221,8 +220,34 @@ async function _init(): Promise<void> {
         console.error(error);
     }
 
-    const openRomBtn = document.getElementById("open-rom-btn")!;
-    openRomBtn.onclick = () => {
+    let toggleImGuiBtn = document.getElementById("toggle-imgui-btn")!;
+    let imguiCanvas = document.getElementById("imgui-canvas")!;
+    let outputCanvas = document.getElementById("output-canvas")!;
+    toggleImGuiBtn.onclick = () => {
+        if ((window as any).renderUi) {
+            toggleImGuiBtn.innerText = "Enable ImGui";
+            (window as any).renderUi = false;
+
+            imguiCanvas.style.display = "none";
+            outputCanvas.style.display = "block";
+        } else {
+            toggleImGuiBtn.innerText = "Disable ImGui";
+            (window as any).renderUi = true;
+
+            imguiCanvas.style.display = "block";
+            outputCanvas.style.display = "none";
+        }
+    };
+
+    document.getElementById("start-btn")!.onclick = () => {
+        runEmulator = true;
+    };
+
+    document.getElementById("stop-btn")!.onclick = () => {
+        runEmulator = false;
+    };
+
+    document.getElementById("open-rom-btn")!.onclick = () => {
         let input = document.createElement("input");
         input.type = "file";
         input.accept = ".gb,.gbc";
@@ -243,6 +268,108 @@ async function _init(): Promise<void> {
         });
         input.dispatchEvent(new MouseEvent("click"));
     };
+
+    setupOutputWebGl();
+}
+
+let outputCtx: WebGLRenderingContext | null;
+let vertBuf: WebGLBuffer | null;
+let texCoordBuf: WebGLBuffer | null;
+let shaderProgram: WebGLProgram | null;
+function setupOutputWebGl() {
+    let outputCanvas = document.getElementById("output-canvas") as HTMLCanvasElement;
+    outputCtx = outputCanvas.getContext('webgl');
+
+    let gl = outputCtx;
+    if (gl) {
+        try {
+            outputTex = gl.createTexture();
+
+            let vertices = [
+                1, 0,
+                1, 1,
+                0, 1,
+                0, 0,
+            ];
+
+            const texCoords = [
+                0, 0, 0, 0, 0, 0, 0, 0
+            ];
+
+            // Create an empty buffer object to store vertex buffer
+            vertBuf = gl.createBuffer()!;
+            // Bind, pass data, unbind
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertBuf);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+
+            // Create an empty buffer object to store Index buffer
+            texCoordBuf = gl.createBuffer()!;
+            // Bind, pass data, unbind
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, texCoordBuf);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(texCoords), gl.STATIC_DRAW);
+
+            /*====================== Shaders =======================*/
+
+            let vertCode =
+                `
+        attribute vec2 aVertex;
+        attribute vec2 aTex;
+        varying vec2 vTex;
+        void main(void) {
+            gl_Position = (vec4(aVertex, 0.0, 1.0) * vec4(2.0, -2.0, 1.0, 1.0)) + vec4(-1.0, 1.0, 0.0, 0.0);
+            vTex = aTex;
+        }
+    `;
+
+            let fragCode =
+                `
+        precision highp float;
+        varying vec2 vTex;
+        uniform sampler2D sampler0;
+        void main(void){
+            gl_FragColor = texture2D(sampler0, vTex);
+        }
+    `;
+
+
+            let vertShader = gl.createShader(gl.VERTEX_SHADER)!;
+            gl.shaderSource(vertShader, vertCode);
+            gl.compileShader(vertShader);
+
+            // Create fragment shader object 
+            let fragShader = gl.createShader(gl.FRAGMENT_SHADER)!;
+            gl.shaderSource(fragShader, fragCode);
+            gl.compileShader(fragShader);
+
+            // Create a shader program object to
+            // store the combined shader program
+            shaderProgram = gl.createProgram()!;
+
+            // Attach shaders
+            gl.attachShader(shaderProgram, vertShader);
+            gl.attachShader(shaderProgram, fragShader);
+
+            // Link and use
+            gl.linkProgram(shaderProgram);
+            gl.useProgram(shaderProgram);
+
+            /* ======= Associating shaders to buffer objects =======*/
+
+            let vLoc = gl.getAttribLocation(shaderProgram, "aVertex");
+            gl.enableVertexAttribArray(vLoc);
+            gl.vertexAttribPointer(vLoc, 2, gl.FLOAT, false, 8, 0);
+
+            let tLoc = gl.getAttribLocation(shaderProgram, "aTex");
+            gl.enableVertexAttribArray(tLoc);
+            gl.vertexAttribPointer(tLoc, 2, gl.FLOAT, false, 8, 0);
+
+            // Enable the depth test
+            gl.enable(gl.DEPTH_TEST);
+            gl.viewport(0, 0, 160, 144);
+        } catch {
+            console.log("WebGL 2 initialization failed");
+        }
+    }
 }
 
 let hostCpuRatioSamples = new Float32Array(32);
@@ -252,8 +379,7 @@ const gbHz = 4194304 * 1;
 
 (window as any).renderUi = true;
 
-let syncToAudio = false;
-syncToAudio = true;
+let syncToAudio = true;
 
 let cycles = 0;
 
@@ -266,7 +392,7 @@ function _loop(time: number): void {
     // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 
     // Use this to sync to audio
-    if (frameStep) {
+    if (runEmulator) {
         if (syncToAudio) {
             if (cpuMeter) {
                 let attempts = 10;
@@ -301,7 +427,6 @@ function _loop(time: number): void {
     }
 
     if ((window as any).renderUi) {
-
         // Start the Dear ImGui frame
         ImGui_Impl.NewFrame(time);
         ImGui.NewFrame();
@@ -325,18 +450,46 @@ function _loop(time: number): void {
             gl.clear(gl.COLOR_BUFFER_BIT);
             //gl.useProgram(0); // You may want this if using this code in an OpenGL 3+ context where shaders may be bound
         }
-
-        const ctx: CanvasRenderingContext2D | null = ImGui_Impl.ctx;
-        if (ctx) {
-            // ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-            ctx.fillStyle = `rgba(${clearColor.x * 0xff}, ${clearColor.y * 0xff}, ${clearColor.z * 0xff}, ${clearColor.w})`;
-            ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        }
         ImGui_Impl.RenderDrawData(ImGui.GetDrawData());
+    } else {
+        RenderOutput();
     }
 
-    if (typeof (window) !== "undefined") {
-        window.requestAnimationFrame(done ? _done : _loop);
+    if (window) {
+        requestAnimationFrame(done ? _done : _loop);
+    }
+}
+
+let outputTex: WebGLTexture | null;
+function RenderOutput() {
+    let gl = outputCtx;
+    if (gl) {
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, outputTex);
+
+        if (mgr.gb.ppu.renderDoneScreen) {
+            mgr.gb.ppu.renderDoneScreen = false;
+
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texImage2D(
+                gl.TEXTURE_2D,
+                0,
+                gl.RGB,
+                160,
+                144,
+                0,
+                gl.RGB,
+                gl.UNSIGNED_SHORT_5_6_5,
+                mgr.gb.ppu.screenFrontBuf,
+            );
+        }
+
+        gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
     }
 }
 
@@ -362,7 +515,7 @@ class FastRNG {
 }
 const RNG = new FastRNG();
 
-let frameStep = false;
+let runEmulator = false;
 
 function DrawDebug() {
     if (ImGui.Begin("Optime GB")) {
@@ -402,7 +555,7 @@ function DrawDebug() {
             }
             ImGui.Checkbox("CPU Meter", (v = cpuMeter) => cpuMeter = v);
 
-            ImGui.Checkbox("Frame Step", (v = frameStep) => frameStep = v);
+            ImGui.Checkbox("Run Emulator", (v = runEmulator) => runEmulator = v);
             if (ImGui.Button("Unerror")) mgr.gb.errored = false;
             if (ImGui.Button("Step")) mgr.gb.cpu.execute();
             if (ImGui.Button("Reset")) mgr.reset();
@@ -538,7 +691,7 @@ function DrawRoms() {
     }
 }
 
-let tex: null | WebGLTexture;
+let displayTex: null | WebGLTexture;
 let displaySize = new ImVec2(160 * 4, 144 * 4);
 
 function DrawDisplay() {
@@ -548,10 +701,10 @@ function DrawDisplay() {
 
         const gl: WebGLRenderingContext | null = ImGui_Impl.gl;
         if (gl) {
-            if (!tex) {
-                tex = gl.createTexture()!;
+            if (!displayTex) {
+                displayTex = gl.createTexture()!;
 
-                gl.bindTexture(gl.TEXTURE_2D, tex);
+                gl.bindTexture(gl.TEXTURE_2D, displayTex);
 
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
                 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -562,7 +715,7 @@ function DrawDisplay() {
 
             if (mgr.gb.ppu.renderDoneScreen) {
                 mgr.gb.ppu.renderDoneScreen = false;
-                gl.bindTexture(gl.TEXTURE_2D, tex);
+                gl.bindTexture(gl.TEXTURE_2D, displayTex);
 
                 gl.texImage2D(
                     gl.TEXTURE_2D,
@@ -577,7 +730,7 @@ function DrawDisplay() {
                 );
             }
 
-            ImGui.Image(tex, displaySize);
+            ImGui.Image(displayTex, displaySize);
         }
 
         ImGui.End();
@@ -905,11 +1058,6 @@ async function _done(): Promise<void> {
         gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
         gl.clearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
         gl.clear(gl.COLOR_BUFFER_BIT);
-    }
-
-    const ctx: CanvasRenderingContext2D | null = ImGui_Impl.ctx;
-    if (ctx) {
-        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     }
 
     // Cleanup

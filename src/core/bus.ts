@@ -75,15 +75,15 @@ export class Bus {
         this.romOffset = this.mbc.getOffset();
     }
 
-    bootrom = new Uint8Array(0x100);
+    bootrom = new Uint8Array(0x100).fill(0xFF);
     bootromEnabled = true;
 
-    romBootromOverlay = new Uint8Array(0x100);
+    romBootromOverlay = new Uint8Array(0x100).fill(0xFF);
 
-    rom = new Uint8Array(8388608);
+    rom = new Uint8Array(8388608).fill(0xFF);
     romOffset = 0;
 
-    hram = new Uint8Array(127);
+    hram = new Uint8Array(127).fill(0xFF);
 
     wram = [
         new Uint8Array(0x1000),

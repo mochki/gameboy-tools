@@ -2,7 +2,8 @@
 
 <head>
     <title>Optime GB</title>
-    <link rel="stylesheet" type="text/css" href="index.css"></link>
+    <link rel="stylesheet" type="text/css" href="index.css">
+    </link>
 
     <script src="./lib/system/system.js"></script>
     <script src="./lib/localforage/localforage.js"></script>
@@ -11,10 +12,16 @@
 </head>
 
 <body>
-    <div id="menu">
-        <button id="open-rom-btn">Open ROM</button>
+    <div id="container">
+        <div id="menu">
+            <button id="open-rom-btn">Open ROM</button>
+            <button id="start-btn">Start</button>
+            <button id="stop-btn">Stop</button>
+            <button id="toggle-imgui-btn">Disable ImGui</button>
+        </div>
+        <canvas id="imgui-canvas"></canvas>
+        <canvas id="output-canvas" width="160" height="144"></canvas>
     </div>
-    <div id="output"></canvas>
 </body>
 
 </html>
