@@ -404,7 +404,7 @@ export class APU {
 
         // NR43
         frequencyShift: 0,
-        sevenBit: false,
+        sevenBit: 0,
         divisorCode: 0,
 
         // NR44
@@ -475,29 +475,20 @@ export class APU {
     }
 
     advanceCh1() {
-        this.ch1.pos++;
-        this.ch1.pos &= 7;
-
+        this.ch1.pos = (this.ch1.pos + 1) & 7;
         this.ch1.currentVal = pulseDuty[this.ch1.duty][this.ch1.pos];
-
         this.ch1.updateOut();
     }
 
     advanceCh2() {
-        this.ch2.pos++;
-        this.ch2.pos &= 7;
-
+        this.ch2.pos = (this.ch2.pos + 1) & 7;
         this.ch2.currentVal = pulseDuty[this.ch2.duty][this.ch2.pos];
-
         this.ch2.updateOut();
     }
 
     advanceCh3() {
-        this.ch3.pos++;
-        this.ch3.pos &= 31;
-
+        this.ch3.pos = (this.ch3.pos + 1) & 31;
         this.ch3.currentVal = this.ch3.waveTable[this.ch3.pos];
-
         this.ch3.updateOut();
     }
 
@@ -506,10 +497,8 @@ export class APU {
         let xored = ((lfsr) ^ (lfsr >> 1)) & 1;
         lfsr >>= 1;
         lfsr |= (xored << 14);
-        if (this.ch4.sevenBit) {
-            lfsr &= ~(1 << 7);
-            lfsr |= (xored << 6);
-        }
+        lfsr &= ~this.ch4.sevenBit;
+        lfsr |= ((xored << 6) & (this.ch4.sevenBit >> 1));
         this.ch4.lfsr = lfsr;
 
         this.ch4.currentVal = xored ^ 1;
@@ -812,7 +801,7 @@ export class APU {
                 break;
             case 0xFF22: // NR43
                 this.ch4.frequencyShift = (val >> 4) & 0b1111;
-                this.ch4.sevenBit = bitTest(val, 3);
+                this.ch4.sevenBit = bitTest(val, 3) ? (1 << 7) : 0;
                 this.ch4.divisorCode = (val >> 0) & 0b111;
 
                 this.ch4.frequencyPeriod = noiseDivisors[this.ch4.divisorCode] << this.ch4.frequencyShift;
