@@ -35,6 +35,7 @@ export const noiseDivisors = Uint8Array.from([8, 16, 32, 48, 64, 80, 96, 112]);
 export const waveShiftCodes = Uint8Array.from([4, 0, 1, 2]);
 
 const channelSampleRate = 65536;
+const cyclesPerSample = 4194304 / channelSampleRate;
 const outputSampleRate = 65536;
 
 const capacitorChargeFactor = Math.pow(0.999958, 4194304 / 65536);
@@ -529,7 +530,7 @@ export class APU {
         let finalL = 0;
         let finalR = 0;
 
-        this.ch1.frequencyTimer -= 4194304 / channelSampleRate;
+        this.ch1.frequencyTimer -= cyclesPerSample;
         if (this.ch1.frequencyPeriod != 0) {
             while (this.ch1.frequencyTimer <= 0) {
                 this.ch1.frequencyTimer += this.ch1.frequencyPeriod;
@@ -539,7 +540,7 @@ export class APU {
         finalL += this.ch1.outL;
         finalR += this.ch1.outR;
 
-        this.ch2.frequencyTimer -= 4194304 / channelSampleRate;
+        this.ch2.frequencyTimer -= cyclesPerSample;
         if (this.ch2.frequencyPeriod != 0) {
             while (this.ch2.frequencyTimer <= 0) {
                 this.ch2.frequencyTimer += this.ch2.frequencyPeriod;
@@ -550,7 +551,7 @@ export class APU {
         finalL += this.ch2.outL;
         finalR += this.ch2.outR;
 
-        this.ch3.frequencyTimer -= 4194304 / channelSampleRate;
+        this.ch3.frequencyTimer -= cyclesPerSample;
         if (this.ch3.frequencyPeriod != 0) {
             while (this.ch3.frequencyTimer <= 0) {
                 this.ch3.frequencyTimer += this.ch3.frequencyPeriod;
@@ -562,7 +563,7 @@ export class APU {
         finalR += this.ch3.outR;
 
         // Channel 4 can be advanced far too often to be efficient for the scheduler
-        this.ch4.frequencyTimer -= 4194304 / channelSampleRate;
+        this.ch4.frequencyTimer -= cyclesPerSample;
         if (this.ch4.frequencyPeriod != 0) {
             while (this.ch4.frequencyTimer <= 0) {
                 this.ch4.frequencyTimer += this.ch4.frequencyPeriod;
@@ -594,7 +595,7 @@ export class APU {
             }
         }
 
-        this.scheduler.addEventRelative(SchedulerId.APUSample, (4194304 / outputSampleRate) - cyclesLate, this.sample);
+        this.scheduler.addEventRelative(SchedulerId.APUSample, cyclesPerSample - cyclesLate, this.sample);
     };
 
     readHwio8(addr: number): number {
