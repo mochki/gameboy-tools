@@ -239,6 +239,10 @@ async function _init(): Promise<void> {
         }
     };
 
+    document.getElementById("reset-btn")!.onclick = () => {
+        mgr.reset();
+    };
+
     document.getElementById("start-btn")!.onclick = () => {
         runEmulator = true;
     };
