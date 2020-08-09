@@ -120,6 +120,8 @@ export class PPU {
     windowCurrentLine = 0;
     windowTriggeredThisFrame = false;
 
+    lcdcVal = 0;
+
     // FF40 - LCDC
     lcdDisplayEnable = false;
     windowTilemapSelect = false;
@@ -339,15 +341,7 @@ export class PPU {
         let val = 0;
         switch (addr) {
             case 0xFF40:
-                if (this.lcdDisplayEnable) val = bitSet(val, 7);
-                if (this.windowTilemapSelect) val = bitSet(val, 6);
-                if (this.windowEnable) val = bitSet(val, 5);
-                if (this.bgWindowTiledataSelect) val = bitSet(val, 4);
-                if (this.bgTilemapSelect) val = bitSet(val, 3);
-                if (this.objSize) val = bitSet(val, 2);
-                if (this.objEnable) val = bitSet(val, 1);
-                if (this.bgWindowEnable) val = bitSet(val, 0);
-                break;
+                return this.lcdcVal;
             case 0xFF41:
                 if (this.enableLycIntr) val = bitSet(val, 6);
                 if (this.enableMode2Intr) val = bitSet(val, 5);
@@ -382,7 +376,8 @@ export class PPU {
     writeHwio8(addr: number, val: number): void {
         switch (addr) {
             case 0xFF40:
-                this.fetcherCatchup();
+                if (this.lcdcVal != val) this.fetcherCatchup();
+                this.lcdcVal = val;
                 if (this.lcdDisplayEnable && !bitTest(val, 7)) this.onDisable();
                 if (!this.lcdDisplayEnable && bitTest(val, 7)) this.onEnable();
                 this.lcdDisplayEnable = bitTest(val, 7);
