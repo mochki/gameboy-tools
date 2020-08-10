@@ -1,9 +1,9 @@
 import { bitTest, bitReset } from "./util/bits";
 
 export class Joypad {
-    selectButtons = false;
-    selectDpad = false;
-    
+    selectButtons = true;
+    selectDpad = true;
+
     start = false;
     select = false;
     b = false;
@@ -17,12 +17,14 @@ export class Joypad {
     readHwio8(): number {
         let val = 0xff;
         if (this.selectButtons) {
+            if (this.selectDpad) val = bitReset(val, 4);
             if (this.start) val = bitReset(val, 3);
             if (this.select) val = bitReset(val, 2);
             if (this.b) val = bitReset(val, 1);
             if (this.a) val = bitReset(val, 0);
         }
         if (this.selectDpad) {
+            if (this.selectButtons) val = bitReset(val, 5);
             if (this.down) val = bitReset(val, 3);
             if (this.up) val = bitReset(val, 2);
             if (this.left) val = bitReset(val, 1);
