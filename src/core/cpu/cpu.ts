@@ -3,9 +3,8 @@ import { Bus } from "../bus";
 import { GameBoy } from "../gameboy";
 import { bitTest as bitTest, bitSet, bitSetValue, bitReset } from "../util/bits";
 import { hexN, hex } from "../util/misc";
-import { BIT, RES, SET, RLC, RRC, RL, RR, SLA, SRA, SWAP, JP_HL, SRL } from "./opcodes/cb_prefix";
-import { LD_BC_U16, LD_DE_U16, LD_HL_U16, LD_SP_U16, LD_A_iU16, LD_iU16_A, LD_iU16_SP, JP, JP_NZ, JP_Z, JP_NC, JP_C, CALL, CALL_C, CALL_NC, CALL_Z, CALL_NZ, LD_A_iFF00plusU8, LD_iFF00plusU8_A, LD_iHL_U8, LD_HL_SPplusE8, ADD_SP_E8, AND_A_U8, OR_A_U8, XOR_A_U8, CP_A_U8, JR, JR_NZ, JR_Z, JR_NC, JR_C, ADD_A_U8, ADC_A_U8, SUB_A_U8, SBC_A_U8, LD_SP_HL, PUSH_BC, PUSH_DE, PUSH_HL, PUSH_AF, POP_BC, POP_DE, POP_HL, POP_AF, INC_BC, INC_DE, INC_HL, INC_SP, DEC_BC, DEC_DE, DEC_HL, DEC_SP, CPL, RETI, DAA, NOP, LD_iBC_A, LD_iDE_A, LD_iHLinc_A, LD_iHLdec_A, LD_A_iBC, LD_A_iDE, LD_A_iHLinc, LD_A_iHLdec, LD_A_iFF00plusC, LD_iFF00plusC_A, DI, EI, RLCA, RRCA, RRA, RLA, HALT, SCF, CCF, RET, RET_C, RET_NC, RET_Z, RET_NZ, ADD_HL_BC, ADD_HL_DE, ADD_HL_HL, ADD_HL_SP } from './opcodes/unprefixed';
-import { LD_B_B, LD_B_C, LD_B_D, LD_B_E, LD_B_H, LD_B_L, LD_B_iHL, LD_B_A, LD_C_B, LD_C_C, LD_C_D, LD_C_E, LD_C_H, LD_C_L, LD_C_iHL, LD_C_A, LD_D_B, LD_D_C, LD_D_D, LD_D_E, LD_D_H, LD_D_L, LD_D_iHL, LD_D_A, LD_E_B, LD_E_C, LD_E_D, LD_E_E, LD_E_H, LD_E_L, LD_E_iHL, LD_E_A, LD_H_B, LD_H_C, LD_H_D, LD_H_E, LD_H_H, LD_H_L, LD_H_iHL, LD_H_A, LD_L_B, LD_L_C, LD_L_D, LD_L_E, LD_L_H, LD_L_L, LD_L_iHL, LD_L_A, LD_iHL_B, LD_iHL_C, LD_iHL_D, LD_iHL_E, LD_iHL_H, LD_iHL_L, LD_iHL_iHL, LD_iHL_A, LD_A_B, LD_A_C, LD_A_D, LD_A_E, LD_A_H, LD_A_L, LD_A_iHL, LD_A_A, ADD_A_B, ADD_A_C, ADD_A_D, ADD_A_E, ADD_A_H, ADD_A_L, ADD_A_iHL, ADD_A_A, ADC_A_B, ADC_A_C, ADC_A_D, ADC_A_E, ADC_A_H, ADC_A_L, ADC_A_iHL, ADC_A_A, SUB_A_B, SUB_A_C, SUB_A_D, SUB_A_E, SUB_A_H, SUB_A_L, SUB_A_iHL, SUB_A_A, SBC_A_B, SBC_A_C, SBC_A_D, SBC_A_E, SBC_A_H, SBC_A_L, SBC_A_iHL, SBC_A_A, AND_A_B, AND_A_C, AND_A_D, AND_A_E, AND_A_H, AND_A_L, AND_A_iHL, AND_A_A, XOR_A_B, XOR_A_C, XOR_A_D, XOR_A_E, XOR_A_H, XOR_A_L, XOR_A_iHL, XOR_A_A, OR_A_B, OR_A_C, OR_A_D, OR_A_E, OR_A_H, OR_A_L, OR_A_iHL, OR_A_A, CP_A_B, CP_A_C, CP_A_D, CP_A_E, CP_A_H, CP_A_L, CP_A_iHL, CP_A_A, INC_B, INC_C, INC_D, INC_E, INC_H, INC_L, INC_iHL, INC_A, DEC_B, DEC_C, DEC_D, DEC_E, DEC_H, DEC_L, DEC_iHL, DEC_A, LD_B_U8, LD_C_U8, LD_D_U8, LD_E_U8, LD_H_U8, LD_L_U8, LD_A_U8, RST_0, RST_8, RST_16, RST_24, RST_32, RST_40, RST_48, RST_56 } from './opcodes/generated_code';
+import { LD_BC_U16, LD_DE_U16, LD_HL_U16, LD_SP_U16, LD_A_iU16, LD_iU16_A, LD_iU16_SP, JP, JP_NZ, JP_Z, JP_NC, JP_C, CALL, CALL_C, CALL_NC, CALL_Z, CALL_NZ, LD_A_iFF00plusU8, LD_iFF00plusU8_A, LD_iHL_U8, LD_HL_SPplusE8, ADD_SP_E8, AND_A_U8, OR_A_U8, XOR_A_U8, CP_A_U8, JR, JR_NZ, JR_Z, JR_NC, JR_C, ADD_A_U8, ADC_A_U8, SUB_A_U8, SBC_A_U8, LD_SP_HL, PUSH_BC, PUSH_DE, PUSH_HL, PUSH_AF, POP_BC, POP_DE, POP_HL, POP_AF, INC_BC, INC_DE, INC_HL, INC_SP, DEC_BC, DEC_DE, DEC_HL, DEC_SP, CPL, RETI, DAA, NOP, LD_iBC_A, LD_iDE_A, LD_iHLinc_A, LD_iHLdec_A, LD_A_iBC, LD_A_iDE, LD_A_iHLinc, LD_A_iHLdec, LD_A_iFF00plusC, LD_iFF00plusC_A, DI, EI, RLCA, RRCA, RRA, RLA, HALT, SCF, CCF, RET, RET_C, RET_NC, RET_Z, RET_NZ, ADD_HL_BC, ADD_HL_DE, ADD_HL_HL, ADD_HL_SP, JP_HL } from './opcodes/unprefixed';
+import { LD_B_U8, LD_C_U8, LD_D_U8, LD_E_U8, LD_H_U8, LD_L_U8, LD_A_U8, INC_B, INC_C, INC_D, INC_E, INC_H, INC_L, INC_iHL, INC_A, DEC_B, DEC_C, DEC_D, DEC_E, DEC_H, DEC_L, DEC_iHL, DEC_A, LD_B_B, LD_B_C, LD_B_D, LD_B_E, LD_B_H, LD_B_L, LD_B_iHL, LD_B_A, LD_C_B, LD_C_C, LD_C_D, LD_C_E, LD_C_H, LD_C_L, LD_C_iHL, LD_C_A, LD_D_B, LD_D_C, LD_D_D, LD_D_E, LD_D_H, LD_D_L, LD_D_iHL, LD_D_A, LD_E_B, LD_E_C, LD_E_D, LD_E_E, LD_E_H, LD_E_L, LD_E_iHL, LD_E_A, LD_H_B, LD_H_C, LD_H_D, LD_H_E, LD_H_H, LD_H_L, LD_H_iHL, LD_H_A, LD_L_B, LD_L_C, LD_L_D, LD_L_E, LD_L_H, LD_L_L, LD_L_iHL, LD_L_A, LD_iHL_B, LD_iHL_C, LD_iHL_D, LD_iHL_E, LD_iHL_H, LD_iHL_L, LD_iHL_iHL, LD_iHL_A, LD_A_B, LD_A_C, LD_A_D, LD_A_E, LD_A_H, LD_A_L, LD_A_iHL, LD_A_A, ADD_A_B, ADD_A_C, ADD_A_D, ADD_A_E, ADD_A_H, ADD_A_L, ADD_A_iHL, ADD_A_A, ADC_A_B, ADC_A_C, ADC_A_D, ADC_A_E, ADC_A_H, ADC_A_L, ADC_A_iHL, ADC_A_A, SUB_A_B, SUB_A_C, SUB_A_D, SUB_A_E, SUB_A_H, SUB_A_L, SUB_A_iHL, SUB_A_A, SBC_A_B, SBC_A_C, SBC_A_D, SBC_A_E, SBC_A_H, SBC_A_L, SBC_A_iHL, SBC_A_A, AND_A_B, AND_A_C, AND_A_D, AND_A_E, AND_A_H, AND_A_L, AND_A_iHL, AND_A_A, XOR_A_B, XOR_A_C, XOR_A_D, XOR_A_E, XOR_A_H, XOR_A_L, XOR_A_iHL, XOR_A_A, OR_A_B, OR_A_C, OR_A_D, OR_A_E, OR_A_H, OR_A_L, OR_A_iHL, OR_A_A, CP_A_B, CP_A_C, CP_A_D, CP_A_E, CP_A_H, CP_A_L, CP_A_iHL, CP_A_A, RST_0, RST_8, RST_16, RST_24, RST_32, RST_40, RST_48, RST_56, RLC_B, RLC_C, RLC_D, RLC_E, RLC_H, RLC_L, RLC_iHL, RLC_A, RRC_B, RRC_C, RRC_D, RRC_E, RRC_H, RRC_L, RRC_iHL, RRC_A, RL_B, RL_C, RL_D, RL_E, RL_H, RL_L, RL_iHL, RL_A, RR_B, RR_C, RR_D, RR_E, RR_H, RR_L, RR_iHL, RR_A, SLA_B, SLA_C, SLA_D, SLA_E, SLA_H, SLA_L, SLA_iHL, SLA_A, SRA_B, SRA_C, SRA_D, SRA_E, SRA_H, SRA_L, SRA_iHL, SRA_A, SWAP_B, SWAP_C, SWAP_D, SWAP_E, SWAP_H, SWAP_L, SWAP_iHL, SWAP_A, SRL_B, SRL_C, SRL_D, SRL_E, SRL_H, SRL_L, SRL_iHL, SRL_A, BIT_B_0, BIT_C_0, BIT_D_0, BIT_E_0, BIT_H_0, BIT_L_0, BIT_iHL_0, BIT_A_0, BIT_B_1, BIT_C_1, BIT_D_1, BIT_E_1, BIT_H_1, BIT_L_1, BIT_iHL_1, BIT_A_1, BIT_B_2, BIT_C_2, BIT_D_2, BIT_E_2, BIT_H_2, BIT_L_2, BIT_iHL_2, BIT_A_2, BIT_B_3, BIT_C_3, BIT_D_3, BIT_E_3, BIT_H_3, BIT_L_3, BIT_iHL_3, BIT_A_3, BIT_B_4, BIT_C_4, BIT_D_4, BIT_E_4, BIT_H_4, BIT_L_4, BIT_iHL_4, BIT_A_4, BIT_B_5, BIT_C_5, BIT_D_5, BIT_E_5, BIT_H_5, BIT_L_5, BIT_iHL_5, BIT_A_5, BIT_B_6, BIT_C_6, BIT_D_6, BIT_E_6, BIT_H_6, BIT_L_6, BIT_iHL_6, BIT_A_6, BIT_B_7, BIT_C_7, BIT_D_7, BIT_E_7, BIT_H_7, BIT_L_7, BIT_iHL_7, BIT_A_7, RES_B_0, RES_C_0, RES_D_0, RES_E_0, RES_H_0, RES_L_0, RES_iHL_0, RES_A_0, RES_B_1, RES_C_1, RES_D_1, RES_E_1, RES_H_1, RES_L_1, RES_iHL_1, RES_A_1, RES_B_2, RES_C_2, RES_D_2, RES_E_2, RES_H_2, RES_L_2, RES_iHL_2, RES_A_2, RES_B_3, RES_C_3, RES_D_3, RES_E_3, RES_H_3, RES_L_3, RES_iHL_3, RES_A_3, RES_B_4, RES_C_4, RES_D_4, RES_E_4, RES_H_4, RES_L_4, RES_iHL_4, RES_A_4, RES_B_5, RES_C_5, RES_D_5, RES_E_5, RES_H_5, RES_L_5, RES_iHL_5, RES_A_5, RES_B_6, RES_C_6, RES_D_6, RES_E_6, RES_H_6, RES_L_6, RES_iHL_6, RES_A_6, RES_B_7, RES_C_7, RES_D_7, RES_E_7, RES_H_7, RES_L_7, RES_iHL_7, RES_A_7, SET_B_0, SET_C_0, SET_D_0, SET_E_0, SET_H_0, SET_L_0, SET_iHL_0, SET_A_0, SET_B_1, SET_C_1, SET_D_1, SET_E_1, SET_H_1, SET_L_1, SET_iHL_1, SET_A_1, SET_B_2, SET_C_2, SET_D_2, SET_E_2, SET_H_2, SET_L_2, SET_iHL_2, SET_A_2, SET_B_3, SET_C_3, SET_D_3, SET_E_3, SET_H_3, SET_L_3, SET_iHL_3, SET_A_3, SET_B_4, SET_C_4, SET_D_4, SET_E_4, SET_H_4, SET_L_4, SET_iHL_4, SET_A_4, SET_B_5, SET_C_5, SET_D_5, SET_E_5, SET_H_5, SET_L_5, SET_iHL_5, SET_A_5, SET_B_6, SET_C_6, SET_D_6, SET_E_6, SET_H_6, SET_L_6, SET_iHL_6, SET_A_6, SET_B_7, SET_C_7, SET_D_7, SET_E_7, SET_H_7, SET_L_7, SET_iHL_7, SET_A_7 } from './opcodes/generated_code';
 
 // function boundsCheck8(i: number): void {
 //     if ((i & ~0xFF) != 0) throw "Bounds error 8-bit";
@@ -157,12 +156,12 @@ export class CPU {
         this.pc = (this.pc + 1) & 0xFFFF;
 
         if (val != 0xCB) {
-            t[val](this, val);
+            t[val](this);
         } else {
             // this.gb.info(`Prefix: ${hexN(val, 2)}`);
             val = this.read8(this.pc);
             this.pc = (this.pc + 1) & 0xFFFF;
-            CB_PREFIX_TABLE[val](this, val);
+            CB_PREFIX_TABLE[val](this);
         }
 
         if (this.cyclesPending > 0) {
@@ -183,11 +182,11 @@ export class CPU {
         let val = this.read8(this.pc);
 
         if (val != 0xCB) {
-            t[val](this, val);
+            t[val](this);
         } else {
             val = this.read8(this.pc);
             this.pc = (this.pc + 1) & 0xFFFF;
-            CB_PREFIX_TABLE[val](this, val);
+            CB_PREFIX_TABLE[val](this);
         }
 
         if (this.cyclesPending > 0) {
@@ -368,7 +367,7 @@ export class CPU {
     }
 }
 
-type Instruction = (cpu: CPU, opcode: number) => void;
+type Instruction = (cpu: CPU) => void;
 
 const t: Instruction[] = genUnprefixedTable();
 const CB_PREFIX_TABLE: Instruction[] = genCbPrefixTable();
@@ -632,36 +631,264 @@ function genUnprefixedTable(): Instruction[] {
 
 function genCbPrefixTable(): Instruction[] {
     const t: Instruction[] = new Array(256);
-    for (let i = 0; i < 256; i++) {
-        switch (i >> 6) {
-            case 0b00:
-                switch ((i >> 3) & 0b111) {
-                    case 0: t[i] = RLC; break;
-                    case 1: t[i] = RRC; break;
-                    case 2: t[i] = RL; break;
-                    case 3: t[i] = RR; break;
-                    case 4: t[i] = SLA; break;
-                    case 5: t[i] = SRA; break;
-                    case 6: t[i] = SWAP; break;
-                    case 7: t[i] = SRL; break;
-                    default:
-                        t[i] = (cpu) => {
-                            cpu.gb.error(`Unimplemented CB prefix: ${hex(i, 2)}`);
-                        };
-                        break;
-                }
-                break;
-            case 0b01:
-                t[i] = BIT;
-                break;
-            case 0b10:
-                t[i] = RES;
-                break;
-            case 0b11:
-                t[i] = SET;
-                break;
-        }
-    }
+
+    t[0x00] = RLC_B;
+    t[0x01] = RLC_C;
+    t[0x02] = RLC_D;
+    t[0x03] = RLC_E;
+    t[0x04] = RLC_H;
+    t[0x05] = RLC_L;
+    t[0x06] = RLC_iHL;
+    t[0x07] = RLC_A;
+    t[0x08] = RRC_B;
+    t[0x09] = RRC_C;
+    t[0x0A] = RRC_D;
+    t[0x0B] = RRC_E;
+    t[0x0C] = RRC_H;
+    t[0x0D] = RRC_L;
+    t[0x0E] = RRC_iHL;
+    t[0x0F] = RRC_A;
+    t[0x10] = RL_B;
+    t[0x11] = RL_C;
+    t[0x12] = RL_D;
+    t[0x13] = RL_E;
+    t[0x14] = RL_H;
+    t[0x15] = RL_L;
+    t[0x16] = RL_iHL;
+    t[0x17] = RL_A;
+    t[0x18] = RR_B;
+    t[0x19] = RR_C;
+    t[0x1A] = RR_D;
+    t[0x1B] = RR_E;
+    t[0x1C] = RR_H;
+    t[0x1D] = RR_L;
+    t[0x1E] = RR_iHL;
+    t[0x1F] = RR_A;
+    t[0x20] = SLA_B;
+    t[0x21] = SLA_C;
+    t[0x22] = SLA_D;
+    t[0x23] = SLA_E;
+    t[0x24] = SLA_H;
+    t[0x25] = SLA_L;
+    t[0x26] = SLA_iHL;
+    t[0x27] = SLA_A;
+    t[0x28] = SRA_B;
+    t[0x29] = SRA_C;
+    t[0x2A] = SRA_D;
+    t[0x2B] = SRA_E;
+    t[0x2C] = SRA_H;
+    t[0x2D] = SRA_L;
+    t[0x2E] = SRA_iHL;
+    t[0x2F] = SRA_A;
+    t[0x30] = SWAP_B;
+    t[0x31] = SWAP_C;
+    t[0x32] = SWAP_D;
+    t[0x33] = SWAP_E;
+    t[0x34] = SWAP_H;
+    t[0x35] = SWAP_L;
+    t[0x36] = SWAP_iHL;
+    t[0x37] = SWAP_A;
+    t[0x38] = SRL_B;
+    t[0x39] = SRL_C;
+    t[0x3A] = SRL_D;
+    t[0x3B] = SRL_E;
+    t[0x3C] = SRL_H;
+    t[0x3D] = SRL_L;
+    t[0x3E] = SRL_iHL;
+    t[0x3F] = SRL_A;
+    t[0x40] = BIT_B_0;
+    t[0x41] = BIT_C_0;
+    t[0x42] = BIT_D_0;
+    t[0x43] = BIT_E_0;
+    t[0x44] = BIT_H_0;
+    t[0x45] = BIT_L_0;
+    t[0x46] = BIT_iHL_0;
+    t[0x47] = BIT_A_0;
+    t[0x48] = BIT_B_1;
+    t[0x49] = BIT_C_1;
+    t[0x4A] = BIT_D_1;
+    t[0x4B] = BIT_E_1;
+    t[0x4C] = BIT_H_1;
+    t[0x4D] = BIT_L_1;
+    t[0x4E] = BIT_iHL_1;
+    t[0x4F] = BIT_A_1;
+    t[0x50] = BIT_B_2;
+    t[0x51] = BIT_C_2;
+    t[0x52] = BIT_D_2;
+    t[0x53] = BIT_E_2;
+    t[0x54] = BIT_H_2;
+    t[0x55] = BIT_L_2;
+    t[0x56] = BIT_iHL_2;
+    t[0x57] = BIT_A_2;
+    t[0x58] = BIT_B_3;
+    t[0x59] = BIT_C_3;
+    t[0x5A] = BIT_D_3;
+    t[0x5B] = BIT_E_3;
+    t[0x5C] = BIT_H_3;
+    t[0x5D] = BIT_L_3;
+    t[0x5E] = BIT_iHL_3;
+    t[0x5F] = BIT_A_3;
+    t[0x60] = BIT_B_4;
+    t[0x61] = BIT_C_4;
+    t[0x62] = BIT_D_4;
+    t[0x63] = BIT_E_4;
+    t[0x64] = BIT_H_4;
+    t[0x65] = BIT_L_4;
+    t[0x66] = BIT_iHL_4;
+    t[0x67] = BIT_A_4;
+    t[0x68] = BIT_B_5;
+    t[0x69] = BIT_C_5;
+    t[0x6A] = BIT_D_5;
+    t[0x6B] = BIT_E_5;
+    t[0x6C] = BIT_H_5;
+    t[0x6D] = BIT_L_5;
+    t[0x6E] = BIT_iHL_5;
+    t[0x6F] = BIT_A_5;
+    t[0x70] = BIT_B_6;
+    t[0x71] = BIT_C_6;
+    t[0x72] = BIT_D_6;
+    t[0x73] = BIT_E_6;
+    t[0x74] = BIT_H_6;
+    t[0x75] = BIT_L_6;
+    t[0x76] = BIT_iHL_6;
+    t[0x77] = BIT_A_6;
+    t[0x78] = BIT_B_7;
+    t[0x79] = BIT_C_7;
+    t[0x7A] = BIT_D_7;
+    t[0x7B] = BIT_E_7;
+    t[0x7C] = BIT_H_7;
+    t[0x7D] = BIT_L_7;
+    t[0x7E] = BIT_iHL_7;
+    t[0x7F] = BIT_A_7;
+    t[0x80] = RES_B_0;
+    t[0x81] = RES_C_0;
+    t[0x82] = RES_D_0;
+    t[0x83] = RES_E_0;
+    t[0x84] = RES_H_0;
+    t[0x85] = RES_L_0;
+    t[0x86] = RES_iHL_0;
+    t[0x87] = RES_A_0;
+    t[0x88] = RES_B_1;
+    t[0x89] = RES_C_1;
+    t[0x8A] = RES_D_1;
+    t[0x8B] = RES_E_1;
+    t[0x8C] = RES_H_1;
+    t[0x8D] = RES_L_1;
+    t[0x8E] = RES_iHL_1;
+    t[0x8F] = RES_A_1;
+    t[0x90] = RES_B_2;
+    t[0x91] = RES_C_2;
+    t[0x92] = RES_D_2;
+    t[0x93] = RES_E_2;
+    t[0x94] = RES_H_2;
+    t[0x95] = RES_L_2;
+    t[0x96] = RES_iHL_2;
+    t[0x97] = RES_A_2;
+    t[0x98] = RES_B_3;
+    t[0x99] = RES_C_3;
+    t[0x9A] = RES_D_3;
+    t[0x9B] = RES_E_3;
+    t[0x9C] = RES_H_3;
+    t[0x9D] = RES_L_3;
+    t[0x9E] = RES_iHL_3;
+    t[0x9F] = RES_A_3;
+    t[0xA0] = RES_B_4;
+    t[0xA1] = RES_C_4;
+    t[0xA2] = RES_D_4;
+    t[0xA3] = RES_E_4;
+    t[0xA4] = RES_H_4;
+    t[0xA5] = RES_L_4;
+    t[0xA6] = RES_iHL_4;
+    t[0xA7] = RES_A_4;
+    t[0xA8] = RES_B_5;
+    t[0xA9] = RES_C_5;
+    t[0xAA] = RES_D_5;
+    t[0xAB] = RES_E_5;
+    t[0xAC] = RES_H_5;
+    t[0xAD] = RES_L_5;
+    t[0xAE] = RES_iHL_5;
+    t[0xAF] = RES_A_5;
+    t[0xB0] = RES_B_6;
+    t[0xB1] = RES_C_6;
+    t[0xB2] = RES_D_6;
+    t[0xB3] = RES_E_6;
+    t[0xB4] = RES_H_6;
+    t[0xB5] = RES_L_6;
+    t[0xB6] = RES_iHL_6;
+    t[0xB7] = RES_A_6;
+    t[0xB8] = RES_B_7;
+    t[0xB9] = RES_C_7;
+    t[0xBA] = RES_D_7;
+    t[0xBB] = RES_E_7;
+    t[0xBC] = RES_H_7;
+    t[0xBD] = RES_L_7;
+    t[0xBE] = RES_iHL_7;
+    t[0xBF] = RES_A_7;
+    t[0xC0] = SET_B_0;
+    t[0xC1] = SET_C_0;
+    t[0xC2] = SET_D_0;
+    t[0xC3] = SET_E_0;
+    t[0xC4] = SET_H_0;
+    t[0xC5] = SET_L_0;
+    t[0xC6] = SET_iHL_0;
+    t[0xC7] = SET_A_0;
+    t[0xC8] = SET_B_1;
+    t[0xC9] = SET_C_1;
+    t[0xCA] = SET_D_1;
+    t[0xCB] = SET_E_1;
+    t[0xCC] = SET_H_1;
+    t[0xCD] = SET_L_1;
+    t[0xCE] = SET_iHL_1;
+    t[0xCF] = SET_A_1;
+    t[0xD0] = SET_B_2;
+    t[0xD1] = SET_C_2;
+    t[0xD2] = SET_D_2;
+    t[0xD3] = SET_E_2;
+    t[0xD4] = SET_H_2;
+    t[0xD5] = SET_L_2;
+    t[0xD6] = SET_iHL_2;
+    t[0xD7] = SET_A_2;
+    t[0xD8] = SET_B_3;
+    t[0xD9] = SET_C_3;
+    t[0xDA] = SET_D_3;
+    t[0xDB] = SET_E_3;
+    t[0xDC] = SET_H_3;
+    t[0xDD] = SET_L_3;
+    t[0xDE] = SET_iHL_3;
+    t[0xDF] = SET_A_3;
+    t[0xE0] = SET_B_4;
+    t[0xE1] = SET_C_4;
+    t[0xE2] = SET_D_4;
+    t[0xE3] = SET_E_4;
+    t[0xE4] = SET_H_4;
+    t[0xE5] = SET_L_4;
+    t[0xE6] = SET_iHL_4;
+    t[0xE7] = SET_A_4;
+    t[0xE8] = SET_B_5;
+    t[0xE9] = SET_C_5;
+    t[0xEA] = SET_D_5;
+    t[0xEB] = SET_E_5;
+    t[0xEC] = SET_H_5;
+    t[0xED] = SET_L_5;
+    t[0xEE] = SET_iHL_5;
+    t[0xEF] = SET_A_5;
+    t[0xF0] = SET_B_6;
+    t[0xF1] = SET_C_6;
+    t[0xF2] = SET_D_6;
+    t[0xF3] = SET_E_6;
+    t[0xF4] = SET_H_6;
+    t[0xF5] = SET_L_6;
+    t[0xF6] = SET_iHL_6;
+    t[0xF7] = SET_A_6;
+    t[0xF8] = SET_B_7;
+    t[0xF9] = SET_C_7;
+    t[0xFA] = SET_D_7;
+    t[0xFB] = SET_E_7;
+    t[0xFC] = SET_H_7;
+    t[0xFD] = SET_L_7;
+    t[0xFE] = SET_iHL_7;
+    t[0xFF] = SET_A_7;
+
 
     return t;
 }

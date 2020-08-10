@@ -1,9 +1,10 @@
+// @ts-check
 // #region Accumulator Arithmetic
 
 const fs = require('fs');
 
 const ADD_A_R8 = `
-export function ADD_A_<regsrc>(cpu: CPU, opcode: number): void {
+export function ADD_A_<regsrc>(cpu: CPU): void {
     const value = <regsrc_get>;
 
     const newValue = (value + cpu.a) & 0xFF;
@@ -21,7 +22,7 @@ export function ADD_A_<regsrc>(cpu: CPU, opcode: number): void {
 `;
 
 const ADC_A_R8 = `
-export function ADC_A_<regsrc>(cpu: CPU, opcode: number): void {
+export function ADC_A_<regsrc>(cpu: CPU): void {
     const value = <regsrc_get>;
 
     const newValue = (value + cpu.a + (cpu.carry ? 1 : 0)) & 0xFF;
@@ -39,7 +40,7 @@ export function ADC_A_<regsrc>(cpu: CPU, opcode: number): void {
 `;
 
 const SUB_A_R8 = `
-export function SUB_A_<regsrc>(cpu: CPU, opcode: number): void {
+export function SUB_A_<regsrc>(cpu: CPU): void {
     const value = <regsrc_get>;
 
     const newValue = (cpu.a - value) & 0xFF;
@@ -57,7 +58,7 @@ export function SUB_A_<regsrc>(cpu: CPU, opcode: number): void {
 `;
 
 const SBC_A_R8 = `
-export function SBC_A_<regsrc>(cpu: CPU, opcode: number): void {
+export function SBC_A_<regsrc>(cpu: CPU): void {
     const value = <regsrc_get>;
 
     const newValue = (cpu.a - value - (cpu.carry ? 1 : 0)) & 0xFF;
@@ -75,7 +76,7 @@ export function SBC_A_<regsrc>(cpu: CPU, opcode: number): void {
 `;
 
 const AND_A_R8 = `
-export function AND_A_<regsrc>(cpu: CPU, opcode: number): void {
+export function AND_A_<regsrc>(cpu: CPU): void {
     const value = <regsrc_get>;
 
     const final = value & cpu.a;
@@ -91,7 +92,7 @@ export function AND_A_<regsrc>(cpu: CPU, opcode: number): void {
 `;
 
 const XOR_A_R8 = `
-export function XOR_A_<regsrc>(cpu: CPU, opcode: number): void {
+export function XOR_A_<regsrc>(cpu: CPU): void {
     const value = <regsrc_get>;
 
     const final = value ^ cpu.a;
@@ -106,7 +107,7 @@ export function XOR_A_<regsrc>(cpu: CPU, opcode: number): void {
 `;
 
 const OR_A_R8 = `
-export function OR_A_<regsrc>(cpu: CPU, opcode: number): void {
+export function OR_A_<regsrc>(cpu: CPU): void {
     const value = <regsrc_get>;
 
     const final = value | cpu.a;
@@ -121,7 +122,7 @@ export function OR_A_<regsrc>(cpu: CPU, opcode: number): void {
 `;
 
 const CP_A_R8 = `
-export function CP_A_<regsrc>(cpu: CPU, opcode: number): void {
+export function CP_A_<regsrc>(cpu: CPU): void {
     const <regsrc> = <regsrc_get>;
 
     const newValue = (cpu.a - <regsrc>) & 0xFF;
@@ -138,7 +139,7 @@ export function CP_A_<regsrc>(cpu: CPU, opcode: number): void {
 `;
 
 const LD_R8_R8 = `
-export function LD_<regdest>_<regsrc>(cpu: CPU, opcode: number): void {
+export function LD_<regdest>_<regsrc>(cpu: CPU): void {
     <regdest_set> = <regsrc_get>;
 };
 `;
@@ -190,6 +191,148 @@ export function RST_<vector>(cpu: CPU): void {
 };
 `;
 
+const RLC = `
+export function RLC_<regsrc>(cpu: CPU) {
+    let oldVal = <regsrc_get>;
+    let rotateBit = (oldVal & 0b10000000) >> 7;
+    let final = ((oldVal << 1) & 0xFF) | rotateBit;
+
+    <regdest_set> = final;
+
+    cpu.zero = final == 0;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = bitTest(oldVal, 7);
+}`;
+
+const RRC = `
+export function RRC_<regsrc>(cpu: CPU) {
+    let oldVal = <regsrc_get>;
+    let rotateBit = (oldVal & 0b00000001) << 7;
+    let final = ((oldVal >> 1) & 0xFF) | rotateBit;
+
+    <regdest_set> = final;
+
+    cpu.zero = final == 0;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = bitTest(oldVal, 0);
+}
+`;
+
+const RL = `
+export function RL_<regsrc>(cpu: CPU) {
+    let oldVal = <regsrc_get>;
+    let rotateBit = cpu.carry ? 0b00000001 : 0;
+    let final = ((oldVal << 1) & 0xFF) | rotateBit;
+
+    <regdest_set> = final;
+
+    cpu.zero = final == 0;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = bitTest(oldVal, 7);
+}
+`;
+
+const RR = `
+export function RR_<regsrc>(cpu: CPU) {
+    let oldVal = <regsrc_get>;
+    let rotateBit = cpu.carry ? 0b10000000 : 0;
+    let final = ((oldVal >> 1) & 0xFF) | rotateBit;
+
+    <regdest_set> = final;
+
+    cpu.zero = final == 0;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = bitTest(oldVal, 0);
+}
+`;
+
+const SLA = `
+export function SLA_<regsrc>(cpu: CPU) {
+    let oldVal = <regsrc_get>;
+    let final = (oldVal << 1) & 0xFF;
+
+    <regdest_set> = final;
+
+    cpu.zero = final == 0;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = bitTest(oldVal, 7);
+}
+`;
+
+const SRA = `
+export function SRA_<regsrc>(cpu: CPU) {
+    let oldVal = <regsrc_get>;
+    let leftmostBit = oldVal & 0b10000000;
+    let final = ((oldVal >> 1) & 0xFF) | leftmostBit;
+
+    <regdest_set> = final;
+
+    cpu.zero = final == 0;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = bitTest(oldVal, 0);
+}
+`;
+
+const SWAP = `
+export function SWAP_<regsrc>(cpu: CPU) {
+    let oldVal = <regsrc_get>;
+
+    let lower = (oldVal >> 0) & 0xF;
+    let upper = (oldVal >> 4) & 0xF;
+
+    let final = (lower << 4) | upper;
+
+    <regdest_set> = final;
+
+    cpu.zero = final == 0;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = false;
+}
+`;
+
+const SRL = `
+export function SRL_<regsrc>(cpu: CPU) {
+    let oldVal = <regsrc_get>;
+    let final = (oldVal >> 1) & 0xFF;
+
+    <regdest_set> = final;
+
+    cpu.zero = final == 0;
+    cpu.negative = false;
+    cpu.halfCarry = false;
+    cpu.carry = bitTest(oldVal, 0);
+}
+`;
+
+const BIT = `
+export function BIT_<regsrc>_<bit_index>(cpu: CPU) {
+    cpu.zero = !bitTest(<regsrc_get>, <bit_index>);
+    cpu.negative = false;
+    cpu.halfCarry = true;
+}
+`;
+
+const RES = `
+export function RES_<regsrc>_<bit_index>(cpu: CPU) {
+    let final = bitReset(<regsrc_get>, <bit_index>);
+    <regdest_set> = final;
+}
+`;
+
+const SET = `
+export function SET_<regsrc>_<bit_index>(cpu: CPU) {
+    let final = bitSet(<regsrc_get>, <bit_index>);
+    <regdest_set> = final;
+}
+`;
+
 let code = "";
 let appendix = "";
 
@@ -215,8 +358,8 @@ function alu_replace(srcString, regSrc, regSrcGet) {
 
 /**
  * 
- * @param {string} regSrcId 
- * @param {string} regDestId 
+ * @param {number} regSrcId 
+ * @param {number} regDestId 
  */
 function ld_r_r_replace(opcode, regDestId, regSrcId) {
     let srcString = LD_R8_R8;
@@ -232,6 +375,36 @@ function ld_r_r_replace(opcode, regDestId, regSrcId) {
     }
 
     addAppendix(`//table[${hex(opcode, 2)}] = LD_${regArr[regDestId]}_${regArr[regSrcId]};\n`);
+
+    return srcString;
+}
+
+/**
+ * 
+ * @param {string} header 
+ * @param {number} opcode 
+ * @param {string} srcString 
+ * @param {number} regDestId 
+ * @param {number} bitIndex 
+ * @param {boolean} isBitOp 
+ */
+function cb_replace(header, opcode, srcString, regDestId, bitIndex, isBitOp) {
+    srcString = srcString.split("<regsrc>").join(regArr[regDestId]);
+    srcString = srcString.split("<regdest>").join(regArr[regDestId]);
+    srcString = srcString.split("<regsrc_get>").join(regSrcGetArr[regDestId]);
+    srcString = srcString.split("<bit_index>").join(bitIndex.toString());
+
+    if (regDestId != 6) {
+        srcString = srcString.split("<regdest_set>").join(regDestSetArr[regDestId]);
+    } else {
+        srcString = srcString.split("<regdest_set>").join(`cpu.writeIndirectHl(final); //`);
+    }
+
+    if (isBitOp) {
+        addAppendix(`//cb_table[${hex(opcode, 2)}] = ${header}_${regArr[regDestId]}_${bitIndex}\n`);
+    } else {
+        addAppendix(`//cb_table[${hex(opcode, 2)}] = ${header}_${regArr[regDestId]}\n`);
+    }
 
     return srcString;
 }
@@ -288,6 +461,35 @@ function addAppendix(add) {
     appendix += add;
 }
 
+for (let opcode = 0; opcode < 256; opcode++) {
+    let x = (opcode >> 6) & 0b11;
+    let y = (opcode >> 3) & 0b111;
+    let z = (opcode >> 0) & 0b111;
+    let q = (opcode >> 3) & 0b1;
+    switch (opcode >> 6) {
+        case 0b00:
+            switch ((opcode >> 3) & 0b111) {
+                case 0: addCode(cb_replace("RLC", opcode, RLC, z, y, false)); break;
+                case 1: addCode(cb_replace("RRC", opcode, RRC, z, y, false)); break;
+                case 2: addCode(cb_replace("RL", opcode, RL, z, y, false)); break;
+                case 3: addCode(cb_replace("RR", opcode, RR, z, y, false)); break;
+                case 4: addCode(cb_replace("SLA", opcode, SLA, z, y, false)); break;
+                case 5: addCode(cb_replace("SRA", opcode, SRA, z, y, false)); break;
+                case 6: addCode(cb_replace("SWAP", opcode, SWAP, z, y, false)); break;
+                case 7: addCode(cb_replace("SRL", opcode, SRL, z, y, false)); break;
+            }
+            break;
+        case 0b01:
+            addCode(cb_replace("BIT", opcode, BIT, z, y, true));
+            break;
+        case 0b10:
+            addCode(cb_replace("RES", opcode, RES, z, y, true));
+            break;
+        case 0b11:
+            addCode(cb_replace("SET", opcode, SET, z, y, true));
+            break;
+    }
+}
 
 
 for (let opcode = 0; opcode < 256; opcode++) {
