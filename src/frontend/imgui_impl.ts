@@ -43,7 +43,7 @@ function document_on_paste(event: ClipboardEvent): void {
     event.preventDefault();
 }
 
-function window_on_resize(): void {
+export function WindowOnResize(): void {
     if (canvas !== null) {
         const devicePixelRatio: number = window.devicePixelRatio || 1;
         canvas.width = Math.floor(canvas.scrollWidth * devicePixelRatio);
@@ -213,7 +213,7 @@ export function Init(value: HTMLCanvasElement | WebGLRenderingContext | CanvasRe
     io.ClipboardUserData = null;
 
     if (typeof (window) !== "undefined") {
-        window.addEventListener("resize", window_on_resize);
+        window.addEventListener("resize", WindowOnResize);
         window.addEventListener("gamepadconnected", window_on_gamepadconnected);
         window.addEventListener("gamepaddisconnected", window_on_gamepaddisconnected);
     }
@@ -234,7 +234,7 @@ export function Init(value: HTMLCanvasElement | WebGLRenderingContext | CanvasRe
     }
 
     if (canvas !== null) {
-        window_on_resize();
+        WindowOnResize();
         canvas.style.touchAction = "none"; // Disable browser handling of all panning and zooming gestures.
         canvas.addEventListener("blur", canvas_on_blur);
         canvas.addEventListener("keydown", canvas_on_keydown);
@@ -295,7 +295,7 @@ export function Shutdown(): void {
     canvas = null;
 
     if (typeof (window) !== "undefined") {
-        window.removeEventListener("resize", window_on_resize);
+        window.removeEventListener("resize", WindowOnResize);
         window.removeEventListener("gamepadconnected", window_on_gamepadconnected);
         window.removeEventListener("gamepaddisconnected", window_on_gamepaddisconnected);
     }
@@ -633,6 +633,7 @@ export function CreateFontsTexture(): void {
     // Store our identifier
     io.Fonts.TexID = g_FontTexture || { foo: "bar" };
     // console.log("font texture id", g_FontTexture);
+
 
     // Restore modified GL state
     gl && last_texture && gl.bindTexture(gl.TEXTURE_2D, last_texture);

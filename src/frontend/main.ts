@@ -230,12 +230,15 @@ async function _init(): Promise<void> {
 
             imguiCanvas.style.display = "none";
             outputCanvas.style.display = "block";
+
         } else {
             toggleImGuiBtn.innerText = "Disable ImGui";
             (window as any).renderUi = true;
 
             imguiCanvas.style.display = "block";
             outputCanvas.style.display = "none";
+
+            ImGui_Impl.WindowOnResize();
         }
     };
 
@@ -277,8 +280,6 @@ async function _init(): Promise<void> {
 }
 
 let outputCtx: WebGLRenderingContext | null;
-let vertBuf: WebGLBuffer | null;
-let texCoordBuf: WebGLBuffer | null;
 let shaderProgram: WebGLProgram | null;
 function setupOutputWebGl() {
     let outputCanvas = document.getElementById("output-canvas") as HTMLCanvasElement;
@@ -289,51 +290,42 @@ function setupOutputWebGl() {
         try {
             outputTex = gl.createTexture();
 
-            let vertices = [
-                1, 0,
-                1, 1,
-                0, 1,
-                0, 0,
+            const vertices = [
+                +1, +1,
+                +1, -1,
+                -1, -1,
+                -1, +1,
             ];
 
             const texCoords = [
-                0, 0, 0, 0, 0, 0, 0, 0
+                1, 0,
+                1, 1,
+                0, 1,
+                0, 0
             ];
-
-            // Create an empty buffer object to store vertex buffer
-            vertBuf = gl.createBuffer()!;
-            // Bind, pass data, unbind
-            gl.bindBuffer(gl.ARRAY_BUFFER, vertBuf);
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-
-            // Create an empty buffer object to store Index buffer
-            texCoordBuf = gl.createBuffer()!;
-            // Bind, pass data, unbind
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, texCoordBuf);
-            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(texCoords), gl.STATIC_DRAW);
 
             /*====================== Shaders =======================*/
 
             let vertCode =
                 `
-        attribute vec2 aVertex;
-        attribute vec2 aTex;
-        varying vec2 vTex;
-        void main(void) {
-            gl_Position = (vec4(aVertex, 0.0, 1.0) * vec4(2.0, -2.0, 1.0, 1.0)) + vec4(-1.0, 1.0, 0.0, 0.0);
-            vTex = aTex;
-        }
-    `;
+                    attribute vec2 aVertex;
+                    attribute vec2 aTex;
+                    varying vec2 vTex;
+                    void main(void) {
+                        gl_Position = vec4(aVertex, 0.0, 1.0);
+                        vTex = aTex;
+                    }
+                `;
 
             let fragCode =
                 `
-        precision highp float;
-        varying vec2 vTex;
-        uniform sampler2D sampler0;
-        void main(void){
-            gl_FragColor = texture2D(sampler0, vTex);
-        }
-    `;
+                    precision highp float;
+                    varying vec2 vTex;
+                    uniform sampler2D sampler0;
+                    void main(void){
+                        gl_FragColor = texture2D(sampler0, vTex);
+                    }
+                `;
 
 
             let vertShader = gl.createShader(gl.VERTEX_SHADER)!;
@@ -357,21 +349,35 @@ function setupOutputWebGl() {
             gl.linkProgram(shaderProgram);
             gl.useProgram(shaderProgram);
 
+            // Shader's been linked, no need to have  them anymore.
+            gl.deleteShader(vertShader);
+            gl.deleteShader(fragShader);
+
             /* ======= Associating shaders to buffer objects =======*/
+
+            // Create an empty buffer object to store vertex buffer
+            let vertBuf = gl.createBuffer()!;
+            // Bind, pass data, unbind
+            gl.bindBuffer(gl.ARRAY_BUFFER, vertBuf);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
 
             let vLoc = gl.getAttribLocation(shaderProgram, "aVertex");
             gl.enableVertexAttribArray(vLoc);
             gl.vertexAttribPointer(vLoc, 2, gl.FLOAT, false, 8, 0);
 
+            // Create an empty buffer object to store Index buffer
+            let texCoordBuf = gl.createBuffer()!;
+            // Bind, pass data, unbind
+            gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuf);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
+
             let tLoc = gl.getAttribLocation(shaderProgram, "aTex");
             gl.enableVertexAttribArray(tLoc);
             gl.vertexAttribPointer(tLoc, 2, gl.FLOAT, false, 8, 0);
 
-            // Enable the depth test
-            gl.enable(gl.DEPTH_TEST);
             gl.viewport(0, 0, 160, 144);
         } catch {
-            console.log("WebGL 2 initialization failed");
+            console.log("WebGL initialization failed");
         }
     }
 }
@@ -466,14 +472,15 @@ function _loop(time: number): void {
 
 let outputTex: WebGLTexture | null;
 function RenderOutput() {
-    let gl = outputCtx;
-    if (gl) {
+    if (mgr.gb.ppu.renderDoneScreen) {
+        mgr.gb.ppu.renderDoneScreen = false;
 
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, outputTex);
+        let gl = outputCtx;
+        if (gl) {
+            gl.useProgram(shaderProgram);
 
-        if (mgr.gb.ppu.renderDoneScreen) {
-            mgr.gb.ppu.renderDoneScreen = false;
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, outputTex);
 
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -491,9 +498,8 @@ function RenderOutput() {
                 gl.UNSIGNED_SHORT_5_6_5,
                 mgr.gb.ppu.screenFrontBuf,
             );
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
         }
-
-        gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
     }
 }
 
