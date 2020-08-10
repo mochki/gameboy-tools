@@ -1,6 +1,6 @@
 export class GameBoyProvider {
-    rom = new Uint8Array(8388608);
-    bootrom = new Uint8Array(0x100);
+    rom = new Uint8Array(8388608).fill(0xFF);
+    bootrom = new Uint8Array(0x100).fill(0xFF);
 
     constructor(rom: Uint8Array, bootrom?: Uint8Array) {
         for (let i = 0; i < rom.length; i++) {
