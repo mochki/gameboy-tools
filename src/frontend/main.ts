@@ -62,6 +62,17 @@ let lastFpsDisplayMs = 0;
     (window as any).renderUi = false;
 };
 
+function enableTurbo() {
+    mgr.gb.turboMode = true;
+    mgr.gb.ppu.frameSkipRate = 10;
+    syncToAudio = false;
+}
+function disableTurbo() {
+    mgr.gb.turboMode = false;
+    mgr.gb.ppu.frameSkipRate = 0;
+    syncToAudio = true;
+}
+
 async function _init(): Promise<void> {
     function dropHandler(ev: Event | any) {
         if (ev.dataTransfer.files[0] instanceof Blob) {
@@ -139,8 +150,7 @@ async function _init(): Promise<void> {
 
             // Emulator Control
             case "Tab": {
-                mgr.gb.turboMode = true;
-                syncToAudio = false;
+                enableTurbo();
             } break;
         }
     };
@@ -176,8 +186,7 @@ async function _init(): Promise<void> {
 
             // Emulator Control
             case "Tab": {
-                mgr.gb.turboMode = false;
-                syncToAudio = true;
+                disableTurbo();
             } break;
         }
     };

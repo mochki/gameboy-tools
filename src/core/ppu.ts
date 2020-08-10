@@ -77,6 +77,10 @@ export class PPU {
         this.scheduler = scheduler;
     }
 
+    frameSkipRate = 0;
+    renderThisFrame = false;
+    currentFrame = 0;
+
     scanlineTimingsBack = new Uint32Array(144);
     scanlineTimingsFront = new Uint32Array(144);
 
@@ -191,7 +195,9 @@ export class PPU {
             mode3Length = this.fetcherCycles;
         } else {
             // If no writes by the predicted end of mode 3, use faster scanline render
-            this.renderScanline();
+            if (this.renderThisFrame) {
+                this.renderScanline();
+            }
             mode3Length = this.scheduler.currTicks - this.mode3StartCycles + cyclesLate;
         }
 
@@ -207,13 +213,23 @@ export class PPU {
         this.checkStat();
 
         if (this.ly < 144) {
-            this.enterMode2(0); // OAM Scan
+            this.enterMode2(0); // Enter OAM Scan
         } else {
-            this.enterMode1(0); // Vblank
+            this.enterMode1(0); // Enter Vblank
             this.renderDoneScreen = true;
             this.renderDoneTimingDiagram = true;
-            this.swapBuffers();
             this.windowTriggeredThisFrame = false;
+
+
+            if (this.renderThisFrame) {
+                this.swapBuffers();
+            }
+            this.currentFrame++;
+            if (this.frameSkipRate > 0) {
+                this.renderThisFrame = this.currentFrame % this.frameSkipRate == 0;
+            } else {
+                this.renderThisFrame = true;
+            }
         }
     };
 
@@ -235,11 +251,7 @@ export class PPU {
         if (this.ly == 153) {
             this.scheduler.addEventRelative(SchedulerId.PPUMode, 4 - cyclesLate, this.line153Quirk);
             this.scheduler.addEventRelative(SchedulerId.PPUMode, 456 - cyclesLate, this.enterMode2);
-
-            return;
-        }
-
-        if (this.ly < 153) {
+        } else if (this.ly < 153) {
             this.scheduler.addEventRelative(SchedulerId.PPUMode, 456 - cyclesLate, this.continueMode1);
         }
     };
@@ -259,6 +271,7 @@ export class PPU {
         this.ly = 0;
         this.mode = PPUMode.Hblank;
         this.checkStat();
+        this.renderThisFrame = false;
     }
 
     previousStatCondition = false;
