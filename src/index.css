@@ -28,6 +28,8 @@
   height: 100%;
   object-fit: contain;
   image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
 }
 
 button {

@@ -143,6 +143,53 @@ export function LD_<regdest>_<regsrc>(cpu: CPU, opcode: number): void {
 };
 `;
 
+const INC_R8 = `
+export function INC_<regdest>(cpu: CPU): void {
+    const oldValue = <regsrc_get>;
+    const newValue = (oldValue + 1) & 0xFF;
+    <regdest_set> = newValue;
+
+    cpu.zero = newValue == 0;
+    cpu.negative = false;
+    cpu.halfCarry = (oldValue & 0xF) + (1 & 0xF) > 0xF;
+};
+`;
+
+const DEC_R8 = `
+export function DEC_<regdest>(cpu: CPU): void {
+    const oldValue = <regsrc_get>;
+    const newValue = (oldValue - 1) & 0xFF;
+    <regdest_set> = newValue;
+
+    cpu.zero = newValue == 0;
+    cpu.negative = true;
+    cpu.halfCarry = (1 & 0xF) > (oldValue & 0xF);
+};
+`;
+
+const LD_R8_U8 = `
+export function LD_<regdest>_U8(cpu: CPU): void {
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
+    <regdest_set> = imm;
+};
+`;
+
+const RST = `
+export function RST_<vector>(cpu: CPU): void {
+    cpu.tickPending(4);
+    // <inline_push cpu.pc>
+    let pushVal = cpu.pc;
+    let upper = (pushVal >> 8) & 0xFF;
+    let lower = (pushVal >> 0) & 0xFF;
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, upper);
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, lower);
+    cpu.pc = <vector>;
+};
+`;
+
 let code = "";
 let appendix = "";
 
@@ -158,7 +205,7 @@ let regDestSetArr = ["cpu.b", "cpu.c", "cpu.d", "cpu.e", "cpu.h", "cpu.l", `cpu.
  * @returns {string}
  * 
  */
-function aluBlockReplace(srcString, regSrc, regSrcGet) {
+function alu_replace(srcString, regSrc, regSrcGet) {
     // I love the JavaScript "standard library." I have to split and join 
     // strings together instead of using a replace-all function that the language doesn't provide.
     srcString = srcString.split("<regsrc>").join(regSrc);
@@ -171,7 +218,7 @@ function aluBlockReplace(srcString, regSrc, regSrcGet) {
  * @param {string} regSrcId 
  * @param {string} regDestId 
  */
-function ldBlock(opcode, regDestId, regSrcId) {
+function ld_r_r_replace(opcode, regDestId, regSrcId) {
     let srcString = LD_R8_R8;
     srcString = srcString.split("<regdest>").join(regArr[regDestId]);
     srcString = srcString.split("<regsrc>").join(regArr[regSrcId]);
@@ -186,6 +233,40 @@ function ldBlock(opcode, regDestId, regSrcId) {
 
     addAppendix(`//table[${hex(opcode, 2)}] = LD_${regArr[regDestId]}_${regArr[regSrcId]};\n`);
 
+    return srcString;
+}
+
+/**
+ * 
+ * @param {string} srcString 
+ * @param {number} regDestId 
+ */
+function inc_dec_u8_replace(srcString, regDestId) {
+    srcString = srcString.split("<regdest>").join(regArr[regDestId]);
+    srcString = srcString.split("<regsrc_get>").join(regSrcGetArr[regDestId]);
+    if (regDestId != 6) {
+        srcString = srcString.split("<regdest_set>").join(regDestSetArr[regDestId]);
+    } else {
+        srcString = srcString.split("<regdest_set>").join(`cpu.writeIndirectHl(newValue); //`);
+    }
+
+    return srcString;
+}
+
+function ld_r8_u8_replace(srcString, regDestId) {
+    srcString = srcString.split("<regdest>").join(regArr[regDestId]);
+
+    if (regDestId != 6) {
+        srcString = srcString.split("<regdest_set>").join(regDestSetArr[regDestId]);
+    } else {
+        srcString = srcString.split("<regdest_set>").join(`cpu.writeIndirectHl(imm); //`);
+    }
+
+    return srcString;
+}
+
+function rst_replace(srcString, vector) {
+    srcString = srcString.split("<vector>").join(vector);
     return srcString;
 }
 
@@ -213,13 +294,25 @@ for (let opcode = 0; opcode < 256; opcode++) {
     let x = (opcode >> 6) & 0b11;
     let y = (opcode >> 3) & 0b111;
     let z = (opcode >> 0) & 0b111;
+    let q = (opcode >> 3) & 0b1;
     switch (x) {
         // misc 0
         case 0:
+            switch (z) {
+                case 4:
+                    addCode(inc_dec_u8_replace(INC_R8, y));
+                    break;
+                case 5:
+                    addCode(inc_dec_u8_replace(DEC_R8, y));
+                    break;
+                case 6:
+                    addCode(ld_r8_u8_replace(LD_R8_U8, y));
+                    break;
+            }
             break;
         // LD block
         case 1:
-            addCode(ldBlock(opcode, y, z));
+            addCode(ld_r_r_replace(opcode, y, z));
             break;
         // ALU block
         case 2:
@@ -227,33 +320,38 @@ for (let opcode = 0; opcode < 256; opcode++) {
             let regSrcGet = regSrcGetArr[z];
             switch (y) {
                 case 0:
-                    addCode(aluBlockReplace(ADD_A_R8, regSrc, regSrcGet));
+                    addCode(alu_replace(ADD_A_R8, regSrc, regSrcGet));
                     break;
                 case 1:
-                    addCode(aluBlockReplace(ADC_A_R8, regSrc, regSrcGet));
+                    addCode(alu_replace(ADC_A_R8, regSrc, regSrcGet));
                     break;
                 case 2:
-                    addCode(aluBlockReplace(SUB_A_R8, regSrc, regSrcGet));
+                    addCode(alu_replace(SUB_A_R8, regSrc, regSrcGet));
                     break;
                 case 3:
-                    addCode(aluBlockReplace(SBC_A_R8, regSrc, regSrcGet));
+                    addCode(alu_replace(SBC_A_R8, regSrc, regSrcGet));
                     break;
                 case 4:
-                    addCode(aluBlockReplace(AND_A_R8, regSrc, regSrcGet));
+                    addCode(alu_replace(AND_A_R8, regSrc, regSrcGet));
                     break;
                 case 5:
-                    addCode(aluBlockReplace(XOR_A_R8, regSrc, regSrcGet));
+                    addCode(alu_replace(XOR_A_R8, regSrc, regSrcGet));
                     break;
                 case 6:
-                    addCode(aluBlockReplace(OR_A_R8, regSrc, regSrcGet));
+                    addCode(alu_replace(OR_A_R8, regSrc, regSrcGet));
                     break;
                 case 7:
-                    addCode(aluBlockReplace(CP_A_R8, regSrc, regSrcGet));
+                    addCode(alu_replace(CP_A_R8, regSrc, regSrcGet));
                     break;
             }
             break;
         // misc 1
         case 3:
+            switch (z) {
+                case 7:
+                    addCode(rst_replace(RST, y * 8));
+                    break;
+            }
             break;
     }
 }

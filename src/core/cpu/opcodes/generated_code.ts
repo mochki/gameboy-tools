@@ -1,5 +1,213 @@
 import { CPU } from "../cpu";
 
+export function INC_B(cpu: CPU): void {
+    const oldValue = cpu.b;
+    const newValue = (oldValue + 1) & 0xFF;
+    cpu.b = newValue;
+
+    cpu.zero = newValue == 0;
+    cpu.negative = false;
+    cpu.halfCarry = (oldValue & 0xF) + (1 & 0xF) > 0xF;
+};
+
+export function DEC_B(cpu: CPU): void {
+    const oldValue = cpu.b;
+    const newValue = (oldValue - 1) & 0xFF;
+    cpu.b = newValue;
+
+    cpu.zero = newValue == 0;
+    cpu.negative = true;
+    cpu.halfCarry = (1 & 0xF) > (oldValue & 0xF);
+};
+
+export function LD_B_U8(cpu: CPU): void {
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
+    cpu.b = imm;
+};
+
+export function INC_C(cpu: CPU): void {
+    const oldValue = cpu.c;
+    const newValue = (oldValue + 1) & 0xFF;
+    cpu.c = newValue;
+
+    cpu.zero = newValue == 0;
+    cpu.negative = false;
+    cpu.halfCarry = (oldValue & 0xF) + (1 & 0xF) > 0xF;
+};
+
+export function DEC_C(cpu: CPU): void {
+    const oldValue = cpu.c;
+    const newValue = (oldValue - 1) & 0xFF;
+    cpu.c = newValue;
+
+    cpu.zero = newValue == 0;
+    cpu.negative = true;
+    cpu.halfCarry = (1 & 0xF) > (oldValue & 0xF);
+};
+
+export function LD_C_U8(cpu: CPU): void {
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
+    cpu.c = imm;
+};
+
+export function INC_D(cpu: CPU): void {
+    const oldValue = cpu.d;
+    const newValue = (oldValue + 1) & 0xFF;
+    cpu.d = newValue;
+
+    cpu.zero = newValue == 0;
+    cpu.negative = false;
+    cpu.halfCarry = (oldValue & 0xF) + (1 & 0xF) > 0xF;
+};
+
+export function DEC_D(cpu: CPU): void {
+    const oldValue = cpu.d;
+    const newValue = (oldValue - 1) & 0xFF;
+    cpu.d = newValue;
+
+    cpu.zero = newValue == 0;
+    cpu.negative = true;
+    cpu.halfCarry = (1 & 0xF) > (oldValue & 0xF);
+};
+
+export function LD_D_U8(cpu: CPU): void {
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
+    cpu.d = imm;
+};
+
+export function INC_E(cpu: CPU): void {
+    const oldValue = cpu.e;
+    const newValue = (oldValue + 1) & 0xFF;
+    cpu.e = newValue;
+
+    cpu.zero = newValue == 0;
+    cpu.negative = false;
+    cpu.halfCarry = (oldValue & 0xF) + (1 & 0xF) > 0xF;
+};
+
+export function DEC_E(cpu: CPU): void {
+    const oldValue = cpu.e;
+    const newValue = (oldValue - 1) & 0xFF;
+    cpu.e = newValue;
+
+    cpu.zero = newValue == 0;
+    cpu.negative = true;
+    cpu.halfCarry = (1 & 0xF) > (oldValue & 0xF);
+};
+
+export function LD_E_U8(cpu: CPU): void {
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
+    cpu.e = imm;
+};
+
+export function INC_H(cpu: CPU): void {
+    const oldValue = cpu.h;
+    const newValue = (oldValue + 1) & 0xFF;
+    cpu.h = newValue;
+
+    cpu.zero = newValue == 0;
+    cpu.negative = false;
+    cpu.halfCarry = (oldValue & 0xF) + (1 & 0xF) > 0xF;
+};
+
+export function DEC_H(cpu: CPU): void {
+    const oldValue = cpu.h;
+    const newValue = (oldValue - 1) & 0xFF;
+    cpu.h = newValue;
+
+    cpu.zero = newValue == 0;
+    cpu.negative = true;
+    cpu.halfCarry = (1 & 0xF) > (oldValue & 0xF);
+};
+
+export function LD_H_U8(cpu: CPU): void {
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
+    cpu.h = imm;
+};
+
+export function INC_L(cpu: CPU): void {
+    const oldValue = cpu.l;
+    const newValue = (oldValue + 1) & 0xFF;
+    cpu.l = newValue;
+
+    cpu.zero = newValue == 0;
+    cpu.negative = false;
+    cpu.halfCarry = (oldValue & 0xF) + (1 & 0xF) > 0xF;
+};
+
+export function DEC_L(cpu: CPU): void {
+    const oldValue = cpu.l;
+    const newValue = (oldValue - 1) & 0xFF;
+    cpu.l = newValue;
+
+    cpu.zero = newValue == 0;
+    cpu.negative = true;
+    cpu.halfCarry = (1 & 0xF) > (oldValue & 0xF);
+};
+
+export function LD_L_U8(cpu: CPU): void {
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
+    cpu.l = imm;
+};
+
+export function INC_iHL(cpu: CPU): void {
+    const oldValue = cpu.readIndirectHl();
+    const newValue = (oldValue + 1) & 0xFF;
+    cpu.writeIndirectHl(newValue); // = newValue;
+
+    cpu.zero = newValue == 0;
+    cpu.negative = false;
+    cpu.halfCarry = (oldValue & 0xF) + (1 & 0xF) > 0xF;
+};
+
+export function DEC_iHL(cpu: CPU): void {
+    const oldValue = cpu.readIndirectHl();
+    const newValue = (oldValue - 1) & 0xFF;
+    cpu.writeIndirectHl(newValue); // = newValue;
+
+    cpu.zero = newValue == 0;
+    cpu.negative = true;
+    cpu.halfCarry = (1 & 0xF) > (oldValue & 0xF);
+};
+
+export function LD_iHL_U8(cpu: CPU): void {
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
+    cpu.writeIndirectHl(imm); // = imm;
+};
+
+export function INC_A(cpu: CPU): void {
+    const oldValue = cpu.a;
+    const newValue = (oldValue + 1) & 0xFF;
+    cpu.a = newValue;
+
+    cpu.zero = newValue == 0;
+    cpu.negative = false;
+    cpu.halfCarry = (oldValue & 0xF) + (1 & 0xF) > 0xF;
+};
+
+export function DEC_A(cpu: CPU): void {
+    const oldValue = cpu.a;
+    const newValue = (oldValue - 1) & 0xFF;
+    cpu.a = newValue;
+
+    cpu.zero = newValue == 0;
+    cpu.negative = true;
+    cpu.halfCarry = (1 & 0xF) > (oldValue & 0xF);
+};
+
+export function LD_A_U8(cpu: CPU): void {
+    const imm = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
+    cpu.a = imm;
+};
+
 export function LD_B_B(cpu: CPU, opcode: number): void {
     cpu.b = cpu.b;
 };
@@ -1206,6 +1414,111 @@ export function CP_A_A(cpu: CPU, opcode: number): void {
     cpu.negative = true;
     cpu.halfCarry = (cpu.a & 0xF) - (A & 0xF) < 0;
 
+};
+
+
+export function RST_0(cpu: CPU): void {
+    cpu.tickPending(4);
+    // <inline_push cpu.pc>
+    let pushVal = cpu.pc;
+    let upper = (pushVal >> 8) & 0xFF;
+    let lower = (pushVal >> 0) & 0xFF;
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, upper);
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, lower);
+    cpu.pc = 0;
+};
+
+export function RST_8(cpu: CPU): void {
+    cpu.tickPending(4);
+    // <inline_push cpu.pc>
+    let pushVal = cpu.pc;
+    let upper = (pushVal >> 8) & 0xFF;
+    let lower = (pushVal >> 0) & 0xFF;
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, upper);
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, lower);
+    cpu.pc = 8;
+};
+
+export function RST_16(cpu: CPU): void {
+    cpu.tickPending(4);
+    // <inline_push cpu.pc>
+    let pushVal = cpu.pc;
+    let upper = (pushVal >> 8) & 0xFF;
+    let lower = (pushVal >> 0) & 0xFF;
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, upper);
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, lower);
+    cpu.pc = 16;
+};
+
+export function RST_24(cpu: CPU): void {
+    cpu.tickPending(4);
+    // <inline_push cpu.pc>
+    let pushVal = cpu.pc;
+    let upper = (pushVal >> 8) & 0xFF;
+    let lower = (pushVal >> 0) & 0xFF;
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, upper);
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, lower);
+    cpu.pc = 24;
+};
+
+export function RST_32(cpu: CPU): void {
+    cpu.tickPending(4);
+    // <inline_push cpu.pc>
+    let pushVal = cpu.pc;
+    let upper = (pushVal >> 8) & 0xFF;
+    let lower = (pushVal >> 0) & 0xFF;
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, upper);
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, lower);
+    cpu.pc = 32;
+};
+
+export function RST_40(cpu: CPU): void {
+    cpu.tickPending(4);
+    // <inline_push cpu.pc>
+    let pushVal = cpu.pc;
+    let upper = (pushVal >> 8) & 0xFF;
+    let lower = (pushVal >> 0) & 0xFF;
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, upper);
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, lower);
+    cpu.pc = 40;
+};
+
+export function RST_48(cpu: CPU): void {
+    cpu.tickPending(4);
+    // <inline_push cpu.pc>
+    let pushVal = cpu.pc;
+    let upper = (pushVal >> 8) & 0xFF;
+    let lower = (pushVal >> 0) & 0xFF;
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, upper);
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, lower);
+    cpu.pc = 48;
+};
+
+export function RST_56(cpu: CPU): void {
+    cpu.tickPending(4);
+    // <inline_push cpu.pc>
+    let pushVal = cpu.pc;
+    let upper = (pushVal >> 8) & 0xFF;
+    let lower = (pushVal >> 0) & 0xFF;
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, upper);
+    cpu.sp = (cpu.sp - 1) & 0xFFFF;
+    cpu.write8(cpu.sp, lower);
+    cpu.pc = 56;
 };
 //table[0x40] = LD_B_B;
 //table[0x41] = LD_B_C;

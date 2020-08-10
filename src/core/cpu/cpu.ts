@@ -4,8 +4,8 @@ import { GameBoy } from "../gameboy";
 import { bitTest as bitTest, bitSet, bitSetValue, bitReset } from "../util/bits";
 import { hexN, hex } from "../util/misc";
 import { BIT, RES, SET, RLC, RRC, RL, RR, SLA, SRA, SWAP, JP_HL, SRL } from "./opcodes/cb_prefix";
-import { LD_BC_U16, LD_DE_U16, LD_HL_U16, LD_SP_U16, LD_A_iU16, LD_iU16_A, LD_iU16_SP, JP, CALL, LD_A_iFF00plusU8, LD_iFF00plusU8_A, LD_iHL_U8, LD_HL_SPplusE8, ADD_SP_E8, AND_A_U8, OR_A_U8, XOR_A_U8, CP_A_U8, JR, ADD_A_U8, ADC_A_U8, SUB_A_U8, SBC_A_U8, LD_R8_U8, LD_SP_HL, PUSH_BC, PUSH_DE, PUSH_HL, PUSH_AF, POP_BC, POP_DE, POP_HL, POP_AF, INC_R8, DEC_R8, INC_BC, INC_DE, INC_HL, INC_SP, DEC_BC, DEC_DE, DEC_HL, DEC_SP, CPL, RETI, DAA, NOP, LD_iBC_A, LD_iDE_A, LD_iHLinc_A, LD_iHLdec_A, LD_A_iBC, LD_A_iDE, LD_A_iHLinc, LD_A_iHLdec, LD_A_iFF00plusC, LD_iFF00plusC_A, DI, EI, RLCA, RRCA, RRA, RLA, HALT, SCF, CCF, RET, RST, ADD_HL_BC, ADD_HL_DE, ADD_HL_HL, ADD_HL_SP, CALL_C, CALL_NC, CALL_Z, CALL_NZ, JP_NZ, JP_Z, JP_NC, JP_C, JR_NZ, JR_Z, JR_NC, JR_C, RET_C, RET_NC, RET_Z, RET_NZ } from './opcodes/unprefixed';
-import { LD_B_B, LD_B_C, LD_B_D, LD_B_E, LD_B_H, LD_B_L, LD_B_iHL, LD_B_A, LD_C_B, LD_C_C, LD_C_D, LD_C_E, LD_C_H, LD_C_L, LD_C_iHL, LD_C_A, LD_D_B, LD_D_C, LD_D_D, LD_D_E, LD_D_H, LD_D_L, LD_D_iHL, LD_D_A, LD_E_B, LD_E_C, LD_E_D, LD_E_E, LD_E_H, LD_E_L, LD_E_iHL, LD_E_A, LD_H_B, LD_H_C, LD_H_D, LD_H_E, LD_H_H, LD_H_L, LD_H_iHL, LD_H_A, LD_L_B, LD_L_C, LD_L_D, LD_L_E, LD_L_H, LD_L_L, LD_L_iHL, LD_L_A, LD_iHL_B, LD_iHL_C, LD_iHL_D, LD_iHL_E, LD_iHL_H, LD_iHL_L, LD_iHL_iHL, LD_iHL_A, LD_A_B, LD_A_C, LD_A_D, LD_A_E, LD_A_H, LD_A_L, LD_A_iHL, LD_A_A, ADD_A_B, ADD_A_C, ADD_A_D, ADD_A_E, ADD_A_H, ADD_A_L, ADD_A_iHL, ADD_A_A, ADC_A_B, ADC_A_C, ADC_A_D, ADC_A_E, ADC_A_H, ADC_A_L, ADC_A_iHL, ADC_A_A, SUB_A_B, SUB_A_C, SUB_A_D, SUB_A_E, SUB_A_H, SUB_A_L, SUB_A_iHL, SUB_A_A, SBC_A_B, SBC_A_C, SBC_A_D, SBC_A_E, SBC_A_H, SBC_A_L, SBC_A_iHL, SBC_A_A, AND_A_B, AND_A_C, AND_A_D, AND_A_E, AND_A_H, AND_A_L, AND_A_iHL, AND_A_A, XOR_A_B, XOR_A_C, XOR_A_D, XOR_A_E, XOR_A_H, XOR_A_L, XOR_A_iHL, XOR_A_A, OR_A_B, OR_A_C, OR_A_D, OR_A_E, OR_A_H, OR_A_L, OR_A_iHL, OR_A_A, CP_A_B, CP_A_C, CP_A_D, CP_A_E, CP_A_H, CP_A_L, CP_A_iHL, CP_A_A } from './opcodes/generated_code';
+import { LD_BC_U16, LD_DE_U16, LD_HL_U16, LD_SP_U16, LD_A_iU16, LD_iU16_A, LD_iU16_SP, JP, JP_NZ, JP_Z, JP_NC, JP_C, CALL, CALL_C, CALL_NC, CALL_Z, CALL_NZ, LD_A_iFF00plusU8, LD_iFF00plusU8_A, LD_iHL_U8, LD_HL_SPplusE8, ADD_SP_E8, AND_A_U8, OR_A_U8, XOR_A_U8, CP_A_U8, JR, JR_NZ, JR_Z, JR_NC, JR_C, ADD_A_U8, ADC_A_U8, SUB_A_U8, SBC_A_U8, LD_SP_HL, PUSH_BC, PUSH_DE, PUSH_HL, PUSH_AF, POP_BC, POP_DE, POP_HL, POP_AF, INC_BC, INC_DE, INC_HL, INC_SP, DEC_BC, DEC_DE, DEC_HL, DEC_SP, CPL, RETI, DAA, NOP, LD_iBC_A, LD_iDE_A, LD_iHLinc_A, LD_iHLdec_A, LD_A_iBC, LD_A_iDE, LD_A_iHLinc, LD_A_iHLdec, LD_A_iFF00plusC, LD_iFF00plusC_A, DI, EI, RLCA, RRCA, RRA, RLA, HALT, SCF, CCF, RET, RET_C, RET_NC, RET_Z, RET_NZ, ADD_HL_BC, ADD_HL_DE, ADD_HL_HL, ADD_HL_SP } from './opcodes/unprefixed';
+import { LD_B_B, LD_B_C, LD_B_D, LD_B_E, LD_B_H, LD_B_L, LD_B_iHL, LD_B_A, LD_C_B, LD_C_C, LD_C_D, LD_C_E, LD_C_H, LD_C_L, LD_C_iHL, LD_C_A, LD_D_B, LD_D_C, LD_D_D, LD_D_E, LD_D_H, LD_D_L, LD_D_iHL, LD_D_A, LD_E_B, LD_E_C, LD_E_D, LD_E_E, LD_E_H, LD_E_L, LD_E_iHL, LD_E_A, LD_H_B, LD_H_C, LD_H_D, LD_H_E, LD_H_H, LD_H_L, LD_H_iHL, LD_H_A, LD_L_B, LD_L_C, LD_L_D, LD_L_E, LD_L_H, LD_L_L, LD_L_iHL, LD_L_A, LD_iHL_B, LD_iHL_C, LD_iHL_D, LD_iHL_E, LD_iHL_H, LD_iHL_L, LD_iHL_iHL, LD_iHL_A, LD_A_B, LD_A_C, LD_A_D, LD_A_E, LD_A_H, LD_A_L, LD_A_iHL, LD_A_A, ADD_A_B, ADD_A_C, ADD_A_D, ADD_A_E, ADD_A_H, ADD_A_L, ADD_A_iHL, ADD_A_A, ADC_A_B, ADC_A_C, ADC_A_D, ADC_A_E, ADC_A_H, ADC_A_L, ADC_A_iHL, ADC_A_A, SUB_A_B, SUB_A_C, SUB_A_D, SUB_A_E, SUB_A_H, SUB_A_L, SUB_A_iHL, SUB_A_A, SBC_A_B, SBC_A_C, SBC_A_D, SBC_A_E, SBC_A_H, SBC_A_L, SBC_A_iHL, SBC_A_A, AND_A_B, AND_A_C, AND_A_D, AND_A_E, AND_A_H, AND_A_L, AND_A_iHL, AND_A_A, XOR_A_B, XOR_A_C, XOR_A_D, XOR_A_E, XOR_A_H, XOR_A_L, XOR_A_iHL, XOR_A_A, OR_A_B, OR_A_C, OR_A_D, OR_A_E, OR_A_H, OR_A_L, OR_A_iHL, OR_A_A, CP_A_B, CP_A_C, CP_A_D, CP_A_E, CP_A_H, CP_A_L, CP_A_iHL, CP_A_A, INC_B, INC_C, INC_D, INC_E, INC_H, INC_L, INC_iHL, INC_A, DEC_B, DEC_C, DEC_D, DEC_E, DEC_H, DEC_L, DEC_iHL, DEC_A, LD_B_U8, LD_C_U8, LD_D_U8, LD_E_U8, LD_H_U8, LD_L_U8, LD_A_U8, RST_0, RST_8, RST_16, RST_24, RST_32, RST_40, RST_48, RST_56 } from './opcodes/generated_code';
 
 // function boundsCheck8(i: number): void {
 //     if ((i & ~0xFF) != 0) throw "Bounds error 8-bit";
@@ -416,14 +416,14 @@ function genUnprefixedTable(): Instruction[] {
     t[0xCE] = ADC_A_U8;  // ADC A, U8
     t[0xD6] = SUB_A_U8;  // SUB A, U8
     t[0xDE] = SBC_A_U8;  // SBC A, U8
-    t[0x06] = LD_R8_U8; // LD B, U8
-    t[0x0E] = LD_R8_U8; // LD C, U8
-    t[0x16] = LD_R8_U8; // LD D, U8
-    t[0x1E] = LD_R8_U8; // LD E, U8
-    t[0x26] = LD_R8_U8; // LD H, U8
-    t[0x2E] = LD_R8_U8; // LD L, U8
-    t[0x36] = LD_R8_U8; // LD (HL), U8
-    t[0x3E] = LD_R8_U8; // LD A, U8
+    t[0x06] = LD_B_U8; // LD B, U8
+    t[0x0E] = LD_C_U8; // LD C, U8
+    t[0x16] = LD_D_U8; // LD D, U8
+    t[0x1E] = LD_E_U8; // LD E, U8
+    t[0x26] = LD_H_U8; // LD H, U8
+    t[0x2E] = LD_L_U8; // LD L, U8
+    t[0x36] = LD_iHL_U8; // LD (HL), U8
+    t[0x3E] = LD_A_U8; // LD A, U8
     t[0xF9] = LD_SP_HL; // LD SP, HL
     t[0xC5] = PUSH_BC;  // PUSH BC
     t[0xD5] = PUSH_DE;  // PUSH DE
@@ -433,22 +433,22 @@ function genUnprefixedTable(): Instruction[] {
     t[0xD1] = POP_DE;  // POP DE
     t[0xE1] = POP_HL;  // POP HL
     t[0xF1] = POP_AF;  // POP AF 
-    t[0x04] = INC_R8;  // INC B
-    t[0x0C] = INC_R8;  // INC C
-    t[0x14] = INC_R8;  // INC D
-    t[0x1C] = INC_R8;  // INC E
-    t[0x24] = INC_R8;  // INC H
-    t[0x2C] = INC_R8;  // INC L
-    t[0x34] = INC_R8;  // INC [HL]
-    t[0x3C] = INC_R8;  // INC A
-    t[0x05] = DEC_R8;  // DEC B
-    t[0x0D] = DEC_R8;  // DEC C
-    t[0x15] = DEC_R8;  // DEC D
-    t[0x1D] = DEC_R8;  // DEC E
-    t[0x25] = DEC_R8;  // DEC H
-    t[0x2D] = DEC_R8;  // DEC L
-    t[0x35] = DEC_R8;  // DEC [HL]
-    t[0x3D] = DEC_R8;  // DEC A
+    t[0x04] = INC_B;  // INC B
+    t[0x0C] = INC_C;  // INC C
+    t[0x14] = INC_D;  // INC D
+    t[0x1C] = INC_E;  // INC E
+    t[0x24] = INC_H;  // INC H
+    t[0x2C] = INC_L;  // INC L
+    t[0x34] = INC_iHL;  // INC [HL]
+    t[0x3C] = INC_A;  // INC A
+    t[0x05] = DEC_B;  // DEC B
+    t[0x0D] = DEC_C;  // DEC C
+    t[0x15] = DEC_D;  // DEC D
+    t[0x1D] = DEC_E;  // DEC E
+    t[0x25] = DEC_H;  // DEC H
+    t[0x2D] = DEC_L;  // DEC L
+    t[0x35] = DEC_iHL;  // DEC [HL]
+    t[0x3D] = DEC_A;  // DEC A
     t[0x03] = INC_BC;  // INC BC
     t[0x13] = INC_DE;  // INC DE 
     t[0x23] = INC_HL;  // INC HL
@@ -614,14 +614,14 @@ function genUnprefixedTable(): Instruction[] {
     t[0xD0] = RET_NC;  // RET NC
     t[0xC8] = RET_Z;  // RET Z
     t[0xC0] = RET_NZ;  // RET NZ
-    t[0xC7] = RST;  // RST 00h 
-    t[0xCF] = RST;  // RST 08h
-    t[0xD7] = RST;  // RST 10h
-    t[0xDF] = RST;  // RST 18h
-    t[0xE7] = RST;  // RST 20h
-    t[0xEF] = RST;  // RST 28h
-    t[0xF7] = RST;  // RST 30h
-    t[0xFF] = RST;  // RST 38h
+    t[0xC7] = RST_0;  // RST 00h 
+    t[0xCF] = RST_8;  // RST 08h
+    t[0xD7] = RST_16;  // RST 10h
+    t[0xDF] = RST_24;  // RST 18h
+    t[0xE7] = RST_32;  // RST 20h
+    t[0xEF] = RST_40;  // RST 28h
+    t[0xF7] = RST_48;  // RST 30h
+    t[0xFF] = RST_56;  // RST 38h
     t[0x09] = ADD_HL_BC; // ADD HL, BC
     t[0x19] = ADD_HL_DE; // ADD HL, DE
     t[0x29] = ADD_HL_HL; // ADD HL, HL

@@ -32,20 +32,20 @@ export function LD_SP_U16(cpu: CPU) {
 
 
 // LD A, [U16]
-export function LD_A_iU16(cpu: CPU, opcode: number): void {
+export function LD_A_iU16(cpu: CPU): void {
     const u16 = cpu.read16PcInc();
 
     cpu.a = cpu.read8(u16);
 };
 
 // LD [U16], A
-export function LD_iU16_A(cpu: CPU, opcode: number): void {
+export function LD_iU16_A(cpu: CPU): void {
     const u16 = cpu.read16PcInc();
 
     cpu.write8(u16, cpu.a);
 };
 
-export function LD_iU16_SP(cpu: CPU, opcode: number): void {
+export function LD_iU16_SP(cpu: CPU): void {
     const u16 = cpu.read16PcInc();
 
     const spUpperByte = cpu.sp >> 8;
@@ -56,14 +56,14 @@ export function LD_iU16_SP(cpu: CPU, opcode: number): void {
 
 };
 
-export function JP(cpu: CPU, opcode: number): void {
+export function JP(cpu: CPU): void {
     const u16 = cpu.read16PcInc();
     cpu.pc = u16;
 
     cpu.tickPending(4); // Branching takes 4 cycles
 };
 
-export function JP_NZ(cpu: CPU, opcode: number) {
+export function JP_NZ(cpu: CPU) {
     if (!cpu.zero) {
         let target = cpu.read16PcInc();
         cpu.tickPending(4);
@@ -73,7 +73,7 @@ export function JP_NZ(cpu: CPU, opcode: number) {
         cpu.tickPending(8);
     }
 }
-export function JP_Z(cpu: CPU, opcode: number) {
+export function JP_Z(cpu: CPU) {
     if (cpu.zero) {
         let target = cpu.read16PcInc();
         cpu.tickPending(4);
@@ -84,7 +84,7 @@ export function JP_Z(cpu: CPU, opcode: number) {
     }
 }
 
-export function JP_NC(cpu: CPU, opcode: number) {
+export function JP_NC(cpu: CPU) {
     if (!cpu.carry) {
         let target = cpu.read16PcInc();
         cpu.tickPending(4);
@@ -95,7 +95,7 @@ export function JP_NC(cpu: CPU, opcode: number) {
     }
 }
 
-export function JP_C(cpu: CPU, opcode: number) {
+export function JP_C(cpu: CPU) {
     if (cpu.carry) {
         let target = cpu.read16PcInc();
         cpu.tickPending(4);
@@ -106,7 +106,7 @@ export function JP_C(cpu: CPU, opcode: number) {
     }
 }
 
-export function CALL(cpu: CPU, opcode: number) {
+export function CALL(cpu: CPU) {
     let target = cpu.read16PcInc();
     cpu.tickPending(4);
     // <inline_push cpu.pc>
@@ -120,7 +120,7 @@ export function CALL(cpu: CPU, opcode: number) {
     cpu.pc = target;
 }
 
-export function CALL_NZ(cpu: CPU, opcode: number) {
+export function CALL_NZ(cpu: CPU) {
     if (!cpu.zero) {
         let target = cpu.read16PcInc();
         cpu.tickPending(4);
@@ -138,7 +138,7 @@ export function CALL_NZ(cpu: CPU, opcode: number) {
         cpu.tickPending(8);
     }
 }
-export function CALL_Z(cpu: CPU, opcode: number) {
+export function CALL_Z(cpu: CPU) {
     if (cpu.zero) {
         let target = cpu.read16PcInc();
         cpu.tickPending(4);
@@ -156,7 +156,7 @@ export function CALL_Z(cpu: CPU, opcode: number) {
         cpu.tickPending(8);
     }
 }
-export function CALL_NC(cpu: CPU, opcode: number) {
+export function CALL_NC(cpu: CPU) {
     if (!cpu.carry) {
         let target = cpu.read16PcInc();
         cpu.tickPending(4);
@@ -174,7 +174,7 @@ export function CALL_NC(cpu: CPU, opcode: number) {
         cpu.tickPending(8);
     }
 }
-export function CALL_C(cpu: CPU, opcode: number) {
+export function CALL_C(cpu: CPU) {
     if (cpu.carry) {
         let target = cpu.read16PcInc();
         cpu.tickPending(4);
@@ -194,7 +194,7 @@ export function CALL_C(cpu: CPU, opcode: number) {
 }
 
 /** LD between A and High RAM */
-export function LD_A_iFF00plusU8(cpu: CPU, opcode: number): void {
+export function LD_A_iFF00plusU8(cpu: CPU): void {
     const imm = cpu.read8(cpu.pc);
     cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
@@ -202,7 +202,7 @@ export function LD_A_iFF00plusU8(cpu: CPU, opcode: number): void {
 
 };
 
-export function LD_iFF00plusU8_A(cpu: CPU, opcode: number): void {
+export function LD_iFF00plusU8_A(cpu: CPU): void {
     const imm = cpu.read8(cpu.pc);
     cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
@@ -210,14 +210,14 @@ export function LD_iFF00plusU8_A(cpu: CPU, opcode: number): void {
 
 };
 
-export function LD_iHL_U8(cpu: CPU, opcode: number): void {
+export function LD_iHL_U8(cpu: CPU): void {
     const imm = cpu.read8(cpu.pc);
     cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
     cpu.write8(cpu.getHl(), imm);
 };
 
-export function LD_HL_SPplusE8(cpu: CPU, opcode: number): void {
+export function LD_HL_SPplusE8(cpu: CPU): void {
     const imm = cpu.read8(cpu.pc);
     cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
@@ -234,7 +234,7 @@ export function LD_HL_SPplusE8(cpu: CPU, opcode: number): void {
     cpu.tickPending(4);
 };
 
-export function ADD_SP_E8(cpu: CPU, opcode: number): void {
+export function ADD_SP_E8(cpu: CPU): void {
     const imm = cpu.read8(cpu.pc);
     cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
@@ -252,7 +252,7 @@ export function ADD_SP_E8(cpu: CPU, opcode: number): void {
 
 };
 
-export function AND_A_U8(cpu: CPU, opcode: number): void {
+export function AND_A_U8(cpu: CPU): void {
     const imm = cpu.read8(cpu.pc);
     cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
@@ -266,7 +266,7 @@ export function AND_A_U8(cpu: CPU, opcode: number): void {
 
 };
 
-export function OR_A_U8(cpu: CPU, opcode: number): void {
+export function OR_A_U8(cpu: CPU): void {
     const imm = cpu.read8(cpu.pc);
     cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
@@ -279,7 +279,7 @@ export function OR_A_U8(cpu: CPU, opcode: number): void {
     cpu.carry = false;
 };
 
-export function XOR_A_U8(cpu: CPU, opcode: number): void {
+export function XOR_A_U8(cpu: CPU): void {
     const imm = cpu.read8(cpu.pc);
     cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
@@ -293,7 +293,7 @@ export function XOR_A_U8(cpu: CPU, opcode: number): void {
 
 };
 
-export function CP_A_U8(cpu: CPU, opcode: number): void {
+export function CP_A_U8(cpu: CPU): void {
     const imm = cpu.read8(cpu.pc);
     cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
@@ -309,14 +309,14 @@ export function CP_A_U8(cpu: CPU, opcode: number): void {
 
 /** JR */
 
-export function JR(cpu: CPU, opcode: number) {
+export function JR(cpu: CPU) {
     let val = cpu.read8(cpu.pc);
     cpu.pc = (cpu.pc + 1) & 0xFFFF;
     let offset = unTwo8b(val);
     cpu.tickPending(4);
     cpu.pc = (cpu.pc + offset) & 0xFFFF;
 }
-export function JR_NZ(cpu: CPU, opcode: number) {
+export function JR_NZ(cpu: CPU) {
     if (!cpu.zero) {
         let val = cpu.read8(cpu.pc);
         cpu.pc = (cpu.pc + 1) & 0xFFFF;
@@ -329,7 +329,7 @@ export function JR_NZ(cpu: CPU, opcode: number) {
     }
 }
 
-export function JR_Z(cpu: CPU, opcode: number) {
+export function JR_Z(cpu: CPU) {
     if (cpu.zero) {
         let val = cpu.read8(cpu.pc);
         cpu.pc = (cpu.pc + 1) & 0xFFFF;
@@ -342,7 +342,7 @@ export function JR_Z(cpu: CPU, opcode: number) {
     }
 }
 
-export function JR_NC(cpu: CPU, opcode: number) {
+export function JR_NC(cpu: CPU) {
     if (!cpu.carry) {
         let val = cpu.read8(cpu.pc);
         cpu.pc = (cpu.pc + 1) & 0xFFFF;
@@ -354,7 +354,7 @@ export function JR_NC(cpu: CPU, opcode: number) {
         cpu.tickPending(4);
     }
 }
-export function JR_C(cpu: CPU, opcode: number) {
+export function JR_C(cpu: CPU) {
     if (cpu.carry) {
         let val = cpu.read8(cpu.pc);
         cpu.pc = (cpu.pc + 1) & 0xFFFF;
@@ -370,7 +370,7 @@ export function JR_C(cpu: CPU, opcode: number) {
 
 
 /** Arithmetic */
-export function ADD_A_U8(cpu: CPU, opcode: number): void {
+export function ADD_A_U8(cpu: CPU): void {
     const imm = cpu.read8(cpu.pc);
     cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
@@ -387,7 +387,7 @@ export function ADD_A_U8(cpu: CPU, opcode: number): void {
 
 };
 
-export function ADC_A_U8(cpu: CPU, opcode: number): void {
+export function ADC_A_U8(cpu: CPU): void {
     const imm = cpu.read8(cpu.pc);
     cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
@@ -404,7 +404,7 @@ export function ADC_A_U8(cpu: CPU, opcode: number): void {
 
 };
 
-export function SUB_A_U8(cpu: CPU, opcode: number): void {
+export function SUB_A_U8(cpu: CPU): void {
     const imm = cpu.read8(cpu.pc);
     cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
@@ -421,7 +421,7 @@ export function SUB_A_U8(cpu: CPU, opcode: number): void {
 
 };
 
-export function SBC_A_U8(cpu: CPU, opcode: number): void {
+export function SBC_A_U8(cpu: CPU): void {
     const imm = cpu.read8(cpu.pc);
     cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
@@ -438,16 +438,9 @@ export function SBC_A_U8(cpu: CPU, opcode: number): void {
 
 };
 
-/** LD R8, U8 */
-export function LD_R8_U8(cpu: CPU, opcode: number): void {
-    const imm = cpu.read8(cpu.pc);
-    cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
-    const target = (opcode & 0b111000) >> 3;
-    cpu.setReg(target, imm);
-};
 
-export function LD_SP_HL(cpu: CPU, opcode: number): void {
+export function LD_SP_HL(cpu: CPU): void {
     cpu.sp = cpu.getHl();
     // Register read timing
     cpu.tickPending(4);
@@ -535,32 +528,7 @@ export function POP_AF(cpu: CPU) {
     let val = (upper << 8) | lower;
     cpu.setAf(val);
 }
-/** INC R8 */
-export function INC_R8(cpu: CPU, opcode: number): void {
-    const dest = (opcode & 0b111000) >> 3;
 
-    const oldValue = cpu.getReg(dest);
-    const newValue = (oldValue + 1) & 0xFF;
-    cpu.setReg(dest, newValue);
-    cpu.zero = newValue === 0;
-    cpu.negative = false;
-    cpu.halfCarry = (oldValue & 0xF) + (1 & 0xF) > 0xF;
-
-};
-
-/** DEC R8 */
-export function DEC_R8(cpu: CPU, opcode: number): void {
-    const dest = (opcode & 0b111000) >> 3;
-
-    const oldValue = cpu.getReg(dest);
-    const newValue = (oldValue - 1) & 0xFF;
-    cpu.setReg(dest, newValue);
-
-    cpu.zero = newValue === 0;
-    cpu.negative = true;
-    cpu.halfCarry = (1 & 0xF) > (oldValue & 0xF);
-
-};
 
 export function INC_BC(cpu: CPU) { cpu.setBc((cpu.getBc() + 1) & 0xFFFF); cpu.tickPending(4); }
 export function DEC_BC(cpu: CPU) { cpu.setBc((cpu.getBc() - 1) & 0xFFFF); cpu.tickPending(4); }
@@ -574,14 +542,14 @@ export function DEC_SP(cpu: CPU) { cpu.sp = (cpu.sp - 1) & 0xFFFF; cpu.tickPendi
 
 
 
-export function CPL(cpu: CPU, opcode: number): void {
+export function CPL(cpu: CPU): void {
     cpu.a = cpu.a ^ 0b11111111;
 
     cpu.negative = true;
     cpu.halfCarry = true;
 };
 
-export function RETI(cpu: CPU, opcode: number): void {
+export function RETI(cpu: CPU): void {
     let lower = cpu.read8(cpu.sp);
     cpu.sp = (cpu.sp + 1) & 0xFFFF;
     let upper = cpu.read8(cpu.sp);
@@ -593,7 +561,7 @@ export function RETI(cpu: CPU, opcode: number): void {
     cpu.ime = true;
 };
 
-export function DAA(cpu: CPU, opcode: number): void {
+export function DAA(cpu: CPU): void {
     if (!cpu.negative) {
         if (cpu.carry || cpu.a > 0x99) {
             cpu.a = (cpu.a + 0x60) & 0xFF;
@@ -621,57 +589,57 @@ export function NOP(): void {
 };
 
 /** LD between A and R16 */
-export function LD_iBC_A(cpu: CPU, opcode: number): void { // LD [BC], A
+export function LD_iBC_A(cpu: CPU): void { // LD [BC], A
     cpu.write8(cpu.getBc(), cpu.a);
 };
 
-export function LD_iDE_A(cpu: CPU, opcode: number): void {// LD [DE], A
+export function LD_iDE_A(cpu: CPU): void {// LD [DE], A
     cpu.write8(cpu.getDe(), cpu.a);
 };
-export function LD_iHLinc_A(cpu: CPU, opcode: number): void {// LD [HL+], A
+export function LD_iHLinc_A(cpu: CPU): void {// LD [HL+], A
     cpu.write8(cpu.getHl(), cpu.a);
     cpu.setHl((cpu.getHl() + 1) & 0xFFFF);
 };
-export function LD_iHLdec_A(cpu: CPU, opcode: number): void {  // LD [HL-], A
+export function LD_iHLdec_A(cpu: CPU): void {  // LD [HL-], A
     cpu.write8(cpu.getHl(), cpu.a);
     cpu.setHl((cpu.getHl() - 1) & 0xFFFF);
 };
-export function LD_A_iBC(cpu: CPU, opcode: number): void { // LD A, [BC]
+export function LD_A_iBC(cpu: CPU): void { // LD A, [BC]
     cpu.a = cpu.read8(cpu.getBc());
 };
-export function LD_A_iDE(cpu: CPU, opcode: number): void { // LD A, [DE]
+export function LD_A_iDE(cpu: CPU): void { // LD A, [DE]
     cpu.a = cpu.read8(cpu.getDe());
 };
-export function LD_A_iHLinc(cpu: CPU, opcode: number): void { // LD A, [HL+]
+export function LD_A_iHLinc(cpu: CPU): void { // LD A, [HL+]
     cpu.a = cpu.read8(cpu.getHl());
     cpu.setHl((cpu.getHl() + 1) & 0xFFFF);
 };
-export function LD_A_iHLdec(cpu: CPU, opcode: number): void { // LD A, [HL-]
+export function LD_A_iHLdec(cpu: CPU): void { // LD A, [HL-]
     cpu.a = cpu.read8(cpu.getHl());
     cpu.setHl((cpu.getHl() - 1) & 0xFFFF);
 };
 
-export function LD_A_iFF00plusC(cpu: CPU, opcode: number): void { // LD A, [$FF00+C]
+export function LD_A_iFF00plusC(cpu: CPU): void { // LD A, [$FF00+C]
     cpu.a = cpu.read8((0xFF00 | cpu.c) & 0xFFFF);
 };
-export function LD_iFF00plusC_A(cpu: CPU, opcode: number): void {  // LD [$FF00+C], A
+export function LD_iFF00plusC_A(cpu: CPU): void {  // LD [$FF00+C], A
     cpu.write8((0xFF00 | cpu.c) & 0xFFFF, cpu.a);
 };
 
-export function DI(cpu: CPU, opcode: number): void {  // DI - Disable interrupts master flag
+export function DI(cpu: CPU): void {  // DI - Disable interrupts master flag
     cpu.ime = false;
 };
-export function EI(cpu: CPU, opcode: number): void {  // EI - Enable interrupts master flag
+export function EI(cpu: CPU): void {  // EI - Enable interrupts master flag
     cpu.gb.scheduler.addEventRelative(SchedulerId.EnableInterrupts, 4, cpu.enableInterrupts);
 };
 
 /** JP */
-export function JP_HL(cpu: CPU, opcode: number): void {  // JP HL
+export function JP_HL(cpu: CPU): void {  // JP HL
     cpu.pc = cpu.getHl();
 };
 
 /** A rotate */
-export function RLCA(cpu: CPU, opcode: number): void {    // RLC A
+export function RLCA(cpu: CPU): void {    // RLC A
     const value = cpu.a;
 
     const leftmostBit = (value & 0b10000000) >> 7;
@@ -687,7 +655,7 @@ export function RLCA(cpu: CPU, opcode: number): void {    // RLC A
 
 };
 
-export function RRCA(cpu: CPU, opcode: number): void {  // RRC A
+export function RRCA(cpu: CPU): void {  // RRC A
 
     const value = cpu.a;
 
@@ -703,7 +671,7 @@ export function RRCA(cpu: CPU, opcode: number): void {  // RRC A
 
 };
 
-export function RRA(cpu: CPU, opcode: number): void {  // RR A
+export function RRA(cpu: CPU): void {  // RR A
     const value = cpu.a;
 
     const newValue = ((value >> 1) | (cpu.carry ? 128 : 0)) & 0xFF;
@@ -716,7 +684,7 @@ export function RRA(cpu: CPU, opcode: number): void {  // RR A
     cpu.carry = !!(value & 1);
 
 };
-export function RLA(cpu: CPU, opcode: number): void {  // RL A
+export function RLA(cpu: CPU): void {  // RL A
     const value = cpu.a;
 
     const newValue = ((value << 1) | (cpu.carry ? 1 : 0)) & 0xFF;
@@ -730,7 +698,7 @@ export function RLA(cpu: CPU, opcode: number): void {  // RL A
 
 };
 
-export function HALT(cpu: CPU, opcode: number): void {
+export function HALT(cpu: CPU): void {
     if (cpu.ime) {
         cpu.gb.haltSkip();
     } else {
@@ -743,20 +711,20 @@ export function HALT(cpu: CPU, opcode: number): void {
 };
 
 /** Carry flag */
-export function SCF(cpu: CPU, opcode: number): void { // SCF
+export function SCF(cpu: CPU): void { // SCF
     cpu.negative = false;
     cpu.halfCarry = false;
     cpu.carry = true;
 };
 
-export function CCF(cpu: CPU, opcode: number): void {  // CCF
+export function CCF(cpu: CPU): void {  // CCF
     cpu.negative = false;
     cpu.halfCarry = false;
     cpu.carry = !cpu.carry;
 };
 
 /** RET */
-export function RET(cpu: CPU, opcode: number): void {
+export function RET(cpu: CPU): void {
     let lower = cpu.read8(cpu.sp);
     cpu.sp = (cpu.sp + 1) & 0xFFFF;
     let upper = cpu.read8(cpu.sp);
@@ -769,7 +737,7 @@ export function RET(cpu: CPU, opcode: number): void {
 };
 
 /** RET */
-export function RET_NZ(cpu: CPU, opcode: number) {
+export function RET_NZ(cpu: CPU) {
     cpu.tickPending(4);
     if (!cpu.zero) {
         let lower = cpu.read8(cpu.sp);
@@ -781,7 +749,7 @@ export function RET_NZ(cpu: CPU, opcode: number) {
         cpu.tickPending(4);
     }
 }
-export function RET_Z(cpu: CPU, opcode: number) {
+export function RET_Z(cpu: CPU) {
     cpu.tickPending(4);
     if (cpu.zero) {
         let lower = cpu.read8(cpu.sp);
@@ -792,7 +760,7 @@ export function RET_Z(cpu: CPU, opcode: number) {
         cpu.pc = (upper << 8) | lower;
         cpu.tickPending(4);
     }
-} export function RET_NC(cpu: CPU, opcode: number) {
+} export function RET_NC(cpu: CPU) {
     cpu.tickPending(4);
     if (!cpu.carry) {
         let lower = cpu.read8(cpu.sp);
@@ -803,7 +771,7 @@ export function RET_Z(cpu: CPU, opcode: number) {
         cpu.pc = (upper << 8) | lower;
         cpu.tickPending(4);
     }
-} export function RET_C(cpu: CPU, opcode: number) {
+} export function RET_C(cpu: CPU) {
     cpu.tickPending(4);
     if (cpu.carry) {
         let lower = cpu.read8(cpu.sp);
@@ -816,23 +784,6 @@ export function RET_Z(cpu: CPU, opcode: number) {
     }
 }
 
-
-/** Reset Vectors */
-export function RST(cpu: CPU, opcode: number): void {
-    const target = opcode & 0b111000;
-
-    cpu.tickPending(4);
-    // <inline_push cpu.pc>
-    let pushVal = cpu.pc;
-    let upper = (pushVal >> 8) & 0xFF;
-    let lower = (pushVal >> 0) & 0xFF;
-    cpu.sp = (cpu.sp - 1) & 0xFFFF;
-    cpu.write8(cpu.sp, upper);
-    cpu.sp = (cpu.sp - 1) & 0xFFFF;
-    cpu.write8(cpu.sp, lower);
-    cpu.pc = target;
-
-};
 
 export function ADD_HL_BC(cpu: CPU) {
     let r16Val = cpu.getBc();
