@@ -532,74 +532,175 @@ export class PPU {
                     let palette = this.bgPalette.shades[0];
                     // tp; tile pixel
                     // #region LOOP
-                    // for (let tp = 0; tp < 8; tp++) {
-                    //     if (pixel >= 0) {
+                    // if (t > 1) {
+                    //     if (t < 20) {
+                    //         for (let tp = 0; tp < 8; tp++) {
+                    //             if (pixel >= 0) {
+                    //                 this.screenBackBuf[screenBase] = palette[data[tp]];
+                    //                 this.scanlineRaw[pixel] = data[tp];
+                    //                 screenBase += 1;
+                    //             }
+                    //             pixel += 1;
+                    //         }
+                    //     } else {
+                    //         for (let tp = 0; tp < 8; tp++) {
+                    //             if (pixel >= 0) {
+                    //                 this.screenBackBuf[screenBase] = palette[data[tp]];
+                    //                 this.scanlineRaw[pixel] = data[tp];
+                    //                 screenBase += 1;
+                    //             }
+                    //             pixel += 1;
+
+                    //             if (pixel > 159) break bgLoop;
+                    //         }
+                    //     }
+                    // }
+                    // else {
+                    //     for (let tp = 0; tp < 8; tp++) {
                     //         this.screenBackBuf[screenBase] = palette[data[tp]];
                     //         this.scanlineRaw[pixel] = data[tp];
                     //         screenBase += 1;
-                    //     }
-                    //     pixel += 1;
+                    //         pixel += 1;
 
-                    //     if (pixel > 159) break bgLoop;
+                    //         if (pixel > 159) break bgLoop;
+                    //     }
                     // }
                     // #endregion
                     // #region UNROLL
-                    if (pixel >= 0) {
-                        this.screenBackBuf[screenBase] = palette[data[0]];
-                        this.scanlineRaw[pixel] = data[0];
-                        screenBase += 1;
+                    if (t > 1) {
+                        if (t < 20) {
+                            this.screenBackBuf[screenBase] = palette[data[0]];
+                            this.scanlineRaw[pixel] = data[0];
+                            screenBase += 1;
+                            pixel += 1;
+                            this.screenBackBuf[screenBase] = palette[data[1]];
+                            this.scanlineRaw[pixel] = data[1];
+                            screenBase += 1;
+                            pixel += 1;
+                            this.screenBackBuf[screenBase] = palette[data[2]];
+                            this.scanlineRaw[pixel] = data[2];
+                            screenBase += 1;
+                            pixel += 1;
+                            this.screenBackBuf[screenBase] = palette[data[3]];
+                            this.scanlineRaw[pixel] = data[3];
+                            screenBase += 1;
+                            pixel += 1;
+                            this.screenBackBuf[screenBase] = palette[data[4]];
+                            this.scanlineRaw[pixel] = data[4];
+                            screenBase += 1;
+                            pixel += 1;
+                            this.screenBackBuf[screenBase] = palette[data[5]];
+                            this.scanlineRaw[pixel] = data[5];
+                            screenBase += 1;
+                            pixel += 1;
+                            this.screenBackBuf[screenBase] = palette[data[6]];
+                            this.scanlineRaw[pixel] = data[6];
+                            screenBase += 1;
+                            pixel += 1;
+                            this.screenBackBuf[screenBase] = palette[data[7]];
+                            this.scanlineRaw[pixel] = data[7];
+                            screenBase += 1;
+                            pixel += 1;
+                        } else {
+                            this.screenBackBuf[screenBase] = palette[data[0]];
+                            this.scanlineRaw[pixel] = data[0];
+                            screenBase += 1;
+                            pixel += 1;
+                            if (pixel > 159) break bgLoop;
+                            this.screenBackBuf[screenBase] = palette[data[1]];
+                            this.scanlineRaw[pixel] = data[1];
+                            screenBase += 1;
+                            pixel += 1;
+                            if (pixel > 159) break bgLoop;
+                            this.screenBackBuf[screenBase] = palette[data[2]];
+                            this.scanlineRaw[pixel] = data[2];
+                            screenBase += 1;
+                            pixel += 1;
+                            if (pixel > 159) break bgLoop;
+                            this.screenBackBuf[screenBase] = palette[data[3]];
+                            this.scanlineRaw[pixel] = data[3];
+                            screenBase += 1;
+                            pixel += 1;
+                            if (pixel > 159) break bgLoop;
+                            this.screenBackBuf[screenBase] = palette[data[4]];
+                            this.scanlineRaw[pixel] = data[4];
+                            screenBase += 1;
+                            pixel += 1;
+                            if (pixel > 159) break bgLoop;
+                            this.screenBackBuf[screenBase] = palette[data[5]];
+                            this.scanlineRaw[pixel] = data[5];
+                            screenBase += 1;
+                            pixel += 1;
+                            if (pixel > 159) break bgLoop;
+                            this.screenBackBuf[screenBase] = palette[data[6]];
+                            this.scanlineRaw[pixel] = data[6];
+                            screenBase += 1;
+                            pixel += 1;
+                            if (pixel > 159) break bgLoop;
+                            this.screenBackBuf[screenBase] = palette[data[7]];
+                            this.scanlineRaw[pixel] = data[7];
+                            screenBase += 1;
+                            pixel += 1;
+                            if (pixel > 159) break bgLoop;
+                        }
+                    } else {
+                        if (pixel >= 0) {
+                            this.screenBackBuf[screenBase] = palette[data[0]];
+                            this.scanlineRaw[pixel] = data[0];
+                            screenBase += 1;
+                        }
+                        pixel += 1;
+                        if (pixel > 159) break bgLoop;
+                        if (pixel >= 0) {
+                            this.screenBackBuf[screenBase] = palette[data[1]];
+                            this.scanlineRaw[pixel] = data[1];
+                            screenBase += 1;
+                        }
+                        pixel += 1;
+                        if (pixel > 159) break bgLoop;
+                        if (pixel >= 0) {
+                            this.screenBackBuf[screenBase] = palette[data[2]];
+                            this.scanlineRaw[pixel] = data[2];
+                            screenBase += 1;
+                        }
+                        pixel += 1;
+                        if (pixel > 159) break bgLoop;
+                        if (pixel >= 0) {
+                            this.screenBackBuf[screenBase] = palette[data[3]];
+                            this.scanlineRaw[pixel] = data[3];
+                            screenBase += 1;
+                        }
+                        pixel += 1;
+                        if (pixel > 159) break bgLoop;
+                        if (pixel >= 0) {
+                            this.screenBackBuf[screenBase] = palette[data[4]];
+                            this.scanlineRaw[pixel] = data[4];
+                            screenBase += 1;
+                        }
+                        pixel += 1;
+                        if (pixel > 159) break bgLoop;
+                        if (pixel >= 0) {
+                            this.screenBackBuf[screenBase] = palette[data[5]];
+                            this.scanlineRaw[pixel] = data[5];
+                            screenBase += 1;
+                        }
+                        pixel += 1;
+                        if (pixel > 159) break bgLoop;
+                        if (pixel >= 0) {
+                            this.screenBackBuf[screenBase] = palette[data[6]];
+                            this.scanlineRaw[pixel] = data[6];
+                            screenBase += 1;
+                        }
+                        pixel += 1;
+                        if (pixel > 159) break bgLoop;
+                        if (pixel >= 0) {
+                            this.screenBackBuf[screenBase] = palette[data[7]];
+                            this.scanlineRaw[pixel] = data[7];
+                            screenBase += 1;
+                        }
+                        pixel += 1;
+                        if (pixel > 159) break bgLoop;
                     }
-                    pixel += 1;
-                    if (pixel > 159) break bgLoop;
-                    if (pixel >= 0) {
-                        this.screenBackBuf[screenBase] = palette[data[1]];
-                        this.scanlineRaw[pixel] = data[1];
-                        screenBase += 1;
-                    }
-                    pixel += 1;
-                    if (pixel > 159) break bgLoop;
-                    if (pixel >= 0) {
-                        this.screenBackBuf[screenBase] = palette[data[2]];
-                        this.scanlineRaw[pixel] = data[2];
-                        screenBase += 1;
-                    }
-                    pixel += 1;
-                    if (pixel > 159) break bgLoop;
-                    if (pixel >= 0) {
-                        this.screenBackBuf[screenBase] = palette[data[3]];
-                        this.scanlineRaw[pixel] = data[3];
-                        screenBase += 1;
-                    }
-                    pixel += 1;
-                    if (pixel > 159) break bgLoop;
-                    if (pixel >= 0) {
-                        this.screenBackBuf[screenBase] = palette[data[4]];
-                        this.scanlineRaw[pixel] = data[4];
-                        screenBase += 1;
-                    }
-                    pixel += 1;
-                    if (pixel > 159) break bgLoop;
-                    if (pixel >= 0) {
-                        this.screenBackBuf[screenBase] = palette[data[5]];
-                        this.scanlineRaw[pixel] = data[5];
-                        screenBase += 1;
-                    }
-                    pixel += 1;
-                    if (pixel > 159) break bgLoop;
-                    if (pixel >= 0) {
-                        this.screenBackBuf[screenBase] = palette[data[6]];
-                        this.scanlineRaw[pixel] = data[6];
-                        screenBase += 1;
-                    }
-                    pixel += 1;
-                    if (pixel > 159) break bgLoop;
-                    if (pixel >= 0) {
-                        this.screenBackBuf[screenBase] = palette[data[7]];
-                        this.scanlineRaw[pixel] = data[7];
-                        screenBase += 1;
-                    }
-                    pixel += 1;
-                    if (pixel > 159) break bgLoop;
                     // #endregion
                 }
             }
