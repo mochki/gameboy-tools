@@ -155,14 +155,7 @@ export class CPU {
         let val = this.read8(this.pc);
         this.pc = (this.pc + 1) & 0xFFFF;
 
-        if (val != 0xCB) {
-            t[val](this);
-        } else {
-            // this.gb.info(`Prefix: ${hexN(val, 2)}`);
-            val = this.read8(this.pc);
-            this.pc = (this.pc + 1) & 0xFFFF;
-            CB_PREFIX_TABLE[val](this);
-        }
+        t[val](this);
 
         if (this.cyclesPending > 0) {
             this.gb.tick(this.cyclesPending);
@@ -181,13 +174,7 @@ export class CPU {
     executeHaltBug(): void {
         let val = this.read8(this.pc);
 
-        if (val != 0xCB) {
-            t[val](this);
-        } else {
-            val = this.read8(this.pc);
-            this.pc = (this.pc + 1) & 0xFFFF;
-            CB_PREFIX_TABLE[val](this);
-        }
+        t[val](this);
 
         if (this.cyclesPending > 0) {
             this.gb.tick(this.cyclesPending);
@@ -625,8 +612,15 @@ function genUnprefixedTable(): Instruction[] {
     t[0x19] = ADD_HL_DE; // ADD HL, DE
     t[0x29] = ADD_HL_HL; // ADD HL, HL
     t[0x39] = ADD_HL_SP; // ADD HL, SP
+    t[0xCB] = CB_FORWARD; 
 
     return t;
+}
+
+function CB_FORWARD(cpu: CPU) {
+    let cb = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
+    CB_PREFIX_TABLE[cb](cpu);
 }
 
 function genCbPrefixTable(): Instruction[] {

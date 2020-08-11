@@ -179,7 +179,7 @@ export function LD_<regdest>_U8(cpu: CPU): void {
 const RST = `
 export function RST_<vector>(cpu: CPU): void {
     cpu.tickPending(4);
-    // <inline_push cpu.pc>
+    // <inline_push>(cpu.pc)
     let pushVal = cpu.pc;
     let upper = (pushVal >> 8) & 0xFF;
     let lower = (pushVal >> 0) & 0xFF;

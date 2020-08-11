@@ -13,11 +13,15 @@ export class GameBoyManager {
         setInterval(() => {
             if (this.gb.bus.mbc.sramDirty) {
                 this.gb.bus.mbc.sramDirty = false;
-                console.log("Flushing SRAM...");
-                let title = Bus.getTitle(this.gb.bus.rom);
-                (window as any).localforage.setItem(`${title}.sav`, this.gb.bus.mbc.ram);
+                this.flushSram();
             }
         }, 1000);
+    }
+
+    flushSram() {
+        console.log("Flushing SRAM...");
+        let title = Bus.getTitle(this.gb.bus.rom);
+        (window as any).localforage.setItem(`${title}.sav`, this.gb.bus.mbc.ram);
     }
 
     romLoaded = false;
@@ -27,7 +31,11 @@ export class GameBoyManager {
         sram.set(this.gb.bus.mbc.ram);
         let provider = this.gb.provider;
         this.gb = new GameBoy(this.skipBootrom, provider);
-        this.gb.bus.mbc.ram.set(sram)
+        this.gb.bus.mbc.ram.set(sram);
+    }
+
+    loadSave(save: Uint8Array) {
+        this.gb.bus.mbc.ram.set(save);
     }
 
     async loadRom(rom: Uint8Array) {

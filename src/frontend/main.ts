@@ -263,27 +263,13 @@ async function _init(): Promise<void> {
         runEmulator = false;
     };
 
-    document.getElementById("open-rom-btn")!.onclick = () => {
-        let input = document.createElement("input");
-        input.type = "file";
-        input.accept = ".gb,.gbc";
-        input.addEventListener("input", () => {
-            if (input.files && input.files.length > 0) {
-                let file = input.files[0];
-                let reader = new FileReader();
-                reader.readAsArrayBuffer(file);
-                reader.onload = function () {
-                    let result = reader.result;
-                    if (result instanceof ArrayBuffer) {
-                        mgr.loadRom(new Uint8Array(result));
-                    } else {
-                        alert("Failed to read ROM! Probably a result of a lack of API support.");
-                    }
-                };
-            }
-        });
-        input.dispatchEvent(new MouseEvent("click"));
-    };
+    loadFileOnClick(document.getElementById("open-rom-btn")!, ".gb,.gbc", (result: ArrayBuffer) => {
+        mgr.loadRom(new Uint8Array(result));
+    });
+
+    loadFileOnClick(document.getElementById("load-save-btn")!, ".sav", (result: ArrayBuffer) => {
+        mgr.loadSave(new Uint8Array(result));
+    });
 
     setupOutputWebGl();
 }
@@ -1133,4 +1119,29 @@ function octaveFromFrequency(frequency: number) {
 
 function centsOffFromPitch(frequency: number, note: number) {
     return Math.floor(1200 * Math.log(frequency / frequencyFromNote(note)) / Math.log(2));
+}
+
+
+function loadFileOnClick(element: HTMLElement, accept: string, callback: (arr: ArrayBuffer) => void) {
+    element.onclick = () => {
+        let input = document.createElement("input");
+        input.type = "file";
+        input.accept = accept;
+        input.addEventListener("input", () => {
+            if (input.files && input.files.length > 0) {
+                let file = input.files[0];
+                let reader = new FileReader();
+                reader.readAsArrayBuffer(file);
+                reader.onload = function () {
+                    let result = reader.result;
+                    if (result instanceof ArrayBuffer) {
+                        callback(result);
+                    } else {
+                        alert("Failed to read file! Probably a result of a lack of API support.");
+                    }
+                };
+            }
+        });
+        input.dispatchEvent(new MouseEvent("click"));
+    };
 }

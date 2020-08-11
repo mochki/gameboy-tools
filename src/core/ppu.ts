@@ -10,6 +10,7 @@ export enum PPUMode {
     Vblank = 1,
     OamScan = 2,
     Drawing = 3,
+    GlitchedOamScan = 4,
 }
 
 export const colors555: Uint8Array[] = [
@@ -198,7 +199,7 @@ export class PPU {
             if (this.renderThisFrame) {
                 this.renderScanline();
             }
-            mode3Length = this.scheduler.currTicks - this.mode3StartCycles + cyclesLate;
+            mode3Length = this.scheduler.currTicks - this.mode3StartCycles - cyclesLate;
         }
 
         this.scanlineTimingsBack[this.ly] = mode3Length;
@@ -213,9 +214,9 @@ export class PPU {
         this.checkStat();
 
         if (this.ly < 144) {
-            this.enterMode2(0); // Enter OAM Scan
+            this.enterMode2(cyclesLate); // Enter OAM Scan
         } else {
-            this.enterMode1(0); // Enter Vblank
+            this.enterMode1(cyclesLate); // Enter Vblank
             this.renderDoneScreen = true;
             this.renderDoneTimingDiagram = true;
             this.windowTriggeredThisFrame = false;
@@ -224,6 +225,7 @@ export class PPU {
             if (this.renderThisFrame) {
                 this.swapBuffers();
             }
+
             this.currentFrame++;
             if (this.frameSkipRate > 0) {
                 this.renderThisFrame = this.currentFrame % this.frameSkipRate == 0;
@@ -262,8 +264,8 @@ export class PPU {
     };
 
     onEnable() {
-        this.enterMode2(0);
-        this.mode = PPUMode.OamScan;
+        this.mode = PPUMode.GlitchedOamScan;
+        this.scheduler.addEventRelative(SchedulerId.PPUMode, 74, this.endMode2);
         this.checkStat();
     }
     onDisable() {

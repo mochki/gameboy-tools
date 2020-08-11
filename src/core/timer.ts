@@ -16,16 +16,17 @@ export class Timer {
         this.gb = gb;
         this.scheduler = scheduler;
 
-        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 8192, this.gb.apu.advanceFrameSequencer);
-        this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel] * 2, this.scheduledTimaIncrement);
+        // -4 offsets are needed, as timer starts ticking even before instruction fetch 
+        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 8192 - 4, this.gb.apu.advanceFrameSequencer);
+        this.scheduler.addEventRelative(SchedulerId.TimerIncrement, (timerIntervals[this.bitSel] * 2) - 4, this.scheduledTimaIncrement);
     }
 
     enabled = false;
     bitSel = 0;
 
     private div = 0;
-    lastDivResetTicks = 0; // In scheduler ticks
-    lastDivLazyResetTicks = 0;
+    lastDivResetTicks = -4; // In scheduler ticks
+    lastDivLazyResetTicks = -4;
 
     counter = 0;
     modulo = 0;
@@ -43,16 +44,16 @@ export class Timer {
         }
         this.reloading = true;
         this.scheduler.addEventRelative(SchedulerId.TimerReload, 4, this.finishReloading);
-    }
+    };
 
     finishReloading = (cyclesLate: number) => {
         this.reloading = false;
-    }
+    };
 
     scheduledTimaIncrement = (cyclesLate: number) => {
         this.timaIncrement();
         this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel] - cyclesLate, this.scheduledTimaIncrement);
-    }
+    };
 
     timaIncrement() {
         if (this.enabled) {
