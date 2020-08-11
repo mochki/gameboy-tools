@@ -615,7 +615,12 @@ export class APU {
             case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33: case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37: // Wave Table
             case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B: case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F: // Wave Table
                 {
-                    let index = (addr - 0xFF30) * 2;
+                    let index;
+                    if (this.ch3.enabled) {
+                        index = this.ch3.pos & 0b11111110;
+                    } else {
+                        index = (addr - 0xFF30) * 2;
+                    }
                     let upper = (this.ch3.waveTable[index + 0] << 4) & 0xF;
                     let lower = (this.ch3.waveTable[index + 1] << 0) & 0xF;
                     return upper | lower;
@@ -850,7 +855,12 @@ export class APU {
 
             case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33: case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37: // Wave Table
             case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B: case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F: // Wave Table
-                let index = (addr - 0xFF30) * 2;
+                let index;
+                if (this.ch3.enabled) {
+                    index = this.ch3.pos & 0b11111110;
+                } else {
+                    index = (addr - 0xFF30) * 2;
+                }
                 this.ch3.waveTable[index + 0] = (val >> 4) & 0xF;
                 this.ch3.waveTable[index + 1] = (val >> 0) & 0xF;
                 break;
