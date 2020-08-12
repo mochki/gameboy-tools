@@ -271,7 +271,34 @@ async function _init(): Promise<void> {
         mgr.loadSave(new Uint8Array(result));
     });
 
+    document.getElementById("volume-slider")!.oninput = e => {
+        let percentVolume = (e.target as HTMLInputElement).value as unknown as number;
+        let ratio = percentVolume / 100;
+        changeVolume(ratio);
+    };
+
+    loadSettings();
+
     setupOutputWebGl();
+}
+
+async function loadSettings() {
+    let localforage = (window as any).localforage;
+    if (localforage) {
+        let volume = await localforage.getItem("frontend-volume");
+        if (volume) {
+            mgr.gb.apu.player.gain.gain.value = volume;
+            ((document.getElementById("volume-slider") as HTMLInputElement).value as unknown as number) = volume * 100;
+        }
+    }
+}
+
+function changeVolume(ratio: number) {
+    let localforage = (window as any).localforage;
+    mgr.gb.apu.player.gain.gain.value = ratio;
+    if (localforage) {
+        localforage.setItem("frontend-volume", ratio);
+    }
 }
 
 let outputCtx: WebGLRenderingContext | null;
@@ -497,28 +524,6 @@ function RenderOutput() {
         }
     }
 }
-
-class FastRNG {
-    x = 123456789;
-    y = 362436069;
-    z = 521288629;
-
-    // xorshf96
-    next(): number {
-        let t = 0;
-        this.x ^= this.x << 16;
-        this.x ^= this.x >> 5;
-        this.x ^= this.x << 1;
-
-        t = this.x;
-        this.x = this.y;
-        this.y = this.z;
-        this.z = t ^ this.x ^ this.y;
-
-        return this.z;
-    }
-}
-const RNG = new FastRNG();
 
 let runEmulator = false;
 
