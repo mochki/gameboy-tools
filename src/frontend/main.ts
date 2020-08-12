@@ -286,7 +286,8 @@ async function loadSettings() {
     let localforage = (window as any).localforage;
     if (localforage) {
         let volume = await localforage.getItem("frontend-volume");
-        if (volume) {
+        // Don't test for truthy, that will ignore the value of "0", test for undefined/null instead.
+        if (volume != null) {
             mgr.gb.apu.player.gain.gain.value = volume;
             ((document.getElementById("volume-slider") as HTMLInputElement).value as unknown as number) = volume * 100;
         }
