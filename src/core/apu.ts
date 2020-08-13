@@ -526,9 +526,6 @@ export class APU {
                 this.advanceCh1();
             }
         }
-        finalL += this.ch1.outL;
-        finalR += this.ch1.outR;
-
         this.ch2.frequencyTimer -= cyclesPerSample;
         if (this.ch2.frequencyPeriod != 0) {
             while (this.ch2.frequencyTimer <= 0) {
@@ -536,10 +533,6 @@ export class APU {
                 this.advanceCh2();
             }
         }
-
-        finalL += this.ch2.outL;
-        finalR += this.ch2.outR;
-
         this.ch3.frequencyTimer -= cyclesPerSample;
         if (this.ch3.frequencyPeriod != 0) {
             while (this.ch3.frequencyTimer <= 0) {
@@ -547,21 +540,29 @@ export class APU {
                 this.advanceCh3();
             }
         }
-
-        finalL += this.ch3.outL;
-        finalR += this.ch3.outR;
-
-        // Channel 4 can be advanced far too often to be efficient for the scheduler
+        // Prevent Channel 4 from sounding weird if its frequency is faster than the sample rate
         this.ch4.frequencyTimer -= cyclesPerSample;
+        let samplesTaken = 1;
+        let noiseFinalL = this.ch4.outL;
+        let noiseFinalR = this.ch4.outR;
         if (this.ch4.frequencyPeriod != 0) {
             while (this.ch4.frequencyTimer <= 0) {
                 this.ch4.frequencyTimer += this.ch4.frequencyPeriod;
                 this.advanceCh4();
+                samplesTaken += 1;
+                noiseFinalL += this.ch4.outL;
+                noiseFinalR += this.ch4.outR;
             }
         }
 
-        finalL += this.ch4.outL;
-        finalR += this.ch4.outR;
+        finalL += this.ch1.outL;
+        finalR += this.ch1.outR;
+        finalL += this.ch2.outL;
+        finalR += this.ch2.outR;
+        finalL += this.ch3.outL;
+        finalR += this.ch3.outR;
+        finalL += noiseFinalL / samplesTaken;
+        finalR += noiseFinalR / samplesTaken;
 
         let outL = finalL - this.capacitorL;
         let outR = finalR - this.capacitorR;
