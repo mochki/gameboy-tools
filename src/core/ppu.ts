@@ -363,6 +363,7 @@ export class PPU {
                 if (this.enableMode0Intr) val = bitSet(val, 3);
                 if (this.lyMatch) val = bitSet(val, 2);
                 val |= this.mode & 0b11;
+                val |= 0b10000000; // Bit 7 is always on 
                 break;
             case 0xFF42:
                 return this.scy;

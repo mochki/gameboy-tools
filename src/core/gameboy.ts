@@ -237,7 +237,7 @@ export class GameBoy {
 
     haltSkippedCycles = 0;
     haltSkip(): void {
-        const terminateAt = 1000000;
+        const terminateAt = 100000;
         for (let i = 0; i < terminateAt; i++) {
             let ticksPassed = this.scheduler.nextEventTicks - this.scheduler.currTicks;
             this.scheduler.currTicks = this.scheduler.nextEventTicks;
@@ -253,7 +253,7 @@ export class GameBoy {
                 return;
             }
         }
-        alert(`Processed ${terminateAt} events and couldn't exit HALT! Assuming crashed.`);
+        // alert(`Processed ${terminateAt} events and couldn't exit HALT! Assuming crashed.`);
         this.errored = true;
     }
 }

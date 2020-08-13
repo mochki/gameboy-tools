@@ -288,17 +288,17 @@ async function loadSettings() {
         let volume = await localforage.getItem("frontend-volume");
         // Don't test for truthy, that will ignore the value of "0", test for undefined/null instead.
         if (volume != null) {
-            mgr.gb.apu.player.gain.gain.value = volume;
+            mgr.setVolume(volume);
             ((document.getElementById("volume-slider") as HTMLInputElement).value as unknown as number) = volume * 100;
         }
     }
 }
 
-function changeVolume(ratio: number) {
+function changeVolume(volume: number) {
     let localforage = (window as any).localforage;
-    mgr.gb.apu.player.gain.gain.value = ratio;
+    mgr.setVolume(volume);
     if (localforage) {
-        localforage.setItem("frontend-volume", ratio);
+        localforage.setItem("frontend-volume", volume);
     }
 }
 

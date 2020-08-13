@@ -6,6 +6,7 @@ export class GameBoyManager {
     gb: GameBoy;
 
     skipBootrom = true;
+    volume = 1;
 
     constructor() {
         this.gb = new GameBoy(this.skipBootrom);
@@ -16,6 +17,15 @@ export class GameBoyManager {
                 this.flushSram();
             }
         }, 1000);
+    }
+
+    setVolume(volume: number) {
+        this.volume = volume;
+        this.gb.apu.player.gain.gain.value = this.volume;
+    }
+
+    updateVolume() {
+        this.gb.apu.player.gain.gain.value = this.volume;
     }
 
     flushSram() {
@@ -32,6 +42,7 @@ export class GameBoyManager {
         let provider = this.gb.provider;
         this.gb = new GameBoy(this.skipBootrom, provider);
         this.gb.bus.mbc.ram.set(sram);
+        this.updateVolume();
     }
 
     loadSave(save: Uint8Array) {
@@ -54,10 +65,12 @@ export class GameBoyManager {
             console.log(`Save found for ${title}, loading...`);
             this.gb.bus.mbc.ram.set(sav);
         }
+        this.updateVolume();
     }
 
     loadBootrom(bootrom: Uint8Array) {
         let oldRom = this.gb.provider?.rom ?? new Uint8Array(0);
         this.gb = new GameBoy(this.skipBootrom, new GameBoyProvider(oldRom, bootrom));
+        this.updateVolume();
     }
 }
