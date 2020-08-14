@@ -251,6 +251,7 @@ export class APU {
         currentVal: 0,
         // A non-zero value to force.
         forceNextSampleVal: 0,
+        resetNextSampleVal: false,
         outL: 0,
         outR: 0,
 
@@ -314,6 +315,7 @@ export class APU {
         currentVal: 0,
         // A non-zero value to force.
         forceNextSampleVal: 0,
+        resetNextSampleVal: false,
         outL: 0,
         outR: 0,
 
@@ -563,7 +565,7 @@ export class APU {
         let finalR = 0;
 
         this.ch1.frequencyTimer -= cyclesPerSample;
-        if (!this.ch1.forceNextSampleVal) {
+        if (this.ch1.forceNextSampleVal == 0) {
             if (this.ch1.frequencyPeriod != 0) {
                 while (this.ch1.frequencyTimer <= 0) {
                     this.ch1.frequencyTimer += this.ch1.frequencyPeriod;
@@ -571,7 +573,7 @@ export class APU {
                     this.ch1.updateOut();
 
                     // Has this step changed?
-                    if (pulseAdvanceChangedVal[this.ch1.duty][(this.ch1.pos + 0) & 7]) {
+                    if (pulseAdvanceChangedVal[this.ch1.duty][this.ch1.pos]) {
                         if (this.ch1.currentVal) {
                             // If going up
                             this.ch1.currentVal = 0.33;
@@ -585,13 +587,19 @@ export class APU {
                     }
                 }
             }
+            if (this.ch1.resetNextSampleVal) {
+                this.ch1.resetNextSampleVal = false;
+                this.ch1.currentVal = pulseDuty[this.ch1.duty][this.ch1.pos];
+                this.ch1.updateOut();
+            }
         } else {
             this.ch1.currentVal = this.ch1.forceNextSampleVal;
             this.ch1.forceNextSampleVal = 0;
+            this.ch1.resetNextSampleVal = true;
             this.ch1.updateOut();
         }
         this.ch2.frequencyTimer -= cyclesPerSample;
-        if (!this.ch2.forceNextSampleVal) {
+        if (this.ch2.forceNextSampleVal == 0) {
             if (this.ch2.frequencyPeriod != 0) {
                 while (this.ch2.frequencyTimer <= 0) {
                     this.ch2.frequencyTimer += this.ch2.frequencyPeriod;
@@ -599,7 +607,7 @@ export class APU {
                     this.ch2.updateOut();
 
                     // Has this step changed?
-                    if (pulseAdvanceChangedVal[this.ch2.duty][(this.ch2.pos + 0) & 7]) {
+                    if (pulseAdvanceChangedVal[this.ch2.duty][this.ch2.pos]) {
                         if (this.ch2.currentVal) {
                             // If going up
                             this.ch2.currentVal = 0.33;
@@ -613,9 +621,15 @@ export class APU {
                     }
                 }
             }
+            if (this.ch2.resetNextSampleVal) {
+                this.ch2.resetNextSampleVal = false;
+                this.ch2.currentVal = pulseDuty[this.ch2.duty][this.ch2.pos];
+                this.ch2.updateOut();
+            }
         } else {
             this.ch2.currentVal = this.ch2.forceNextSampleVal;
             this.ch2.forceNextSampleVal = 0;
+            this.ch2.resetNextSampleVal = true;
             this.ch2.updateOut();
         }
 
@@ -656,8 +670,8 @@ export class APU {
         this.capacitorL = finalL - outL * capacitorChargeFactor;
         this.capacitorR = finalR - outR * capacitorChargeFactor;
 
-        this.sampleBufL[this.sampleBufPos] = outL;
-        this.sampleBufR[this.sampleBufPos] = outR;
+        this.sampleBufL[this.sampleBufPos] = outL / 8;
+        this.sampleBufR[this.sampleBufPos] = outR / 8;
         this.sampleBufPos++;
 
         if (this.sampleBufPos >= sampleBufMax) {
