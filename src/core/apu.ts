@@ -22,6 +22,14 @@ export const pulseDuty = [
     Uint8Array.from([0, 1, 1, 1, 1, 1, 1, 0]),
 ];
 
+// Table of positions that when advancing, will change the value.
+export const pulseAdvanceChangedVal = [
+    Uint8Array.from([1, 0, 0, 0, 0, 0, 0, 1]),
+    Uint8Array.from([0, 1, 0, 0, 0, 0, 0, 1]),
+    Uint8Array.from([0, 1, 0, 0, 0, 1, 0, 0]),
+    Uint8Array.from([0, 1, 0, 0, 0, 0, 0, 1]),
+];
+
 export const pulseDutyArray = [
     [0, 0, 0, 0, 0, 0, 0, 1],
     [1, 0, 0, 0, 0, 0, 0, 1],
@@ -29,16 +37,24 @@ export const pulseDutyArray = [
     [0, 1, 1, 1, 1, 1, 1, 0],
 ];
 
+
+
 const sampleBufMax = 512;
+
+export function dac(inVal: number) {
+    return inVal / (15 / 2) - 1;
+}
+
+
 
 export const noiseDivisors = Uint8Array.from([8, 16, 32, 48, 64, 80, 96, 112]);
 export const waveShiftCodes = Uint8Array.from([4, 0, 1, 2]);
 
-const channelSampleRate = 65536;
+const channelSampleRate = 48000;
 const cyclesPerSample = 4194304 / channelSampleRate;
-const outputSampleRate = 65536;
+const outputSampleRate = 48000;
 
-const capacitorChargeFactor = Math.pow(0.999958, 4194304 / 65536);
+const capacitorChargeFactor = Math.pow(0.999958, 4194304 / outputSampleRate);
 
 export const noise7Array: Uint8Array = genNoiseArray(true);
 export const noise15Array: Uint8Array = genNoiseArray(false);
@@ -57,6 +73,27 @@ function genNoiseArray(sevenBit: boolean): Uint8Array {
         array[i] = ~lfsr & 1;
     }
     return array;
+}
+
+function polyBlep(t: number, dt: number) {
+    // 0 <= t < 1
+    if (t < dt) {
+        t /= dt;
+        // 2 * (t - t^2/2 - 0.5)
+        return t + t - t * t - 1.;
+    }
+
+    // -1 < t < 0
+    else if (t > 1. - dt) {
+        t = (t - 1.) / dt;
+        // 2 * (t^2/2 + t + 0.5)
+        return t * t + t + t + 1.;
+    }
+
+    // 0 otherwise
+    else {
+        return 0.;
+    }
 }
 
 export class APU {
@@ -141,6 +178,7 @@ export class APU {
                 } else {
                     this.ch1.frequency = this.ch1.sweepShadowFrequency;
                     this.ch1.frequencyPeriod = (2048 - this.ch1.frequency) * 4;
+                    this.ch1.frequencyHz = 131072 / (2048 - this.ch1.frequency);
                 }
             }
             this.ch1.sweepTimer--;
@@ -211,6 +249,8 @@ export class APU {
 
         pos: 0,
         currentVal: 0,
+        // A non-zero value to force.
+        forceNextSampleVal: 0,
         outL: 0,
         outR: 0,
 
@@ -253,6 +293,7 @@ export class APU {
         useLength: false,
 
         frequencyPeriod: 256,
+        frequencyHz: 0,
 
         updateOut: function () {
             let temp = this.currentVal * this.volume;
@@ -271,6 +312,8 @@ export class APU {
 
         pos: 0,
         currentVal: 0,
+        // A non-zero value to force.
+        forceNextSampleVal: 0,
         outL: 0,
         outR: 0,
 
@@ -304,6 +347,7 @@ export class APU {
         useLength: false,
 
         frequencyPeriod: 256,
+        frequencyHz: 0,
 
         updateOut: function () {
             let temp = this.currentVal * this.volume;
@@ -477,13 +521,11 @@ export class APU {
     advanceCh1() {
         this.ch1.pos = (this.ch1.pos + 1) & 7;
         this.ch1.currentVal = pulseDuty[this.ch1.duty][this.ch1.pos];
-        this.ch1.updateOut();
     }
 
     advanceCh2() {
         this.ch2.pos = (this.ch2.pos + 1) & 7;
         this.ch2.currentVal = pulseDuty[this.ch2.duty][this.ch2.pos];
-        this.ch2.updateOut();
     }
 
     advanceCh3() {
@@ -516,23 +558,67 @@ export class APU {
     capacitorR = 0;
 
     sample = (cyclesLate: number) => {
+
         let finalL = 0;
         let finalR = 0;
 
         this.ch1.frequencyTimer -= cyclesPerSample;
-        if (this.ch1.frequencyPeriod != 0) {
-            while (this.ch1.frequencyTimer <= 0) {
-                this.ch1.frequencyTimer += this.ch1.frequencyPeriod;
-                this.advanceCh1();
+        if (!this.ch1.forceNextSampleVal) {
+            if (this.ch1.frequencyPeriod != 0) {
+                while (this.ch1.frequencyTimer <= 0) {
+                    this.ch1.frequencyTimer += this.ch1.frequencyPeriod;
+                    this.advanceCh1();
+                    this.ch1.updateOut();
+
+                    // Has this step changed?
+                    if (pulseAdvanceChangedVal[this.ch1.duty][(this.ch1.pos + 0) & 7]) {
+                        if (this.ch1.currentVal) {
+                            // If going up
+                            this.ch1.currentVal = 0.33;
+                            this.ch1.forceNextSampleVal = 0.66;
+                        } else {
+                            // If going down
+                            this.ch1.currentVal = 0.66;
+                            this.ch1.forceNextSampleVal = 0.33;
+                        }
+                        this.ch1.updateOut();
+                    }
+                }
             }
+        } else {
+            this.ch1.currentVal = this.ch1.forceNextSampleVal;
+            this.ch1.forceNextSampleVal = 0;
+            this.ch1.updateOut();
         }
         this.ch2.frequencyTimer -= cyclesPerSample;
-        if (this.ch2.frequencyPeriod != 0) {
-            while (this.ch2.frequencyTimer <= 0) {
-                this.ch2.frequencyTimer += this.ch2.frequencyPeriod;
-                this.advanceCh2();
+        if (!this.ch2.forceNextSampleVal) {
+            if (this.ch2.frequencyPeriod != 0) {
+                while (this.ch2.frequencyTimer <= 0) {
+                    this.ch2.frequencyTimer += this.ch2.frequencyPeriod;
+                    this.advanceCh2();
+                    this.ch2.updateOut();
+
+                    // Has this step changed?
+                    if (pulseAdvanceChangedVal[this.ch2.duty][(this.ch2.pos + 0) & 7]) {
+                        if (this.ch2.currentVal) {
+                            // If going up
+                            this.ch2.currentVal = 0.33;
+                            this.ch2.forceNextSampleVal = 0.66;
+                        } else {
+                            // If going down
+                            this.ch2.currentVal = 0.66;
+                            this.ch2.forceNextSampleVal = 0.33;
+                        }
+                        this.ch2.updateOut();
+                    }
+                }
             }
+        } else {
+            this.ch2.currentVal = this.ch2.forceNextSampleVal;
+            this.ch2.forceNextSampleVal = 0;
+            this.ch2.updateOut();
         }
+
         this.ch3.frequencyTimer -= cyclesPerSample;
         if (this.ch3.frequencyPeriod != 0) {
             while (this.ch3.frequencyTimer <= 0) {
@@ -680,6 +766,7 @@ export class APU {
                 this.ch1.frequency |= ((val & 0xFF) << 0);
 
                 this.ch1.frequencyPeriod = (2048 - this.ch1.frequency) * 4;
+                this.ch1.frequencyHz = 131072 / (2048 - this.ch1.frequency);
                 this.ch1.updateOut();
                 break;
             case 0xFF14: // NR14
@@ -689,6 +776,7 @@ export class APU {
                 if (bitTest(val, 7)) this.triggerCh1();
 
                 this.ch1.frequencyPeriod = (2048 - this.ch1.frequency) * 4;
+                this.ch1.frequencyHz = 131072 / (2048 - this.ch1.frequency);
                 this.ch1.updateOut();
                 break;
 
@@ -730,6 +818,7 @@ export class APU {
                 this.ch2.frequency |= ((val & 0xFF) << 0);
 
                 this.ch2.frequencyPeriod = (2048 - this.ch2.frequency) * 4;
+                this.ch2.frequencyHz = 131072 / (2048 - this.ch2.frequency);
                 this.ch2.updateOut();
                 break;
             case 0xFF19: // NR24
@@ -739,6 +828,7 @@ export class APU {
                 if (bitTest(val, 7)) this.triggerCh2();
 
                 this.ch2.frequencyPeriod = (2048 - this.ch2.frequency) * 4;
+                this.ch2.frequencyHz = 131072 / (2048 - this.ch2.frequency);
                 this.ch2.updateOut();
                 break;
 

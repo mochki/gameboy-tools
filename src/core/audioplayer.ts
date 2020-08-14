@@ -36,7 +36,7 @@ export class AudioPlayer {
         const AudioContext = window.AudioContext   // Normal browsers
             || (window as any).webkitAudioContext; // Sigh... Safari
 
-        this.ctx = new AudioContext({ sampleRate: SAMPLE_RATE });
+        this.ctx = new AudioContext({ sampleRate: sampleRate });
 
         this.bufferPool = genBufferPool(this.ctx, 256, this.bufferLength, this.sampleRate);
 

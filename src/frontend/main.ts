@@ -294,11 +294,11 @@ async function loadSettings() {
     }
 }
 
-function changeVolume(volume: number) {
+function changeVolume(ratio: number) {
     let localforage = (window as any).localforage;
-    mgr.setVolume(volume);
+    mgr.setVolume(ratio);
     if (localforage) {
-        localforage.setItem("frontend-volume", volume);
+        localforage.setItem("frontend-volume", ratio);
     }
 }
 
