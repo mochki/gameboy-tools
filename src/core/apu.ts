@@ -4,6 +4,7 @@ import { SchedulerId, Scheduler } from "./scheduler";
 import { AudioPlayer } from "./audioplayer";
 import { GetTextLineHeightWithSpacing } from "../lib/imgui-js/imgui";
 import { hex } from "./util/misc";
+import { WavDownloader } from "./util/wavdownloader";
 
 // Starts from NR10 / 0xFF10
 const regMask = Uint8Array.from([
@@ -50,9 +51,9 @@ export function dac(inVal: number) {
 export const noiseDivisors = Uint8Array.from([8, 16, 32, 48, 64, 80, 96, 112]);
 export const waveShiftCodes = Uint8Array.from([4, 0, 1, 2]);
 
-const channelSampleRate = 48000;
+const channelSampleRate = 65536;
 const cyclesPerSample = 4194304 / channelSampleRate;
-const outputSampleRate = 48000;
+const outputSampleRate = 65536;
 
 const capacitorChargeFactor = Math.pow(0.999958, 4194304 / outputSampleRate);
 
@@ -300,8 +301,8 @@ export class APU {
             let temp = this.currentVal * this.volume;
             if (!this.enabled) temp = 0;
             if (this.dacEnabled) {
-                if (this.enableL) { this.outL = (temp / (15 / 2) - 1) * this.volMulL; } else { this.outL = 0; };
-                if (this.enableR) { this.outR = (temp / (15 / 2) - 1) * this.volMulR; } else { this.outR = 0; };
+                if (this.enableL) { this.outL = (((temp / 15) * 2) - 1) * this.volMulL; } else { this.outL = 0; };
+                if (this.enableR) { this.outR = (((temp / 15) * 2) - 1) * this.volMulR; } else { this.outR = 0; };
             }
         }
     };
@@ -355,8 +356,8 @@ export class APU {
             let temp = this.currentVal * this.volume;
             if (!this.enabled) temp = 0;
             if (this.dacEnabled) {
-                if (this.enableL) { this.outL = (temp / (15 / 2) - 1) * this.volMulL; } else { this.outL = 0; };
-                if (this.enableR) { this.outR = (temp / (15 / 2) - 1) * this.volMulR; } else { this.outR = 0; };
+                if (this.enableL) { this.outL = (((temp / 15) * 2) - 1) * this.volMulL; } else { this.outL = 0; };
+                if (this.enableR) { this.outR = (((temp / 15) * 2) - 1) * this.volMulR; } else { this.outR = 0; };
             }
         }
     };
@@ -407,8 +408,8 @@ export class APU {
             let temp = this.currentVal >> this.volumeShift;
             if (!this.enabled) temp = 0;
             if (this.dacEnabled) {
-                if (this.enableL) { this.outL = (temp / (15 / 2) - 1) * this.volMulL; } else { this.outL = 0; };
-                if (this.enableR) { this.outR = (temp / (15 / 2) - 1) * this.volMulR; } else { this.outR = 0; };
+                if (this.enableL) { this.outL = (((temp / 15) * 2) - 1) * this.volMulL; } else { this.outL = 0; };
+                if (this.enableR) { this.outR = (((temp / 15) * 2) - 1) * this.volMulR; } else { this.outR = 0; };
             }
         }
     };
@@ -461,8 +462,8 @@ export class APU {
             let temp = this.currentVal * this.volume;
             if (!this.enabled) temp = 0;
             if (this.dacEnabled) {
-                if (this.enableL) { this.outL = (temp / (15 / 2) - 1) * this.volMulL; } else { this.outL = 0; };
-                if (this.enableR) { this.outR = (temp / (15 / 2) - 1) * this.volMulR; } else { this.outR = 0; };
+                if (this.enableL) { this.outL = (((temp / 15) * 2) - 1) * this.volMulL; } else { this.outL = 0; };
+                if (this.enableR) { this.outR = (((temp / 15) * 2) - 1) * this.volMulR; } else { this.outR = 0; };
             }
         }
     };
@@ -560,7 +561,6 @@ export class APU {
     capacitorR = 0;
 
     sample = (cyclesLate: number) => {
-
         let finalL = 0;
         let finalR = 0;
 
@@ -621,17 +621,6 @@ export class APU {
                 // }
             }
         }
-        //     if (this.ch2.resetNextSampleVal) {
-        //         this.ch2.resetNextSampleVal = false;
-        //         this.ch2.currentVal = pulseDuty[this.ch2.duty][this.ch2.pos];
-        //         this.ch2.updateOut();
-        //     }
-        // } else {
-        //     this.ch2.currentVal = this.ch2.forceNextSampleVal;
-        //     this.ch2.forceNextSampleVal = 0;
-        //     this.ch2.resetNextSampleVal = true;
-        //     this.ch2.updateOut();
-        // }
 
         this.ch3.frequencyTimer -= cyclesPerSample;
         if (this.ch3.frequencyPeriod != 0) {
@@ -687,6 +676,8 @@ export class APU {
 
         this.scheduler.addEventRelative(SchedulerId.APUSample, cyclesPerSample - cyclesLate, this.sample);
     };
+
+    downloader = new WavDownloader(outputSampleRate);
 
     readHwio8(addr: number): number {
         switch (addr) {
