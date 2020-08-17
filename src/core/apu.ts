@@ -55,7 +55,10 @@ const channelSampleRate = 65536;
 const cyclesPerSample = 4194304 / channelSampleRate;
 const outputSampleRate = 65536;
 
-const capacitorChargeFactor = Math.pow(0.999958, 4194304 / outputSampleRate);
+const dmgChargeFactorBase = 0.999958;
+const cgbChargeFactorBase = 0.998943;
+const powerlatedThinksBestChargeFactorBase = 0.999777;
+const capacitorChargeFactor = Math.pow(powerlatedThinksBestChargeFactorBase, 4194304 / outputSampleRate);
 
 export const noise7Array: Uint8Array = genNoiseArray(true);
 export const noise15Array: Uint8Array = genNoiseArray(false);
@@ -670,6 +673,9 @@ export class APU {
             } else {
                 if (this.player.sourcesPlaying < 16) {
                     this.player.queueAudio(this.sampleBufL, this.sampleBufR);
+                } else {
+                    this.scheduler.addEventRelative(SchedulerId.APUSample, (sampleBufMax * cyclesPerSample) - cyclesLate, this.sample);
+                    return;
                 }
             }
         }
