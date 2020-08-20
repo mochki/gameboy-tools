@@ -452,10 +452,11 @@ function _loop(time: number): void {
             }
         } else {
             mgr.gb.turboMode = true;
-            cycles += mgr.gb.doubleFrame();
-            cycles += mgr.gb.doubleFrame();
-            cycles += mgr.gb.doubleFrame();
-            cycles += mgr.gb.doubleFrame();
+            let startTime = performance.now();
+            // Run 1/60 of a host second
+            while (startTime + 16.66 > performance.now()) {
+                cycles += mgr.gb.doubleFrame();
+            }
         }
     }
 

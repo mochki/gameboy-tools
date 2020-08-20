@@ -671,10 +671,11 @@ export class APU {
             if (!this.gb.turboMode) {
                 this.player.queueAudio(this.sampleBufL, this.sampleBufR);
             } else {
-                if (this.player.sourcesPlaying < 16) {
+                if (this.player.sourcesPlaying < 24) {
                     this.player.queueAudio(this.sampleBufL, this.sampleBufR);
-                } else {
-                    this.scheduler.addEventRelative(SchedulerId.APUSample, (sampleBufMax * cyclesPerSample) - cyclesLate, this.sample);
+                }
+                if (this.player.sourcesPlaying >= 16) {
+                    this.scheduler.addEventRelative(SchedulerId.APUSample, (sampleBufMax * cyclesPerSample * 8) - cyclesLate, this.sample);
                     return;
                 }
             }
