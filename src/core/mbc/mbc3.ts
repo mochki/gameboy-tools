@@ -12,6 +12,13 @@ export default class MBC3 extends MBCWithRTC {
     sramDirty = false;
     sramEnable = false;
 
+    rtcSecondsLatch = 0;
+    rtcMinutesLatch = 0;
+    rtcHoursLatch = 0;
+    rtcDaysLatch = 0;
+
+    rtcLatchVal = 0;
+
     read8(addr: number): number {
         if (addr >= 0xA000 && addr <= 0xBFFF) {
             if (this.sramEnable) {
@@ -24,16 +31,16 @@ export default class MBC3 extends MBCWithRTC {
                         return this.sram[index];
 
                     case 0x8:
-                        return this.rtc.getSeconds();
+                        return this.rtcSecondsLatch;
                     case 0x9:
-                        return this.rtc.minutes;
+                        return this.rtcMinutesLatch;
                     case 0xA:
-                        return this.rtc.hours;
+                        return this.rtcHoursLatch;
                     case 0xB:
-                        return (this.rtc.days >> 0) & 0xFF;
+                        return (this.rtcDaysLatch >> 0) & 0xFF;
                     case 0xC:
                         let val = 0;
-                        val |= (this.rtc.days >> 8) & 0x01;
+                        val |= (this.rtcDaysLatch >> 8) & 0x01;
                         val |= this.rtc.halted ? BIT_6 : 0;
                         val |= this.rtc.daysOverflow ? BIT_7 : 0;
                         return val;
@@ -44,7 +51,7 @@ export default class MBC3 extends MBCWithRTC {
         }
         return 0xFF;
     }
-    
+
     write8(addr: number, val: number): void {
         if (addr >= 0x0000 && addr <= 0x1FFF) {
             this.sramEnable = (val & 0xF) == 0xA;
@@ -66,12 +73,15 @@ export default class MBC3 extends MBCWithRTC {
                         break;
 
                     case 0x8:
+                        console.log(`set seconds: ${val}`);
                         this.rtc.setSeconds(val % 60);
                         break;
                     case 0x9:
+                        console.log(`set minutes: ${val}`);
                         this.rtc.minutes = val % 60;
                         break;
                     case 0xA:
+                        console.log(`set hours: ${val}`);
                         this.rtc.hours = val % 24;
                         break;
                     case 0xB:
@@ -86,6 +96,15 @@ export default class MBC3 extends MBCWithRTC {
                         break;
                 }
             }
+        } else if (addr >= 0x6000 && addr <= 0x7FFF) {
+            val &= 1;
+            if (this.rtcLatchVal == 0 && val == 1) {
+                this.rtcSecondsLatch = this.rtc.seconds;
+                this.rtcMinutesLatch = this.rtc.minutes;
+                this.rtcHoursLatch = this.rtc.hours;
+                this.rtcDaysLatch = this.rtc.days;
+            }
+            this.rtcLatchVal = val;
         }
         return;
     }
