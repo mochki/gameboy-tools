@@ -88,9 +88,11 @@ export class GameBoyManager {
         let title = Bus.getTitle(rom);
 
         let oldBootrom = this.gb.provider?.bootrom;
+        let sav = await localforage.getItem(`${title}.sav`) as Uint8Array;
+        let rtc = JSON.parse(await localforage.getItem(`${title}.rtc`)) as RTC;
+
         this.gb = new GameBoy(this.skipBootrom, new GameBoyProvider(rom, oldBootrom));
 
-        let sav = await localforage.getItem(`${title}.sav`) as Uint8Array;
         if (!sav) {
             console.log(`Save not found for ${title}.`);
         } else {
@@ -98,34 +100,29 @@ export class GameBoyManager {
             this.gb.bus.mbc.setSram(sav);
         }
 
-        try {
-            let rtc = JSON.parse(await localforage.getItem(`${title}.rtc`)) as RTC;
-            if (!sav) {
-                console.log(`RTC not found for ${title}.`);
-            } else {
-                console.log(`RTC found for ${title}, loading...`);
-                let mbc = this.gb.bus.mbc;
-                if (mbc instanceof MBCWithRTC) {
-                    if (rtc.seconds != null)
-                        mbc.rtc.seconds = rtc.seconds;
-                    if (rtc.minutes != null)
-                        mbc.rtc.minutes = rtc.minutes;
-                    if (rtc.hours != null)
-                        mbc.rtc.hours = rtc.hours;
-                    if (rtc.days != null)
-                        mbc.rtc.days = rtc.days;
-                    if (rtc.daysOverflow != null)
-                        mbc.rtc.daysOverflow = rtc.daysOverflow;
-                    if (rtc.halted != null)
-                        mbc.rtc.halted = rtc.halted;
+        if (!rtc) {
+            console.log(`RTC not found for ${title}.`);
+        } else {
+            console.log(`RTC found for ${title}, loading...`);
+            let mbc = this.gb.bus.mbc;
+            if (mbc instanceof MBCWithRTC) {
+                if (rtc.seconds != null)
+                    mbc.rtc.seconds = rtc.seconds;
+                if (rtc.minutes != null)
+                    mbc.rtc.minutes = rtc.minutes;
+                if (rtc.hours != null)
+                    mbc.rtc.hours = rtc.hours;
+                if (rtc.days != null)
+                    mbc.rtc.days = rtc.days;
+                if (rtc.daysOverflow != null)
+                    mbc.rtc.daysOverflow = rtc.daysOverflow;
+                if (rtc.halted != null)
+                    mbc.rtc.halted = rtc.halted;
 
-                    // Set this so time can be caught up on next RTC update as scheduled in the constructor
-                    if (rtc.lastUnixMillis != null)
-                        this.rtcLastUnixMillis = rtc.lastUnixMillis;
-                }
+                // Set this so time can be caught up on next RTC update as scheduled in the constructor
+                if (rtc.lastUnixMillis != null)
+                    this.rtcLastUnixMillis = rtc.lastUnixMillis;
             }
-        } catch {
-            console.error("Error loading RTC data with or in localForage!");
         }
 
         this.updateVolume();
