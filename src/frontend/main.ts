@@ -707,7 +707,7 @@ let displayTex: null | WebGLTexture;
 let displaySize = new ImVec2(160 * 4, 144 * 4);
 
 function DrawDisplay() {
-    if (ImGui.Begin("Display", () => true, ImGui.ImGuiWindowFlags.NoResize)) {
+    if (ImGui.Begin("Display", null, ImGui.ImGuiWindowFlags.NoResize | ImGui.ImGuiWindowFlags.None)) {
 
         ImGui.SetWindowSize(new ImVec2(displaySize.x + 16, displaySize.y + 36));
 
