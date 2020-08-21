@@ -44,7 +44,7 @@ export class GameBoyManager {
     }
 
     flushSram() {
-        console.log("Flushing SRAM...");
+        // console.log("Flushing SRAM...");
         let title = Bus.getTitle(this.gb.bus.rom);
         localforage.setItem(`${title}.sav`, this.gb.bus.mbc.sram);
     }
@@ -52,7 +52,7 @@ export class GameBoyManager {
     flushRtc() {
         let mbc = this.gb.bus.mbc;
         if (mbc instanceof MBCWithRTC) {
-            console.log("Flushing RTC...");
+            // console.log("Flushing RTC...");
             // Store the last time RTC was updated in RTC object
             mbc.rtc.lastUnixMillis = this.rtcLastUnixMillis;
             let rtcJson = JSON.stringify(mbc.rtc);
