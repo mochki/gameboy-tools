@@ -17,16 +17,15 @@ export class GameBoyManager {
         this.gb = new GameBoy(this.skipBootrom);
 
         setInterval(() => {
-            if (this.gb.bus.mbc.sramDirty) {
-                this.gb.bus.mbc.sramDirty = false;
-                this.flushSram();
-            }
+            this.flushSram();
+        }, 100);
 
+        setInterval(() => {
             let mbc = this.gb.bus.mbc;
             if (mbc instanceof MBCWithRTC) {
                 let now = Date.now();
                 let secondsDiff = (now - this.rtcLastUnixMillis) / 1000;
-                this.rtcLastUnixMillis = Date.now();
+                this.rtcLastUnixMillis = Date.now();                                
                 mbc.rtc.incrementSeconds(secondsDiff);
             }
 
@@ -64,11 +63,14 @@ export class GameBoyManager {
     romLoaded = false;
 
     reset() {
-        let sram = new Uint8Array(this.gb.bus.mbc.sram.length);
-        sram.set(this.gb.bus.mbc.sram);
+        let sram = this.gb.bus.mbc.sram;    
+        let rtc: RTC | null = (this.gb.bus.mbc as MBCWithRTC).rtc;
         let provider = this.gb.provider;
         this.gb = new GameBoy(this.skipBootrom, provider);
-        this.gb.bus.mbc.setSram(sram);
+        this.gb.bus.mbc.sram = sram;
+        if (this.gb.bus.mbc instanceof MBCWithRTC) {
+            this.gb.bus.mbc.rtc = rtc;
+        }
         this.updateVolume();
     }
 
