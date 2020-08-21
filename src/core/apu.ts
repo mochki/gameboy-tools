@@ -1,7 +1,7 @@
 import { bitTest, bitSet, BIT_6, BIT_7 } from "./util/bits";
 import { GameBoy } from "./gameboy";
 import { SchedulerId, Scheduler } from "./scheduler";
-import { AudioPlayer } from "./audioplayer";
+import { AudioPlayer, SAMPLE_RATE } from "./audioplayer";
 import { GetTextLineHeightWithSpacing } from "../lib/imgui-js/imgui";
 import { hex } from "./util/misc";
 import { WavDownloader } from "./util/wavdownloader";
@@ -38,22 +38,22 @@ export const pulseDutyArray = [
     [0, 1, 1, 1, 1, 1, 1, 0],
 ];
 
-
-
-const sampleBufMax = 512;
+const sampleBufMax = 512 * (SAMPLE_RATE / 65536);
 
 export function dac(inVal: number) {
     return inVal / (15 / 2) - 1;
 }
 
-
-
 export const noiseDivisors = Uint8Array.from([8, 16, 32, 48, 64, 80, 96, 112]);
 export const waveShiftCodes = Uint8Array.from([4, 0, 1, 2]);
 
-const channelSampleRate = 65536;
+// Maximum safe sample rate to push out for the browser
+// 262144 | Chrome
+// 131072 | Firefox
+// 65536  | Safari
+const channelSampleRate = SAMPLE_RATE;
 const cyclesPerSample = 4194304 / channelSampleRate;
-const outputSampleRate = 65536;
+const outputSampleRate = SAMPLE_RATE;
 
 const dmgChargeFactorBase = 0.999958;
 const cgbChargeFactorBase = 0.998943;
@@ -634,14 +634,14 @@ export class APU {
         }
         // Prevent Channel 4 from sounding weird if its frequency is faster than the sample rate
         this.ch4.frequencyTimer -= cyclesPerSample;
-        let samplesTaken = 1;
+        let noiseSamplesTaken = 1;
         let noiseFinalL = this.ch4.outL;
         let noiseFinalR = this.ch4.outR;
         if (this.ch4.frequencyPeriod != 0) {
             while (this.ch4.frequencyTimer <= 0) {
                 this.ch4.frequencyTimer += this.ch4.frequencyPeriod;
                 this.advanceCh4();
-                samplesTaken += 1;
+                noiseSamplesTaken += 1;
                 noiseFinalL += this.ch4.outL;
                 noiseFinalR += this.ch4.outR;
             }
@@ -653,8 +653,8 @@ export class APU {
         finalR += this.ch2.outR;
         finalL += this.ch3.outL;
         finalR += this.ch3.outR;
-        finalL += noiseFinalL / samplesTaken;
-        finalR += noiseFinalR / samplesTaken;
+        finalL += noiseFinalL / noiseSamplesTaken;
+        finalR += noiseFinalR / noiseSamplesTaken;
 
         let outL = finalL - this.capacitorL;
         let outR = finalR - this.capacitorR;
@@ -675,7 +675,7 @@ export class APU {
                     this.player.queueAudio(this.sampleBufL, this.sampleBufR);
                 }
                 if (this.player.sourcesPlaying >= 16) {
-                    this.scheduler.addEventRelative(SchedulerId.APUSample, (sampleBufMax * cyclesPerSample * 8) - cyclesLate, this.sample);
+                    this.scheduler.addEventRelative(SchedulerId.APUSample, (sampleBufMax * cyclesPerSample * 16) - cyclesLate, this.sample);
                     return;
                 }
             }
