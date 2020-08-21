@@ -823,6 +823,7 @@ export class PPU {
                 let screenYStart = yPos - 16;
 
                 if (this.ly >= screenYStart && this.ly < screenYStart + (this.objSize ? 16 : 8)) {
+                    spriteCount++;
                     if (spriteCount > 10) return;
 
                     let xPos = this.oam[oamAddr + 1];
@@ -1019,6 +1020,7 @@ export class PPU {
                         screenX += 1;
                     }
                     // #endregion
+
                 }
 
                 oamAddr += 4;
