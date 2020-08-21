@@ -73,6 +73,7 @@ export class Bus {
         }
 
         this.romOffset = this.mbc.getOffset();
+        // this.gb.cgb = 
     }
 
     bootrom = new Uint8Array(0x100).fill(0xFF);

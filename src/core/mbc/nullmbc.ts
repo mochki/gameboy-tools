@@ -1,8 +1,8 @@
 import { MBC } from "./mbc";
 
-export default class NullMBC implements MBC {
+export default class NullMBC extends MBC {
     romBank: number = 1;
-    ram = new Uint8Array(0x4000);
+    sram = new Uint8Array(0x4000);
     sramDirty = false;
 
     read8(addr: number): number {

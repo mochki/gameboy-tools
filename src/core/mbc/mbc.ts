@@ -1,12 +1,20 @@
-export interface MBC {
-    romBank: number;
-    ram: Uint8Array;
-    sramDirty: boolean;
+export abstract class MBC {
+    abstract romBank: number;
+    abstract sram: Uint8Array;
+    abstract sramDirty: boolean;
 
-    read8(addr: number): number;
+    abstract read8(addr: number): number;
 
     /** Returns the offset for 0x4000-0x7FFF */
-    write8(addr: number, value: number): void;
+    abstract write8(addr: number, value: number): void;
 
-    getOffset(): number;
+    abstract getOffset(): number;
+
+    setSram(source: Uint8Array) {
+        for (let i = 0; i < 0x4000; i++) {
+            if (i < source.length) {
+                this.sram[i] = source[i];
+            }
+        }
+    }
 }
