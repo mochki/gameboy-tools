@@ -1089,9 +1089,11 @@ export class PPU {
 
         for (let s = 0; s < 160; s += 4) {
             let yPos = this.oam[s];
+            let xPos = this.oam[s + 1];
             let screenYStart = yPos - 16;
+            let screenXStart = xPos - 8;
 
-            if (this.ly >= screenYStart && this.ly < screenYStart + objHeight) {
+            if (this.ly >= screenYStart && this.ly < screenYStart + objHeight && screenXStart < 160) {
                 this.fastInitialOamScanSpriteCount++;
                 if (this.fastInitialOamScanSpriteCount >= 10) break;
             }
