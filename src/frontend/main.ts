@@ -1081,6 +1081,10 @@ let memScanSizes: ["8-bit", "16-bit"] = [
 
 let memScannedMap = new Map<number, number>();
 let memScannedValuesFound = 0;
+let oldMemScannedMap = memScannedMap;
+let oldMemScannedValuesFound = 0;
+
+let memScanRevertAvailable = false;
 
 let currentMemScanSize: "8-bit" | "16-bit" = memScanSizes[0];
 
@@ -1109,21 +1113,38 @@ function DrawCheats() {
 
                 for (let [addr, scannedVal] of memScannedMap) {
                     ImGui.Text(hexN(addr, 4));
+
                     ImGui.NextColumn();
 
-                    let currentVal = mgr.gb.bus.read8(addr);
+                    let currentVal: number;
+                    if (currentMemScanSize == "8-bit") {
+                        currentVal = mgr.gb.bus.read8(addr);
+                    } else {
+                        currentVal = mgr.gb.bus.read8(addr + 0);
+                        currentVal |= mgr.gb.bus.read8(addr + 1) << 8;
+                    }
                     let valueChanged = currentVal != scannedVal;
 
                     if (valueChanged) ImGui.PushStyleColor(ImGuiCol.Text, new ImVec4(255, 0, 0, 255));
                     if (memScanHex) {
-                        ImGui.Text(hexN(currentVal, 2));
+                        if (currentMemScanSize == "8-bit") {
+                            ImGui.Text(hexN(currentVal, 2));
+                        } else {
+                            ImGui.Text(hexN(currentVal, 4));
+                        }
                     } else {
                         ImGui.Text(currentVal.toString());
                     }
                     if (valueChanged) ImGui.PopStyleColor();
+
                     ImGui.NextColumn();
 
                     ImGui.Text(`01$$${hexN(addr & 0xFF, 2)}${hexN(addr >> 8, 2)}`);
+                    if (currentMemScanSize == "16-bit") {
+                        ImGui.SameLine();
+                        ImGui.Text(`01$$${hexN(addr & 0xFF, 2)}${hexN(addr >> 8, 2)}`);
+                    }
+
                     ImGui.NextColumn();
                 }
 
@@ -1166,7 +1187,12 @@ function DrawCheats() {
 
             memScanInvalid = isNaN(valToMatch);
             if (!memScanInvalid) {
-                let oldMemScannedMap = memScannedMap;
+                if (!firstScan) {
+                    memScanRevertAvailable = true;
+                }
+
+                oldMemScannedMap = memScannedMap;
+                oldMemScannedValuesFound = memScannedValuesFound;
                 memScannedMap = new Map<number, number>();
                 memScannedValuesFound = 0;
                 for (let addr = 0; addr < 65536; addr++) {
@@ -1183,7 +1209,13 @@ function DrawCheats() {
                         addrInWram ||
                         addrInHram
                     ) {
-                        let val = mgr.gb.bus.read8(addr);
+                        let val: number;
+                        if (currentMemScanSize == "8-bit") {
+                            val = mgr.gb.bus.read8(addr);
+                        } else {
+                            val = mgr.gb.bus.read8(addr + 0);
+                            val |= mgr.gb.bus.read8(addr + 1) << 8;
+                        }
                         if (firstScan) {
                             if (val == valToMatch) {
                                 memScannedValuesFound++;
@@ -1200,7 +1232,16 @@ function DrawCheats() {
                 firstScan = false;
             }
         }
+        if (memScanRevertAvailable) {
+            ImGui.SameLine();
+            if (ImGui.Button("Revert Scan")) {
+                memScanRevertAvailable = false;
+                memScannedMap = oldMemScannedMap;
+                memScannedValuesFound = oldMemScannedValuesFound;
+            }
+        }
         if (ImGui.Button("Reset")) {
+            memScanRevertAvailable = false;
             memScannedValuesFound = 0;
             firstScan = true;
             memScannedMap = new Map<number, number>();
