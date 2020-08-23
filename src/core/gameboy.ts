@@ -16,14 +16,14 @@ export class GameBoy {
     timer: Timer;
     apu: APU;
 
-    provider?: GameBoyProvider;
+    provider: GameBoyProvider;
     scheduler: Scheduler;
 
     turboMode = false;
 
     skipBootrom = false;
 
-    constructor(skipBootrom: boolean, provider?: GameBoyProvider) {
+    constructor(skipBootrom: boolean, provider: GameBoyProvider) {
         this.scheduler = new Scheduler();
         this.joypad = new Joypad();
         this.ppu = new PPU(this, this.scheduler);
@@ -35,6 +35,8 @@ export class GameBoy {
         this.provider = provider;
 
         this.bus.updateMapper();
+
+        
         if (skipBootrom) this.dmgBootrom();
 
         this.skipBootrom = skipBootrom;

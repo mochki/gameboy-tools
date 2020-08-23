@@ -147,6 +147,47 @@ export class PPU {
 
     mode3StartCycles = 0;
 
+    fetcherSprite = 0;
+    fetcherSpriteCount = 0;
+    fetcherSpriteNextX = 0;
+    fetcherSpriteData: SpriteData[] = new Array(10).fill(0).map(() => {
+        return {
+            x: 0,
+            // y: 0,
+            tileDataUpper: 0,
+            tileDataLower: 0,
+
+            bgPriority: false,
+            // yFlip: false,
+            xFlip: false,
+            dmgPalette: false,
+            cgbVramBank: false,
+            cgbPalette: 0
+        };
+    });
+
+    fastInitialOamScanSpriteCount = 0;
+
+    previousStatCondition = false;
+
+    fetcherStep = 0;
+    fetcherX = 0;
+    fetcherTile = -1;
+    fetcherTileIndex = 0;
+    fetcherTileDataUpper = 0;
+    fetcherTileDataLower = 0;
+    fetcherPushReady = false;
+    fetcherBgWindowShiftUpper = 0;
+    fetcherBgWindowShiftLower = 0;
+    fetcherBgWindowShiftFilled = 0;
+    fetcherObjShiftUpper = 0;
+    fetcherObjShiftLower = 0;
+    fetcherObjShiftPal = 0;
+    fetcherObjShiftBgPrio = 0;
+    fetcherWindow = false;
+    fetcherStall = 0;
+    fetcherCycles = 0;
+
     swapBuffers() {
         let tempScreenBuf = this.screenBackBuf;
         this.screenBackBuf = this.screenFrontBuf;
@@ -276,7 +317,6 @@ export class PPU {
         this.renderThisFrame = false;
     }
 
-    previousStatCondition = false;
 
     checkStat() {
         this.lyMatch = this.ly == this.lyc;
@@ -1062,26 +1102,7 @@ export class PPU {
         }
     }
 
-    fetcherSprite = 0;
-    fetcherSpriteCount = 0;
-    fetcherSpriteNextX = 0;
-    fetcherSpriteData: SpriteData[] = new Array(10).fill(0).map(() => {
-        return {
-            x: 0,
-            // y: 0,
-            tileDataUpper: 0,
-            tileDataLower: 0,
 
-            bgPriority: false,
-            // yFlip: false,
-            xFlip: false,
-            dmgPalette: false,
-            cgbVramBank: false,
-            cgbPalette: 0
-        };
-    });
-
-    fastInitialOamScanSpriteCount = 0;
     fastInitialOamScan(): void {
         this.fastInitialOamScanSpriteCount = 0;
 
@@ -1169,23 +1190,6 @@ export class PPU {
         this.fetcherSpriteCount = spriteCount;
     }
 
-    fetcherStep = 0;
-    fetcherX = 0;
-    fetcherTile = -1;
-    fetcherTileIndex = 0;
-    fetcherTileDataUpper = 0;
-    fetcherTileDataLower = 0;
-    fetcherPushReady = false;
-    fetcherBgWindowShiftUpper = 0;
-    fetcherBgWindowShiftLower = 0;
-    fetcherBgWindowShiftFilled = 0;
-    fetcherObjShiftUpper = 0;
-    fetcherObjShiftLower = 0;
-    fetcherObjShiftPal = 0;
-    fetcherObjShiftBgPrio = 0;
-    fetcherWindow = false;
-    fetcherStall = 0;
-    fetcherCycles = 0;
     fetcherAdvance(cycles: number) {
         while (cycles > 0) {
             if (this.fetcherX < 160) {

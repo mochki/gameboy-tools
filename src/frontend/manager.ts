@@ -14,7 +14,7 @@ export class GameBoyManager {
 
     rtcLastUnixMillis = Date.now();
     constructor() {
-        this.gb = new GameBoy(this.skipBootrom);
+        this.gb = new GameBoy(this.skipBootrom, new GameBoyProvider());
 
         setInterval(() => {
             this.flushSram();
@@ -89,7 +89,7 @@ export class GameBoyManager {
 
         let title = Bus.getTitle(rom);
 
-        let oldBootrom = this.gb.provider?.bootrom;
+        let oldBootrom = this.gb.provider.bootrom;
         let sav = await localforage.getItem(`${title}.sav`) as Uint8Array;
         let rtc = JSON.parse(await localforage.getItem(`${title}.rtc`)) as RTC;
 
@@ -131,7 +131,7 @@ export class GameBoyManager {
     }
 
     loadBootrom(bootrom: Uint8Array) {
-        let oldRom = this.gb.provider?.rom ?? new Uint8Array(0);
+        let oldRom = this.gb.provider.rom;
         this.gb = new GameBoy(this.skipBootrom, new GameBoyProvider(oldRom, bootrom));
         this.updateVolume();
     }

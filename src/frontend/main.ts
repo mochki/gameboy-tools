@@ -472,6 +472,7 @@ function _loop(time: number): void {
         DrawSaves();
         DrawTimingDiagram();
         DrawSoundVisualizer();
+        DrawCheats();
 
         ImGui.EndFrame();
 
@@ -1011,10 +1012,6 @@ function drawNoiseBox(noiseArray: Uint8Array, widthMul: number, heightMul: numbe
     }
 }
 
-// Converts from Game Boy cycle period into hertz.
-function hzFromPeriod(period: number) {
-    return 4194304 / period;
-}
 
 function DrawSoundVisualizer() {
     let gb = mgr.gb;
@@ -1060,6 +1057,234 @@ function DrawSoundVisualizer() {
         let noiseHz = 524288 / noiseDivisors[gb.apu.ch4.divisorCode] / 2 ^ (gb.apu.ch4.frequencyShift + 1);
         let noiseActive = gb.apu.ch4.enabled && gb.apu.ch4.dacEnabled && (gb.apu.ch4.enableL || gb.apu.ch4.enableR);
         drawNoiseBox(gb.apu.ch4.sevenBit ? noise7Array : noise15Array, 0.025, noiseActive ? gb.apu.ch4.volume / 15 : 0);
+        ImGui.End();
+    }
+}
+
+let scanRom = false;
+let scanVram = false;
+let scanSram = true;
+let scanWram = true;
+let scanOam = false;
+let scanHram = false;
+
+let memScanHex = false;
+let memScanAddr = "";
+let memScanInvalid = false;
+let gameSharkText = "";
+let gameSharkInvalid = false;
+
+let memScanSizes: ["8-bit", "16-bit"] = [
+    "8-bit",
+    "16-bit",
+];
+
+let memScannedMap = new Map<number, number>();
+let memScannedValuesFound = 0;
+
+let currentMemScanSize: "8-bit" | "16-bit" = memScanSizes[0];
+
+let firstScan = true;
+
+function DrawCheats() {
+    if (ImGui.Begin("Cheats")) {
+        if (!firstScan) {
+            if (ImGui.Begin("Memory Scan")) {
+                if (memScannedValuesFound == 1) {
+                    ImGui.Text(`${memScannedValuesFound} address found`);
+                } else {
+                    ImGui.Text(`${memScannedValuesFound} addresses found`);
+                }
+
+                ImGui.Columns(3);
+
+                ImGui.Text("Address");
+                ImGui.NextColumn();
+                ImGui.Text("Value");
+                ImGui.NextColumn();
+                ImGui.Text("GameShark");
+                ImGui.NextColumn();
+
+                ImGui.Separator();
+
+                for (let [addr, scannedVal] of memScannedMap) {
+                    ImGui.Text(hexN(addr, 4));
+                    ImGui.NextColumn();
+
+                    let currentVal = mgr.gb.bus.read8(addr);
+                    let valueChanged = currentVal != scannedVal;
+
+                    if (valueChanged) ImGui.PushStyleColor(ImGuiCol.Text, new ImVec4(255, 0, 0, 255));
+                    if (memScanHex) {
+                        ImGui.Text(hexN(currentVal, 2));
+                    } else {
+                        ImGui.Text(currentVal.toString());
+                    }
+                    if (valueChanged) ImGui.PopStyleColor();
+                    ImGui.NextColumn();
+
+                    ImGui.Text(`01$$${hexN(addr & 0xFF, 2)}${hexN(addr >> 8, 2)}`);
+                    ImGui.NextColumn();
+                }
+
+                if (memScannedValuesFound == 0) {
+                    ImGui.Text("No");
+                    ImGui.NextColumn();
+                    ImGui.Text("values");
+                    ImGui.NextColumn();
+                    ImGui.Text(":(");
+                    ImGui.NextColumn();
+                }
+
+                ImGui.End();
+            }
+        }
+
+        ImGui.Columns(2);
+        ImGui.Text("Size");
+        if (ImGui.BeginCombo("", currentMemScanSize)) {
+            for (let i = 0; i < memScanSizes.length; i++) {
+                let isSelected = memScanSizes[i] == currentMemScanSize;
+                if (ImGui.Selectable(memScanSizes[i], isSelected)) {
+                    currentMemScanSize = memScanSizes[i];
+                }
+                if (isSelected) {
+                    ImGui.SetItemDefaultFocus();
+                }
+            }
+
+            ImGui.EndCombo();
+        }
+
+        if (ImGui.Button(firstScan ? "First Scan" : "Next Scan")) {
+            let valToMatch = 0;
+            if (memScanHex) {
+                valToMatch = parseInt(`0x${memScanAddr}`);
+            } else {
+                valToMatch = parseInt(memScanAddr);
+            }
+
+            memScanInvalid = isNaN(valToMatch);
+            if (!memScanInvalid) {
+                let oldMemScannedMap = memScannedMap;
+                memScannedMap = new Map<number, number>();
+                memScannedValuesFound = 0;
+                for (let addr = 0; addr < 65536; addr++) {
+                    let addrInRom = scanRom && addr >= 0x0000 && addr <= 0x7FFF;
+                    let addrInVram = scanVram && addr >= 0x8000 && addr <= 0x9FFF;
+                    let addrInSram = scanSram && addr >= 0xA000 && addr <= 0xBFFF;
+                    let addrInWram = scanWram && addr >= 0xC000 && addr <= 0xDFFF;
+                    let addrInHram = scanHram && addr >= 0xFF80 && addr <= 0xFFFE;
+
+                    if (
+                        addrInRom ||
+                        addrInVram ||
+                        addrInSram ||
+                        addrInWram ||
+                        addrInHram
+                    ) {
+                        let val = mgr.gb.bus.read8(addr);
+                        if (firstScan) {
+                            if (val == valToMatch) {
+                                memScannedValuesFound++;
+                                memScannedMap.set(addr, val);
+                            }
+                        } else {
+                            if (val == valToMatch && oldMemScannedMap.has(addr)) {
+                                memScannedValuesFound++;
+                                memScannedMap.set(addr, val);
+                            }
+                        }
+                    }
+                }
+                firstScan = false;
+            }
+        }
+        if (ImGui.Button("Reset")) {
+            memScannedValuesFound = 0;
+            firstScan = true;
+            memScannedMap = new Map<number, number>();
+        }
+
+        ImGui.Checkbox("Hex", (v = memScanHex) => (memScanHex = v));
+        ImGui.Text("Value:");
+        if (memScanHex) {
+            ImGui.Text("0x");
+            ImGui.SameLine();
+        }
+        ImGui.InputText("##memscanaddr", (v = memScanAddr) => (memScanAddr = v));
+        if (memScanInvalid) {
+            ImGui.Text("Invalid input!");
+        }
+
+        ImGui.NextColumn();
+
+        ImGui.Text("Scan in:");
+        ImGui.Checkbox("ROM", (v = scanRom) => (scanRom = v));
+        ImGui.Checkbox("VRAM", (v = scanVram) => (scanVram = v));
+        ImGui.Checkbox("SRAM", (v = scanSram) => (scanSram = v));
+        ImGui.Checkbox("WRAM", (v = scanWram) => (scanWram = v));
+        ImGui.Checkbox("OAM", (v = scanOam) => (scanOam = v));
+        ImGui.Checkbox("HRAM", (v = scanHram) => (scanHram = v));
+
+        ImGui.Columns(1);
+        ImGui.Separator();
+        ImGui.Text("GameShark:");
+        ImGui.InputText("##gameshark", (v = gameSharkText) => (gameSharkText = v));
+        if (gameSharkInvalid) {
+            ImGui.Text("Invalid GameShark code!");
+        }
+        if (ImGui.Button("Add")) {
+            let type = gameSharkText.substr(0, 2);
+            let value = gameSharkText.substr(2, 2);
+            let addrLow = gameSharkText.substr(4, 2);
+            let addrHigh = gameSharkText.substr(6, 2);
+
+            // console.log(`Raw Type: ${type}`);
+            // console.log(`Raw Value: ${value}`);
+            // console.log(`Raw Addr: ${addr}`);
+
+            let valueParsed = parseInt(`0x${value}`);
+            let addrParsed = parseInt(`0x${addrHigh}${addrLow}`);
+
+            if (gameSharkText.length != 8) {
+                gameSharkInvalid = true;
+            }
+            else if (isNaN(valueParsed)) {
+                gameSharkInvalid = true;
+            }
+            else if (isNaN(addrParsed)) {
+                gameSharkInvalid = true;
+            }
+            else {
+                gameSharkInvalid = false;
+                mgr.gb.provider.addCheat(addrParsed, valueParsed);
+            }
+        }
+
+        ImGui.Separator();
+
+        ImGui.Columns(2);
+
+        ImGui.Text("Address");
+        ImGui.NextColumn();
+        ImGui.Text("Value");
+        ImGui.NextColumn();
+
+        ImGui.Separator();
+
+        for (let [addr, val] of mgr.gb.provider.cheats) {
+            ImGui.Text(hexN(addr, 4));
+            ImGui.NextColumn();
+            ImGui.Text(hexN(val, 2));
+            ImGui.SameLine();
+            if (ImGui.Button(`Delete##${addr}`)) {
+                mgr.gb.provider.cheats.delete(addr);
+            }
+            ImGui.NextColumn();
+        }
+        ImGui.Columns(1);
+
         ImGui.End();
     }
 }

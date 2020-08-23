@@ -16,12 +16,16 @@ export class Bus {
     timer: Timer;
     apu: APU;
 
-    constructor(gb: GameBoy, ppu: PPU, joypad: Joypad, timer: Timer, sound: APU, provider?: GameBoyProvider) {
+    provider: GameBoyProvider
+
+    constructor(gb: GameBoy, ppu: PPU, joypad: Joypad, timer: Timer, sound: APU, provider: GameBoyProvider) {
         this.gb = gb;
         this.ppu = ppu;
         this.joypad = joypad;
         this.timer = timer;
         this.apu = sound;
+        
+        this.provider = provider;
 
         if (provider) {
             for (let i = 0; i < provider.rom.length; i++) {
@@ -108,6 +112,8 @@ export class Bus {
     }
 
     read8(addr: number): number {
+        if (this.provider.cheatsAddrs[addr]) return this.provider.cheatsValues[addr];
+
         switch (addr >> 12) {
             case 0x0: // ROM0 - 0###
             // There is no bootrom check to be found here. Bootrom unmapping is done in unmapBootrom().
@@ -192,7 +198,6 @@ export class Bus {
     }
 
     write8(addr: number, val: number): void {
-
         switch (addr >> 12) {
             case 0x0: // ROM0 - 0###
             case 0x1: // ROM0 - 1###
