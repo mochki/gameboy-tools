@@ -249,19 +249,17 @@ export class PPU {
 
     endMode3 = (cyclesLate: number) => { // Drawing -> Hblank
         let mode3Length;
-        this.fetcherCatchup();
-        mode3Length = this.fetcherCycles;
-        // if (this.fetcherCycles > 0) {
-        //     // fetcherAdvance automatically returns when pixel rendering is done
-        //     this.fetcherCatchup();
-        //     mode3Length = this.fetcherCycles;
-        // } else {
-        //     // If no writes by the predicted end of mode 3, use faster scanline render
-        //     if (this.renderThisFrame) {
-        //         this.renderScanline();
-        //     }
-        //     mode3Length = this.scheduler.currTicks - this.mode3StartCycles - cyclesLate;
-        // }
+        if (this.fetcherCycles > 0) {
+            // fetcherAdvance automatically returns when pixel rendering is done
+            this.fetcherCatchup();
+            mode3Length = this.fetcherCycles;
+        } else {
+            // If no writes by the predicted end of mode 3, use faster scanline render
+            if (this.renderThisFrame) {
+                this.renderScanline();
+            }
+            mode3Length = this.scheduler.currTicks - this.mode3StartCycles - cyclesLate;
+        }
 
         this.scanlineTimingsBack[this.ly] = mode3Length;
 
@@ -457,16 +455,16 @@ export class PPU {
                 let bcpsVal = 0;
                 bcpsVal |= this.cgbBgPaletteIndex & 0x3F;
                 if (this.cgbBgPaletteIndexInc) bcpsVal = bitSet(bcpsVal, 7);
-                console.log(`BG Pal Index Read: ${this.cgbObjPaletteIndex}`);
+                // console.log(`BG Pal Index Read: ${this.cgbObjPaletteIndex}`);
                 return bcpsVal;
             case 0xFF69: // BCPD / BGPD - CGB Background Palette Data
-                console.log(`BG Pal Data Read: ${this.cgbObjPaletteIndex}`);
+                // console.log(`BG Pal Data Read: ${this.cgbObjPaletteIndex}`);
                 return this.bgPalette.data[this.cgbBgPaletteIndex];
 
             case 0xFF6A: // OCPS / OGPI - CGB Sprite Palette Index
                 let ocpsVal = 0;
                 ocpsVal |= this.cgbObjPaletteIndex & 0x3F;
-                if (this.cgbObjPaletteIndexInc) bcpsVal = bitSet(ocpsVal, 7);
+                if (this.cgbObjPaletteIndexInc) ocpsVal = bitSet(ocpsVal, 7);
                 return ocpsVal;
             case 0xFF6B: // OCPD / OGPD - CGB Sprite Palette Data
                 return this.objPalette.data[this.cgbObjPaletteIndex];
@@ -563,7 +561,7 @@ export class PPU {
                 this.cgbBgPaletteIndexInc = bitTest(val, 7);
                 return;
             case 0xFF69: // BCPD / BGPD - CGB Background Palette Data
-                console.log(hex(val, 2));
+                // console.log(hex(val, 2));
                 this.bgPalette.data[this.cgbBgPaletteIndex] = val;
                 this.bgPalette.update(this.cgbBgPaletteIndex >> 3, (this.cgbBgPaletteIndex >> 1) & 0b11);
                 if (this.cgbBgPaletteIndexInc) {
@@ -1032,7 +1030,7 @@ export class PPU {
                                     this.fetcherTileDataLower = lower;
                                     this.fetcherTileDataUpper = upper;
                                 }
-                                this.fetcherTileNoSprites = noSprites ? 0xFF : 0;
+                                this.fetcherTileNoSprites = noSprites ? this.fetcherTileDataLower | this.fetcherTileDataUpper : 0;
                                 this.fetcherTilePal = paletteId;
                                 this.fetcherPushReady = true;
                                 this.fetcherStep = 0;
@@ -1064,13 +1062,15 @@ export class PPU {
 
                             let objPixelUpper = this.fetcherObjShiftUpper & 1;
                             let objPixelLower = this.fetcherObjShiftLower & 1;
-                            let objCol = (objPixelUpper << 1) | objPixelLower;
-
+                            
                             let objPalette = (((this.fetcherObjShiftPal0 & 1) << 0) | ((this.fetcherObjShiftPal1 & 1) << 1) | ((this.fetcherObjShiftPal2 & 1) << 2)) & 0b111;
-
+                            
                             if (this.bgWindowEnable || !this.gb.cgb) {
-                                objCol &= (this.fetcherBgWindowShiftNoSprites) ^ 0xFF;
+                                objPixelUpper &= ((this.fetcherBgWindowShiftNoSprites) ^ 1) & 1;
+                                objPixelLower &= ((this.fetcherBgWindowShiftNoSprites) ^ 1) & 1;
                             }
+                            
+                            let objCol = (objPixelUpper << 1) | objPixelLower;
 
                             if (objCol != 0) {
                                 let priority = this.fetcherObjShiftBgPrio & 1;
@@ -1086,6 +1086,7 @@ export class PPU {
                             this.fetcherObjShiftPal1 >>= 1;
                             this.fetcherObjShiftPal2 >>= 1;
                             this.fetcherObjShiftBgPrio >>= 1;
+                            this.fetcherBgWindowShiftNoSprites >>= 1;
 
                             if (this.fetcherX == this.wx - 8 && this.windowEnable && this.ly >= this.wy) {
                                 // Window trigger
