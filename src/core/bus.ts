@@ -186,6 +186,12 @@ export class Bus {
                     case 0xFF0F: // IF
                     case 0xFFFF: // IE
                         return this.gb.cpu.readHwio8(addr);
+
+                    default:
+                        if (addr >= 0xFF00 && addr <= 0xFF7F) {
+                            console.log(`UNHANDLED HWIO READ: ${hex(addr, 4)}`);
+                        }
+                        break;
                 }
                 if (addr >= 0xFF80 && addr <= 0xFFFE) { // HRAM
                     return this.hram[addr - 0xFF80];
@@ -291,6 +297,12 @@ export class Bus {
                     case 0xFFFF: // IE
                         this.gb.cpu.writeHwio8(addr, val);
                         return;
+
+                    default:
+                        if (addr >= 0xFF00 && addr <= 0xFF7F) {
+                            console.log(`UNHANDLED HWIO WRITE: ${hex(addr, 4)}`);
+                        }
+                        break;
                 }
 
                 if (addr >= 0xFF80 && addr <= 0xFFFE) { // HRAM

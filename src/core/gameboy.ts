@@ -33,8 +33,15 @@ export class GameBoy {
         this.cpu = new CPU(this, this.bus);
 
         this.provider = provider;
-        
-        if (skipBootrom) this.dmgBootrom();
+        this.cgb = (this.provider.rom[0x143] & 0x80) == 0x80;
+
+        if (skipBootrom) {
+            if (!this.cgb) {
+                this.dmgBootrom();
+            } else {
+                this.cgbBootrom();
+            }
+        }
 
         this.skipBootrom = skipBootrom;
     }
@@ -149,6 +156,16 @@ export class GameBoy {
         // Turn on the LCD, enable Background, use Tileset 0x8000, 
         this.bus.write8(0xFF40, 0x91);
         this.bus.write8(0xFF0F, 0xE1);
+    }
+
+    cgbBootrom() {
+        this.cpu.pc = 0x100;
+
+        this.cpu.setAf(0x1180);
+        this.cpu.setBc(0x0000);
+        this.cpu.setDe(0x0008);
+        this.cpu.setHl(0x007C);
+        this.cpu.sp = 0xFFFE;
     }
 
     cgb = false;
