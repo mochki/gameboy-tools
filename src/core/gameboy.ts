@@ -87,6 +87,8 @@ export class GameBoy {
         this.bus.write8(0xFF4A, 0x00);
         this.bus.write8(0xFF4B, 0x00);
         this.bus.write8(0xFFFF, 0x00);
+
+        // Unmap boot ROM
         this.bus.write8(0xFF50, 0x01);
 
         // Clear VRAM
@@ -166,6 +168,13 @@ export class GameBoy {
         this.cpu.setDe(0x0008);
         this.cpu.setHl(0x007C);
         this.cpu.sp = 0xFFFE;
+
+        // Unmap boot ROM
+        this.bus.write8(0xFF50, 0x01);
+
+        // Turn on the LCD, enable Background, use Tileset 0x8000
+        this.bus.write8(0xFF40, 0x91);
+        this.bus.write8(0xFF0F, 0xE1);
     }
 
     cgb = false;

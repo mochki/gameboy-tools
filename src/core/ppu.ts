@@ -448,18 +448,18 @@ export class PPU {
                 let bcpsVal = 0;
                 bcpsVal |= this.cgbBgPaletteIndex & 0x3F;
                 if (this.cgbBgPaletteIndexInc) bcpsVal = bitSet(bcpsVal, 7);
+                console.log(`BG Pal Index Read: ${this.cgbObjPaletteIndex}`);
                 return bcpsVal;
             case 0xFF69: // BCPD / BGPD - CGB Background Palette Data
+                console.log(`BG Pal Data Read: ${this.cgbObjPaletteIndex}`);
                 return this.bgPalette.data[this.cgbBgPaletteIndex];
 
             case 0xFF6A: // OCPS / OGPI - CGB Sprite Palette Index
                 let ocpsVal = 0;
                 ocpsVal |= this.cgbObjPaletteIndex & 0x3F;
                 if (this.cgbObjPaletteIndexInc) bcpsVal = bitSet(ocpsVal, 7);
-                console.log(`BG Pal Index Read: ${this.cgbObjPaletteIndex}`);
                 return ocpsVal;
             case 0xFF6B: // OCPD / OGPD - CGB Sprite Palette Data
-                console.log(`BG Pal Data Read: ${this.cgbObjPaletteIndex}`);
                 return this.objPalette.data[this.cgbObjPaletteIndex];
 
             default:
@@ -554,9 +554,9 @@ export class PPU {
                 this.cgbBgPaletteIndexInc = bitTest(val, 7);
                 return;
             case 0xFF69: // BCPD / BGPD - CGB Background Palette Data
+                console.log(hex(val, 2));
                 this.bgPalette.data[this.cgbBgPaletteIndex] = val;
                 this.bgPalette.update(this.cgbBgPaletteIndex >> 3, (this.cgbBgPaletteIndex >> 1) & 0b11);
-                this.bgPalette.updateAll();
                 if (this.cgbBgPaletteIndexInc) {
                     this.cgbBgPaletteIndex++;
                     this.cgbBgPaletteIndex &= 0x3F;
@@ -570,7 +570,6 @@ export class PPU {
             case 0xFF6B: // OCPD / OGPD - CGB Sprite Palette Data
                 this.objPalette.data[this.cgbObjPaletteIndex] = val;
                 this.objPalette.update(this.cgbObjPaletteIndex >> 3, (this.cgbObjPaletteIndex >> 1) & 0b11);
-                this.objPalette.updateAll();
                 if (this.cgbObjPaletteIndexInc) {
                     this.cgbObjPaletteIndex++;
                     this.cgbObjPaletteIndex &= 0x3F;
@@ -683,10 +682,12 @@ export class PPU {
                     }
                     else {
                         for (let tp = 0; tp < 8; tp++) {
-                            this.screenBackBuf[screenBase] = palette[data[tp]];
-                            this.scanlineRaw[pixel] = data[tp];
-                            this.scanlineNoSprites[pixel] = (noSprites && data[tp] != 0) ? 1 : 0;
-                            screenBase += 1;
+                            if (pixel >= 0) {
+                                this.screenBackBuf[screenBase] = palette[data[tp]];
+                                this.scanlineRaw[pixel] = data[tp];
+                                this.scanlineNoSprites[pixel] = (noSprites && data[tp] != 0) ? 1 : 0;
+                                screenBase += 1;
+                            }
                             pixel += 1;
 
                             if (pixel > 159) break bgLoop;

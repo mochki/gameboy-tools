@@ -287,6 +287,10 @@ export class Bus {
                         this.ppu.writeHwio8(addr, val);
                         return;
 
+                    case 0xFF4D: // KEY1
+                        console.log("KEY1 WRITE!");
+                        return;
+
                     case 0xFF50: // Bootrom Disable
                         if (bitTest(val, 0) && this.bootromEnabled) {
                             this.unmapBootrom();
