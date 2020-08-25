@@ -1142,8 +1142,9 @@ function DrawCheats() {
                     ImGui.Text(`01$$${hexN(addr & 0xFF, 2)}${hexN(addr >> 8, 2)}`);
                     if (currentMemScanSize == "16-bit") {
                         ImGui.SameLine();
-                        ImGui.Text(`01$$${hexN(addr & 0xFF, 2)}${hexN(addr >> 8, 2)}`);
-                    }
+                        ImGui.Text(`01$$${hexN((addr + 1) & 0xFF, 2)}${hexN((addr + 1) >> 8, 2)}`);
+                    }                 
+
 
                     ImGui.NextColumn();
                 }
