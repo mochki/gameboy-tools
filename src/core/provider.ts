@@ -23,11 +23,7 @@ export class GameBoyProvider {
         this.rom[0x101] = 0xFE;
 
         if (rom) {
-            for (let i = 0; i < rom.length; i++) {
-                if (i < this.rom.length) {
-                    this.rom[i] = rom[i];
-                }
-            }
+            this.rom = rom;
         }
         if (bootrom) {
             for (let i = 0; i < bootrom.length; i++) {

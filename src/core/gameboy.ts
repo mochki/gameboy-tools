@@ -33,9 +33,6 @@ export class GameBoy {
         this.cpu = new CPU(this, this.bus);
 
         this.provider = provider;
-
-        this.bus.updateMapper();
-
         
         if (skipBootrom) this.dmgBootrom();
 

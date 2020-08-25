@@ -9,6 +9,7 @@ import { MBC } from './mbc/mbc';
 import NullMBC from './mbc/nullmbc';
 import MBC3 from './mbc/mbc3';
 import { GameBoyProvider } from './provider';
+import MBC5 from './mbc/mbc5';
 export class Bus {
     gb: GameBoy;
     ppu: PPU;
@@ -16,7 +17,7 @@ export class Bus {
     timer: Timer;
     apu: APU;
 
-    provider: GameBoyProvider
+    provider: GameBoyProvider;
 
     constructor(gb: GameBoy, ppu: PPU, joypad: Joypad, timer: Timer, sound: APU, provider: GameBoyProvider) {
         this.gb = gb;
@@ -24,7 +25,7 @@ export class Bus {
         this.joypad = joypad;
         this.timer = timer;
         this.apu = sound;
-        
+
         this.provider = provider;
 
         if (provider) {
@@ -33,6 +34,7 @@ export class Bus {
                     this.rom[i] = provider.rom[i];
                 }
             }
+            this.updateMapper(provider.rom);
             for (let i = 0; i < provider.bootrom.length; i++) {
                 if (i < this.bootrom.length) {
                     this.bootrom[i] = provider.bootrom[i];
@@ -48,8 +50,14 @@ export class Bus {
 
     mbc: MBC = new NullMBC();
 
-    updateMapper() {
-        let id = this.rom[0x147];
+    updateMapper(rom: Uint8Array) {
+        let id = rom[0x147];
+
+        let length = rom.length;
+
+        length = Math.pow(2, Math.ceil(Math.log(length) / Math.log(2)));
+        console.log(`ROM Size (rounded up to next power of 2): ${length}`);
+        this.romOffsetMask = length - 1;
 
         switch (id) {
             case 0x00:
@@ -71,12 +79,12 @@ export class Bus {
             case 0x1B:
             case 0x1C:
             case 0x1D:
-            case 0x1E:
-                this.mbc = new MBC3();
+            case 0x1E: // MBC5
+                this.mbc = new MBC5();
                 break;
         }
 
-        this.romOffset = this.mbc.getOffset();
+        this.romOffset = this.mbc.getOffset() & this.romOffsetMask;
         // this.gb.cgb = 
     }
 
@@ -87,19 +95,11 @@ export class Bus {
 
     rom = new Uint8Array(8388608).fill(0xFF);
     romOffset = 0;
+    romOffsetMask = 0xFFFFFFFF;
 
     hram = new Uint8Array(127).fill(0xFF);
 
-    wram = [
-        new Uint8Array(0x1000),
-        new Uint8Array(0x1000),
-        new Uint8Array(0x1000),
-        new Uint8Array(0x1000),
-        new Uint8Array(0x1000),
-        new Uint8Array(0x1000),
-        new Uint8Array(0x1000),
-        new Uint8Array(0x1000),
-    ];
+    wram = new Uint8Array(0x8000);
     wramBank = 1;
 
     serialOut = "";
@@ -133,11 +133,11 @@ export class Bus {
             case 0xB: // SRAM - B###
                 return this.mbc.read8(addr);
             case 0xC: // WRAM0 - C###
-                return this.wram[0][addr & 0xFFF];
+                return this.wram[addr & 0xFFF];
             case 0xD: // WRAMX - D###
-                return this.wram[this.wramBank][addr & 0xFFF];
+                return this.wram[(addr & 0xFFF) + 0x1000];
             case 0xE: // Echo RAM - E###
-                return this.wram[0][addr & 0xFFF];
+                return this.wram[addr & 0xFFF];
             case 0xF: // ZeroPage - F###
                 if (addr >= 0xFE00 && addr <= 0xFE9F) {
                     return this.ppu.readOam8(addr);
@@ -208,7 +208,7 @@ export class Bus {
             case 0x6: // ROMX - 6### 
             case 0x7: // ROMX - 7### 
                 this.mbc.write8(addr, val);
-                this.romOffset = this.mbc.getOffset();
+                this.romOffset = this.mbc.getOffset() & this.romOffsetMask;
                 return;
             case 0x8: // VRAM - 8###
             case 0x9: // VRAM - 9###
@@ -219,13 +219,13 @@ export class Bus {
                 this.mbc.write8(addr, val);
                 return;
             case 0xC: // WRAM0 - C###
-                this.wram[0][addr & 0xFFF] = val;
+                this.wram[addr & 0xFFF] = val;
                 return;
             case 0xD: // WRAMX - D###
-                this.wram[this.wramBank][addr & 0xFFF] = val;
+                this.wram[(addr & 0xFFF) + 0x1000] = val;
                 return;
             case 0xE: // Echo RAM - E###
-                this.wram[0][addr & 0xFFF] = val;
+                this.wram[addr & 0xFFF] = val;
                 return;
             case 0xF: // ZeroPage - F###
                 if (addr >= 0xFE00 && addr <= 0xFE9F) {
