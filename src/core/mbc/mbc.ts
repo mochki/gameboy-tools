@@ -11,7 +11,7 @@ export abstract class MBC {
     abstract getOffset(): number;
 
     setSram(source: Uint8Array) {
-        for (let i = 0; i < 0x4000; i++) {
+        for (let i = 0; i < this.sram.length; i++) {
             if (i < source.length) {
                 this.sram[i] = source[i];
             }
