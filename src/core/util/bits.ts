@@ -37,5 +37,5 @@ export function bitSetValue(i: number, bit: number, value: boolean) {
 }
 
 export function byteFlip(i: number) {
-    return ((i * 0x0802 & 0x22110) | (i * 0x8020 & 0x88440)) * 0x10101 >> 16;
+    return (((i * 0x0802 & 0x22110) | (i * 0x8020 & 0x88440)) * 0x10101 >> 16) & 0xFF;
 }
