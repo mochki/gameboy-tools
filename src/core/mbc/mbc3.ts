@@ -62,7 +62,7 @@ export default class MBC3 extends MBCWithRTC {
                 break;
             case 0x2:
             case 0x3:
-                this.romBank = val;
+                this.romBank = val & 127; // 7 bits
                 if (this.romBank == 0) {
                     this.romBank = 1;
                 }
