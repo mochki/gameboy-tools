@@ -1,4 +1,3 @@
-import { CreateDeviceObjects } from "../frontend/imgui_impl";
 
 export type SchedulerCallback = (cyclesLate: number) => void;
 export class SchedulerEvent {
@@ -29,6 +28,11 @@ export enum SchedulerId {
     TimerReload = 10,
 }
 
+export const SchedulerSpeedSwitchAffected: SchedulerId[] = [
+    SchedulerId.PPUMode,
+    SchedulerId.APUSample,
+    SchedulerId.TimerAPUFrameSequencer,
+];
 
 export function resolveSchedulerId(id: SchedulerId): string {
     switch (id) {

@@ -100,7 +100,7 @@ export class Timer {
 
         this.lastDivResetTicks = this.scheduler.currTicks;
         this.lastDivLazyResetTicks = this.scheduler.currTicks;
-        if (bitTest(this.div, 5)) this.gb.apu.advanceFrameSequencer(0); // Frame sequencer clock uses falling edge detector
+        if (bitTest(this.div, 5 << this.gb.doubleSpeed)) this.gb.apu.advanceFrameSequencer(0); // Frame sequencer clock uses falling edge detector
 
         this.scheduler.cancelEventsById(SchedulerId.TimerAPUFrameSequencer);
         this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 8192, this.gb.apu.advanceFrameSequencer);

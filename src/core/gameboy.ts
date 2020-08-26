@@ -1,4 +1,4 @@
-import { Scheduler, SchedulerId } from './scheduler';
+import { Scheduler, SchedulerId, SchedulerSpeedSwitchAffected } from './scheduler';
 import { GameBoyProvider } from './provider';
 import { Bus } from "./bus";
 import { CPU } from "./cpu/cpu";
@@ -7,6 +7,7 @@ import { Joypad } from './joypad';
 import { Timer } from './timer';
 import { APU } from './apu';
 import { bitSetValue, bitTest } from './util/bits';
+import { GetTextLineHeightWithSpacing } from '../lib/imgui-js/imgui';
 
 export class GameBoy {
     bus: Bus;
@@ -47,6 +48,42 @@ export class GameBoy {
         }
 
         this.skipBootrom = skipBootrom;
+    }
+
+    speedSwitch() {
+        if (this.doubleSpeed) {
+            this.doubleSpeed = 0;
+        } else {
+            this.doubleSpeed = 1;
+        }
+
+        for (let i = 0; i < this.scheduler.heap.length; i++) {
+            let event = this.scheduler.heap[i];
+            let affected = false;
+            for (let j = 0; j < SchedulerSpeedSwitchAffected.length; j++) {
+                if (event.id = SchedulerSpeedSwitchAffected[i]) {
+                    affected = true;
+                }
+            }
+
+            let callback = event.callback;
+            let id = event.id;
+            let ticks = event.ticks;
+
+            if (affected) {
+                this.scheduler.deleteEvent(i);
+                // console.log(`Canceling: ${id}, ${ticks}`);
+                if (this.doubleSpeed) {
+                    // Switching to double speed
+                    // console.log(`Re-adding: ${id}, ${ticks >> 1}`);
+                    this.scheduler.addEventRelative(id, ticks >> 1, callback);
+                } else {
+                    // Switching to normal speed
+                    // console.log(`Re-adding: ${id}, ${ticks << 1}`);
+                    this.scheduler.addEventRelative(id, ticks << 1, callback);
+                }
+            }
+        }
     }
 
     dmgBootrom() {

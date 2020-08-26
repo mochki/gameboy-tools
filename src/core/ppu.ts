@@ -221,9 +221,9 @@ export class PPU {
             this.mode = PPUMode.OamScan;
             this.checkStat();
         } else {
-            this.scheduler.addEventRelative(SchedulerId.PPUMode, 4 - cyclesLate, this.enterMode2Late);
+            this.scheduler.addEventRelative(SchedulerId.PPUMode, (4 - cyclesLate) << this.gb.doubleSpeed, this.enterMode2Late);
         }
-        this.scheduler.addEventRelative(SchedulerId.PPUMode, 80 - cyclesLate, this.endMode2);
+        this.scheduler.addEventRelative(SchedulerId.PPUMode, (80 - cyclesLate) << this.gb.doubleSpeed, this.endMode2);
     };
 
     enterMode2Late = (cyclesLate: number) => {
@@ -242,8 +242,8 @@ export class PPU {
         mode3Extra += this.scx & 0b111;
         mode3Extra += this.fastInitialOamScanSpriteCount * 6;
         if (this.wx > 7 && this.ly >= this.wy && this.windowEnable) mode3Extra += 6;
-        this.scheduler.addEventRelative(SchedulerId.PPUMode, 172 + mode3Extra - cyclesLate, this.endMode3);
-        this.scheduler.addEventRelative(SchedulerId.PPUMode, 376 - cyclesLate, this.endMode0);
+        this.scheduler.addEventRelative(SchedulerId.PPUMode, (172 + mode3Extra - cyclesLate) << this.gb.doubleSpeed, this.endMode3);
+        this.scheduler.addEventRelative(SchedulerId.PPUMode, (376 - cyclesLate) << this.gb.doubleSpeed, this.endMode0);
         this.mode3StartCycles = this.scheduler.currTicks - cyclesLate;
     };
 
@@ -295,8 +295,8 @@ export class PPU {
     };
 
     enterMode1 = (cyclesLate: number) => { // Enter Vblank
-        this.scheduler.addEventRelative(SchedulerId.PPUMode, 4 - cyclesLate, this.enterMode1LateEffects);
-        this.scheduler.addEventRelative(SchedulerId.PPUMode, 456 - cyclesLate, this.continueMode1);
+        this.scheduler.addEventRelative(SchedulerId.PPUMode, (4 - cyclesLate) << this.gb.doubleSpeed, this.enterMode1LateEffects);
+        this.scheduler.addEventRelative(SchedulerId.PPUMode, (456 - cyclesLate) << this.gb.doubleSpeed, this.continueMode1);
     };
 
     enterMode1LateEffects = (cyclesLate: number) => {
@@ -310,10 +310,10 @@ export class PPU {
         this.checkStat();
 
         if (this.ly == 153) {
-            this.scheduler.addEventRelative(SchedulerId.PPUMode, 4 - cyclesLate, this.line153Quirk);
-            this.scheduler.addEventRelative(SchedulerId.PPUMode, 456 - cyclesLate, this.enterMode2);
+            this.scheduler.addEventRelative(SchedulerId.PPUMode, (4 - cyclesLate) << this.gb.doubleSpeed, this.line153Quirk);
+            this.scheduler.addEventRelative(SchedulerId.PPUMode, (456 - cyclesLate) << this.gb.doubleSpeed, this.enterMode2);
         } else if (this.ly < 153) {
-            this.scheduler.addEventRelative(SchedulerId.PPUMode, 456 - cyclesLate, this.continueMode1);
+            this.scheduler.addEventRelative(SchedulerId.PPUMode, (456 - cyclesLate) << this.gb.doubleSpeed, this.continueMode1);
         }
     };
 
@@ -872,7 +872,7 @@ export class PPU {
             let diff = current - this.mode3StartCycles;
             this.mode3StartCycles = current;
 
-            this.fetcherAdvance(diff);
+            this.fetcherAdvance(diff >> this.gb.doubleSpeed);
         }
     }
 

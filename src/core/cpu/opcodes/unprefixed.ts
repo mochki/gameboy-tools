@@ -835,6 +835,9 @@ export function STOP(cpu: CPU) {
     cpu.pc = (cpu.pc + 1) & 0xFFFF;
 
     if (cpu.gb.queueSpeedSwitch) {
+        cpu.gb.queueSpeedSwitch = false;
+
         console.log("STOP: Speed switch!");
+        cpu.gb.speedSwitch();
     }
 }

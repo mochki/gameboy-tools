@@ -131,7 +131,7 @@ export class APU {
         this.frameSequencerStep++;
         this.frameSequencerStep &= 7;
 
-        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 8192 - cyclesLate, this.advanceFrameSequencer);
+        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, (8192 - cyclesLate) << this.gb.doubleSpeed, this.advanceFrameSequencer);
     };
 
     clockLength() {
@@ -675,13 +675,13 @@ export class APU {
                     this.player.queueAudio(this.sampleBufL, this.sampleBufR);
                 }
                 if (this.player.sourcesPlaying >= 16) {
-                    this.scheduler.addEventRelative(SchedulerId.APUSample, (sampleBufMax * cyclesPerSample * 16) - cyclesLate, this.sample);
+                    this.scheduler.addEventRelative(SchedulerId.APUSample, ((sampleBufMax * cyclesPerSample * 16) - cyclesLate) << this.gb.doubleSpeed, this.sample);
                     return;
                 }
             }
         }
 
-        this.scheduler.addEventRelative(SchedulerId.APUSample, cyclesPerSample - cyclesLate, this.sample);
+        this.scheduler.addEventRelative(SchedulerId.APUSample, (cyclesPerSample - cyclesLate) << this.gb.doubleSpeed, this.sample);
     };
 
     downloader = new WavDownloader(outputSampleRate);
