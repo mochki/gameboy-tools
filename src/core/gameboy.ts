@@ -23,6 +23,9 @@ export class GameBoy {
 
     skipBootrom = false;
 
+    doubleSpeed = 0;
+    queueSpeedSwitch = false;
+
     constructor(skipBootrom: boolean, provider: GameBoyProvider) {
         this.scheduler = new Scheduler();
         this.joypad = new Joypad();

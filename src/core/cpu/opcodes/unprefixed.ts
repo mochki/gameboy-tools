@@ -829,3 +829,12 @@ export function ADD_HL_SP(cpu: CPU) {
 
     cpu.tickPending(4);
 }
+
+export function STOP(cpu: CPU) {
+    let byte = cpu.read8(cpu.pc);
+    cpu.pc = (cpu.pc + 1) & 0xFFFF;
+
+    if (cpu.gb.queueSpeedSwitch) {
+        console.log("STOP: Speed switch!");
+    }
+}

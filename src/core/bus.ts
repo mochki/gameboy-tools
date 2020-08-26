@@ -1,7 +1,7 @@
 import { PPU, PPUMode } from './ppu';
 import { GameBoy } from './gameboy';
 import { hex } from './util/misc';
-import { bitTest } from './util/bits';
+import { bitTest, bitSet } from './util/bits';
 import { Joypad } from './joypad';
 import { Timer } from './timer';
 import { APU } from './apu';
@@ -135,11 +135,14 @@ export class Bus {
             case 0xC: // WRAM0 - C###
                 return this.wram[addr & 0xFFF];
             case 0xD: // WRAMX - D###
-                return this.wram[(addr & 0xFFF) + 0x1000];
+                return this.wram[(addr & 0xFFF) + (this.wramBank * 0x1000)];
             case 0xE: // Echo RAM - E###
                 return this.wram[addr & 0xFFF];
             case 0xF: // ZeroPage - F###
-                if (addr >= 0xFE00 && addr <= 0xFE9F) {
+                if (addr >= 0xF000 && addr <= 0xFDFF) {
+                    return this.wram[(addr & 0xFFF) + (this.wramBank * 0x1000)];
+                }
+                else if (addr >= 0xFE00 && addr <= 0xFE9F) {
                     return this.ppu.readOam8(addr);
                 }
 
@@ -182,6 +185,15 @@ export class Bus {
                     case 0xFF6A: // OCPS/OBPI
                     case 0xFF6B: // OCPD/OBPD
                         return this.ppu.readHwio8(addr);
+
+                    case 0xFF4D: // KEY1
+                        let key1Val = 0;
+                        key1Val |= this.gb.doubleSpeed << 7;
+                        if (this.gb.queueSpeedSwitch) key1Val = bitSet(key1Val, 0);
+                        return key1Val;
+
+                    case 0xFF70: // SVBK - WRAM Bank
+                        return this.wramBank | 0b11111000;
 
                     case 0xFF0F: // IF
                     case 0xFFFF: // IE
@@ -228,13 +240,17 @@ export class Bus {
                 this.wram[addr & 0xFFF] = val;
                 return;
             case 0xD: // WRAMX - D###
-                this.wram[(addr & 0xFFF) + 0x1000] = val;
+                this.wram[(addr & 0xFFF) + (this.wramBank * 0x1000)] = val;
                 return;
             case 0xE: // Echo RAM - E###
                 this.wram[addr & 0xFFF] = val;
                 return;
             case 0xF: // ZeroPage - F###
-                if (addr >= 0xFE00 && addr <= 0xFE9F) {
+                if (addr >= 0xF000 && addr <= 0xFDFF) {
+                    this.wram[(addr & 0xFFF) + (this.wramBank * 0x1000)] = val;
+                    return;
+                }
+                else if (addr >= 0xFE00 && addr <= 0xFE9F) {
                     this.ppu.writeOam8(addr, val);
                     return;
                 }
@@ -288,7 +304,14 @@ export class Bus {
                         return;
 
                     case 0xFF4D: // KEY1
-                        console.log("KEY1 WRITE!");
+                        this.gb.queueSpeedSwitch = bitTest(val, 0);
+                        return;
+
+                    case 0xFF70: // SVBK - WRAM Bank
+                        this.wramBank = val & 0b111;
+                        if (this.wramBank == 0) {
+                            this.wramBank = 1;
+                        }
                         return;
 
                     case 0xFF50: // Bootrom Disable
