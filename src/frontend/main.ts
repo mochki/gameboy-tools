@@ -111,7 +111,7 @@ async function _init(): Promise<void> {
 
         let pct = cycles / (70224 * (diff / 1000));
         cycles = 0;
-        document.title = `Optime GB (${(pct * 1) | 0} fps)`;
+        document.title = `Optime GB (${((pct * 1) | 0) >> mgr.gb.doubleSpeed} fps)`;
     }, 1000);
 
     let altControls = false;
@@ -1143,7 +1143,7 @@ function DrawCheats() {
                     if (currentMemScanSize == "16-bit") {
                         ImGui.SameLine();
                         ImGui.Text(`01$$${hexN((addr + 1) & 0xFF, 2)}${hexN((addr + 1) >> 8, 2)}`);
-                    }                 
+                    }
 
 
                     ImGui.NextColumn();
