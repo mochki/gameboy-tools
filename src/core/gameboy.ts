@@ -215,6 +215,8 @@ export class GameBoy {
         // Turn on the LCD, enable Background, use Tileset 0x8000
         this.bus.write8(0xFF40, 0x91);
         this.bus.write8(0xFF0F, 0xE1);
+
+        this.ppu.cgbBgPaletteIndexInc = true;
     }
 
     cgb = false;
