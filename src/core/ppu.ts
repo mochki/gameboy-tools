@@ -20,6 +20,33 @@ export const colors555: Uint8Array[] = [
     new Uint8Array([0x00 >> 3, 0x00 >> 3, 0x00 >> 3]),
 ];
 
+const paletteLookup = generatePaletteLookup();
+function generatePaletteLookup() {
+    // 32768 colors * 3 bytes each
+    let table = new Array(32768).fill(0).map(() => new Uint8Array(3));
+
+    for (let i = 0; i < 32768; i++) {
+        let r = (i >> 0) & 0b11111;
+        let g = (i >> 5) & 0b11111;
+        let b = (i >> 10) & 0b11111;
+
+        // Color correction algorithm, as detailed in https://byuu.net/video/color-emulation/
+        let rOut = (r * 26 + g * 4 + b * 2);
+        let gOut = (g * 26 + b * 8);
+        let bOut = (r * 6 + g * 4 + b * 22);
+
+        rOut = Math.min(240, rOut >> 2);
+        gOut = Math.min(240, gOut >> 2);
+        bOut = Math.min(240, bOut >> 2);
+
+        table[i][0] = rOut;
+        table[i][1] = gOut;
+        table[i][2] = bOut;
+    }
+
+    return table;
+}
+
 const RGB_5_TO_8 = [0, 5, 8, 11, 16, 22, 28, 36, 43, 51, 59, 67, 77, 87, 97, 107, 119, 130, 141, 153, 166, 177, 188, 200, 209, 221, 230, 238, 245, 249, 252, 255];
 class PaletteData {
     data = new Uint8Array(64).fill(0xFF);
@@ -39,15 +66,11 @@ class PaletteData {
         const b0 = this.data[(pal * 8) + (col * 2) + 0];
         const b1 = this.data[(pal * 8) + (col * 2) + 1];
 
-        const rgb555 = (b1 << 8) | b0;
+        const rgb555 = ((b1 << 8) | b0) & 0b111111111111111;
 
-        const r = ((rgb555 >> 0) & 31);
-        const g = ((rgb555 >> 5) & 31);
-        const b = ((rgb555 >> 10) & 31);
-
-        this.shades[pal][col][0] = RGB_5_TO_8[r];
-        this.shades[pal][col][1] = RGB_5_TO_8[g];
-        this.shades[pal][col][2] = RGB_5_TO_8[b];
+        this.shades[pal][col][0] = paletteLookup[rgb555][0];
+        this.shades[pal][col][1] = paletteLookup[rgb555][1];
+        this.shades[pal][col][2] = paletteLookup[rgb555][2];
     }
 
     updateAll() {
@@ -724,7 +747,7 @@ export class PPU {
                     let tilemapBase = (this.windowTilemapSelect ? 1024 : 0) + (((this.windowCurrentLine >> 3) << 5) & 1023);
                     let lineOffset = 0;
 
-                    screenBase = (this.ly * 160 * 3) + windowPixel;
+                    screenBase = (this.ly * 160 + windowPixel) * 3;
                     let tileY = this.windowCurrentLine & 7;
 
                     windowLoop:
