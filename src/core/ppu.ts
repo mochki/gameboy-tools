@@ -31,9 +31,12 @@ function generatePaletteLookup() {
         let b = (i >> 10) & 0b11111;
 
         // Color correction algorithm, as detailed in https://byuu.net/video/color-emulation/
-        let rOut = (r * 26 + g * 4 + b * 2);
-        let gOut = (g * 26 + b * 8);
-        let bOut = (r * 6 + g * 4 + b * 22);
+        // Tweaked to Powerlated's liking
+        let rOut = (r * 28 + g * 2 + b * 1);
+        let gOut = (r * 0 + g * 23 + b * 8);
+        let bOut = (r * 4 + g * 2 + b * 25);
+
+        // All factors add up to 31, creating neutral greys.
 
         rOut = Math.min(240, rOut >> 2);
         gOut = Math.min(240, gOut >> 2);
@@ -291,7 +294,7 @@ export class PPU {
             mode3Length = this.scheduler.currTicks - this.mode3StartCycles - cyclesLate;
         }
 
-        this.scanlineTimingsBack[this.ly] = mode3Length;
+        this.scanlineTimingsBack[this.ly] = mode3Length >> this.gb.doubleSpeed;
 
         this.mode = PPUMode.Hblank;
         this.checkStat();
