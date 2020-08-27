@@ -520,7 +520,7 @@ function RenderOutput() {
                 144,
                 0,
                 gl.RGB,
-                gl.UNSIGNED_SHORT_5_6_5,
+                gl.UNSIGNED_BYTE,
                 mgr.gb.ppu.screenFrontBuf,
             );
             gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
@@ -738,7 +738,7 @@ function DrawDisplay() {
                     144,
                     0,
                     gl.RGB,
-                    gl.UNSIGNED_SHORT_5_6_5,
+                    gl.UNSIGNED_BYTE,
                     mgr.gb.ppu.screenFrontBuf,
                 );
             }
