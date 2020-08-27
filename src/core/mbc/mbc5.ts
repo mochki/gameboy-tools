@@ -39,11 +39,11 @@ export default class MBC5 extends MBC {
                 break;
             case 0x2:
                 this.romBank &= ~0xFF;
-                this.romBank |= val & 0xFF;
+                this.romBank |= (val << 0) & 0xFF;
                 break;
             case 0x3:
                 this.romBank &= ~0x100;
-                this.romBank |= val & 0x100;
+                this.romBank |= (val << 8) & 0x100;
                 break;
             case 0x4:
             case 0x5:
