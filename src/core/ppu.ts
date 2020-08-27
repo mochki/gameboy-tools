@@ -239,6 +239,12 @@ export class PPU {
     fetcherStall = 0;
     fetcherCycles = 0;
 
+    hdmaSource = 0;
+    hdmaDest = 0;
+    // Blocks of 16 bytes remaining
+    hdmaBlocksRemaining = 0;
+    hdmaActive = false;
+
     swapBuffers() {
         let tempScreenBuf = this.screenBackBuf;
         this.screenBackBuf = this.screenFrontBuf;
@@ -299,6 +305,20 @@ export class PPU {
         this.mode = PPUMode.Hblank;
         this.checkStat();
         this.fetcherCycles = 0;
+
+        if (this.hdmaActive) {
+            if (this.hdmaBlocksRemaining <= 0) {
+                this.hdmaActive = false;
+            }
+
+            for (let i = 0; i < 16; i++) {
+                this.write8(this.hdmaDest++ & 0x1FFF, this.gb.bus.read8(this.hdmaSource++ & 0xFFFF));
+                this.hdmaDest &= 0x1FFF;
+                this.hdmaSource &= 0xFFFF;
+            }
+            this.gb.tick(8);
+            this.hdmaBlocksRemaining--;
+        }
     };
 
     endMode0 = (cyclesLate: number) => { // Hblank -> Vblank / OAM Scan
@@ -446,8 +466,6 @@ export class PPU {
         return;
     }
 
-
-
     readHwio8(addr: number): number {
         let val = 0;
         switch (addr) {
@@ -483,6 +501,13 @@ export class PPU {
 
             case 0xFF4F: // VRAM Bank
                 return this.vramBank;
+
+            case 0xFF55: // HDMA5
+                if (this.hdmaActive) {
+                    return (this.hdmaBlocksRemaining & 0x7F) | 0x80;
+                } else {
+                    return 0xFF;
+                }
 
             case 0xFF68: // BCPS / BGPI - CGB Background Palette Index
                 let bcpsVal = 0;
@@ -586,6 +611,47 @@ export class PPU {
             case 0xFF4F: // VRAM Bank
                 if (this.gb.cgb) {
                     this.vramBank = val & 1;
+                }
+                return;
+
+            case 0xFF51: // HDMA1 - Source Upper
+                this.hdmaSource &= 0x00FF;
+                this.hdmaSource |= (val << 8) & 0xFF00;
+                return;
+            case 0xFF52: // HDMA2 - Source Lower
+                this.hdmaSource &= 0xFF00;
+                this.hdmaSource |= (val << 0) & 0x00FF;
+                return;
+            case 0xFF53: // HDMA3 - Destination Upper
+                this.hdmaDest &= 0x00FF;
+                this.hdmaDest |= (val << 8) & 0xFF00;
+                return;
+            case 0xFF54: // HDMA4 - Destination Lower
+                this.hdmaDest &= 0xFF00;
+                this.hdmaDest |= (val << 0) & 0x00FF;
+                return;
+            case 0xFF55: // HDMA5
+                // Bit 7 - Use H-Blank DMA 
+                if (bitTest(val, 7)) {
+                    this.hdmaBlocksRemaining = val & 0x7F;
+                    this.hdmaActive = true;
+                } else {
+                    if (this.hdmaActive) {
+                        this.hdmaActive = false;
+                    } else {
+
+                        let blocks = (val & 0x7F) + 1;
+
+                        while (blocks > 0) {
+                            for (let i = 0; i < 16; i++) {
+                                this.write8(this.hdmaDest++ & 0x1FFF, this.gb.bus.read8(this.hdmaSource++ & 0xFFFF));
+                                this.hdmaDest &= 0x1FFF;
+                                this.hdmaSource &= 0xFFFF;
+                            }
+                            this.gb.tick(8);
+                            blocks--;
+                        }
+                    }
                 }
                 return;
 

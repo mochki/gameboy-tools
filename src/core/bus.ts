@@ -180,6 +180,12 @@ export class Bus {
 
                     case 0xFF4F: // VBK
 
+                    case 0xFF51: // HDMA1
+                    case 0xFF52: // HDMA2
+                    case 0xFF53: // HDMA3
+                    case 0xFF54: // HDMA4
+                    case 0xFF55: // HDMA5
+
                     case 0xFF68: // BCPS/BGPI
                     case 0xFF69: // BCPD/BGPD
                     case 0xFF6A: // OCPS/OBPI
@@ -295,6 +301,12 @@ export class Bus {
                     case 0xFF4B: // WX
 
                     case 0xFF4F: // VBK
+
+                    case 0xFF51: // HDMA1
+                    case 0xFF52: // HDMA2
+                    case 0xFF53: // HDMA3
+                    case 0xFF54: // HDMA4
+                    case 0xFF55: // HDMA5
 
                     case 0xFF68: // BCPS/BGPI
                     case 0xFF69: // BCPD/BGPD
