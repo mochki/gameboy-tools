@@ -318,10 +318,10 @@ export class PPU {
             }
 
             for (let i = 0; i < 16; i++) {
-                this.write8(this.hdmaDest++ & 0x1FFF, this.gb.bus.read8(this.hdmaSource++ & 0xFFFF));
-                this.hdmaDest &= 0x1FFF;
-                this.hdmaSource &= 0xFFFF;
+                this.write8(this.hdmaDest + i, this.gb.bus.read8(this.hdmaSource + i));
             }
+            this.hdmaDest = (this.hdmaDest + 16) & 0x1FF0;
+            this.hdmaSource = (this.hdmaSource + 16) & 0xFFF0;
             this.gb.tick(8);
             this.hdmaBlocksRemaining--;
         }
@@ -621,20 +621,20 @@ export class PPU {
                 return;
 
             case 0xFF51: // HDMA1 - Source Upper
-                this.hdmaSource &= 0x00FF;
+                this.hdmaSource &= 0x00F0;
                 this.hdmaSource |= (val << 8) & 0xFF00;
                 return;
             case 0xFF52: // HDMA2 - Source Lower
                 this.hdmaSource &= 0xFF00;
-                this.hdmaSource |= (val << 0) & 0x00FF;
+                this.hdmaSource |= (val << 0) & 0x00F0;
                 return;
             case 0xFF53: // HDMA3 - Destination Upper
-                this.hdmaDest &= 0x00FF;
+                this.hdmaDest &= 0x00F0;
                 this.hdmaDest |= (val << 8) & 0xFF00;
                 return;
             case 0xFF54: // HDMA4 - Destination Lower
                 this.hdmaDest &= 0xFF00;
-                this.hdmaDest |= (val << 0) & 0x00FF;
+                this.hdmaDest |= (val << 0) & 0x00F0;
                 return;
             case 0xFF55: // HDMA5
                 // Bit 7 - Use H-Blank DMA 
@@ -650,10 +650,10 @@ export class PPU {
 
                         while (blocks > 0) {
                             for (let i = 0; i < 16; i++) {
-                                this.write8(this.hdmaDest++ & 0x1FFF, this.gb.bus.read8(this.hdmaSource++ & 0xFFFF));
-                                this.hdmaDest &= 0x1FFF;
-                                this.hdmaSource &= 0xFFFF;
+                                this.write8(this.hdmaDest + i, this.gb.bus.read8(this.hdmaSource + i));
                             }
+                            this.hdmaDest = (this.hdmaDest + 16) & 0x1FF0;
+                            this.hdmaSource = (this.hdmaSource + 16) & 0xFFF0;
                             this.gb.tick(8);
                             blocks--;
                         }
