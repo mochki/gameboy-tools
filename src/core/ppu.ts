@@ -238,6 +238,12 @@ export class PPU {
     fetcherWindow = false;
     fetcherStall = 0;
     fetcherCycles = 0;
+    fetcherTileY = 0;
+    fetcherTileBank = 0;
+    fetcherNoSprites = false;
+    fetcherYFlip = false;
+    fetcherXFlip = false;
+    fetcherTiledataAddr = 0;
 
     hdmaSource = 0;
     hdmaDest = 0;
@@ -1101,45 +1107,55 @@ export class PPU {
                                     this.fetcherTileIndex = unTwo8b(this.fetcherTileIndex) + 256;
                                 }
 
-                                this.fetcherStep++;
-                                break;
-                            case 1: // Delay
-                            case 2:
-                            case 3:
-                            case 4:
-                                this.fetcherStep++;
-                                break;
-                            case 5:
-                                let tileY;
                                 if (!this.fetcherWindow) {
-                                    tileY = (this.scy + this.ly) & 7;
+                                    this.fetcherTileY = (this.scy + this.ly) & 7;
                                 } else {
-                                    tileY = this.windowCurrentLine & 7;
+                                    this.fetcherTileY = this.windowCurrentLine & 7;
                                 }
 
-                                let tileBank = (this.fetcherTileAttrs >> 3) & 1;
-                                let noSprites = bitTest(this.fetcherTileAttrs, 7);
-                                let yFlip = bitTest(this.fetcherTileAttrs, 6);
-                                let xFlip = bitTest(this.fetcherTileAttrs, 5);
+                                this.fetcherTileBank = (this.fetcherTileAttrs >> 3) & 1;
+                                this.fetcherNoSprites = bitTest(this.fetcherTileAttrs, 7);
+                                this.fetcherYFlip = bitTest(this.fetcherTileAttrs, 6);
+                                this.fetcherXFlip = bitTest(this.fetcherTileAttrs, 5);
 
                                 let paletteId = this.fetcherTileAttrs & 0b111;
 
-                                if (yFlip) tileY ^= 7;
+                                if (this.fetcherYFlip) this.fetcherTileY ^= 7;
 
-                                let tiledataAddr = (this.fetcherTileIndex * 16) + (tileY * 2);
-                                let lower = this.vram[tileBank][tiledataAddr + 0];
-                                let upper = this.vram[tileBank][tiledataAddr + 1];
+                                this.fetcherTiledataAddr = (this.fetcherTileIndex * 16) + (this.fetcherTileY * 2);
 
-                                if (!xFlip) {
-                                    // Evil bit-level magic to reverse bits in a byte
+                                this.fetcherTileNoSprites = this.fetcherNoSprites ? this.fetcherTileDataLower | this.fetcherTileDataUpper : 0;
+                                this.fetcherTilePal = paletteId;
+
+                                this.fetcherStep++;
+                                break;
+                            case 1:
+                                this.fetcherStep++;
+                                break;
+                            case 2: // Fetch lower
+                                let lower = this.vram[this.fetcherTileBank][this.fetcherTiledataAddr + 0];
+                                if (!this.fetcherXFlip) {
                                     this.fetcherTileDataLower = byteFlip(lower);
-                                    this.fetcherTileDataUpper = byteFlip(upper);
                                 } else {
                                     this.fetcherTileDataLower = lower;
+                                }
+
+                                this.fetcherStep++;
+                                break;
+
+                            case 3:
+                                this.fetcherStep++;
+                                break;
+                            case 4: // Fetch upper
+                                let upper = this.vram[this.fetcherTileBank][this.fetcherTiledataAddr + 1];
+                                if (!this.fetcherXFlip) {
+                                    this.fetcherTileDataUpper = byteFlip(upper);
+                                } else {
                                     this.fetcherTileDataUpper = upper;
                                 }
-                                this.fetcherTileNoSprites = noSprites ? this.fetcherTileDataLower | this.fetcherTileDataUpper : 0;
-                                this.fetcherTilePal = paletteId;
+                                this.fetcherStep++;
+                                break;
+                            case 5:
                                 this.fetcherPushReady = true;
                                 this.fetcherStep = 0;
                                 break;
