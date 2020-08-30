@@ -667,7 +667,8 @@ export class APU {
                     if (this.ch3.enabled) val = bitSet(val, 2);
                     if (this.ch4.enabled) val = bitSet(val, 3);
                     if (this.enabled) val = bitSet(val, 7);
-                    return val;
+                    let rwBits = this.registers[0xFF26 - 0xFF10] & 0b01110000;
+                    return (val & 0b10001111) | rwBits | regMask[0xFF26 - 0xFF10];
                 }
 
             case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33: case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37: // Wave Table
@@ -679,239 +680,250 @@ export class APU {
                     } else {
                         index = (addr - 0xFF30) * 2;
                     }
-                    let upper = (this.ch3.waveTable[index + 0] << 4) & 0xF;
-                    let lower = (this.ch3.waveTable[index + 1] << 0) & 0xF;
+                    let upper = (this.ch3.waveTable[index + 0] << 4) & 0xF0;
+                    let lower = (this.ch3.waveTable[index + 1] << 0) & 0x0F;
                     return upper | lower;
                 }
         }
         return 0xFF;
     }
     writeHwio8(addr: number, val: number): void {
-        if (addr >= 0xFF10 && addr <= 0xFF26) {
-            let index = addr - 0xFF10;
-            this.registers[index] = val;
+        if (this.enabled) {
+            if (addr >= 0xFF10 && addr <= 0xFF26) {
+                let index = addr - 0xFF10;
+                this.registers[index] = val;
+            }
+
+            switch (addr) {
+                case 0xFF10: // NR10
+                    this.ch1.sweepShift = (val >> 0) & 0b111;
+                    this.ch1.sweepIncrease = bitTest(val, 3);
+                    this.ch1.sweepPeriod = (val >> 4) & 0b111;
+                    this.ch1.updateOut();
+                    break;
+                case 0xFF11: // NR11
+                    this.ch1.length = (val >> 0) & 0b111111;
+                    this.ch1.duty = (val >> 6) & 0b11;
+                    this.ch1.updateOut();
+                    break;
+                case 0xFF12: // NR12
+                    {
+                        const oldEnvelopeIncrease = this.ch1.envelopeIncrease;
+
+                        this.ch1.dacEnabled = (val & 0b11111000) != 0;
+                        if (!this.ch1.dacEnabled) this.ch1.enabled = false;
+                        this.ch1.envelopePeriod = (val >> 0) & 0b111;
+                        this.ch1.envelopeIncrease = bitTest(val, 3);
+                        this.ch1.envelopeInitial = (val >> 4) & 0b1111;
+
+                        if (this.ch1.enabled) {
+                            if (this.ch1.envelopePeriod == 0) {
+                                if (this.ch1.envelopeIncrease) {
+                                    this.ch1.volume += 1;
+                                    this.ch1.volume &= 0xF;
+                                } else {
+                                    this.ch1.volume += 2;
+                                    this.ch1.volume &= 0xF;
+                                }
+                            }
+                            if (this.ch1.envelopeIncrease != oldEnvelopeIncrease) {
+                                this.ch1.volume = 0;
+                            }
+                        }
+
+                        this.ch1.updateOut();
+                    }
+                    break;
+                case 0xFF13: // NR13
+                    this.ch1.frequency &= 0b11100000000;
+                    this.ch1.frequency |= ((val & 0xFF) << 0);
+
+                    this.ch1.frequencyPeriod = (2048 - this.ch1.frequency) * 4;
+                    this.ch1.frequencyHz = 131072 / (2048 - this.ch1.frequency);
+                    this.ch1.updateOut();
+                    break;
+                case 0xFF14: // NR14
+                    this.ch1.frequency &= 0b00011111111;
+                    this.ch1.frequency |= ((val & 0b111) << 8);
+                    this.ch1.useLength = bitTest(val, 6);
+                    if (bitTest(val, 7)) this.triggerCh1();
+
+                    this.ch1.frequencyPeriod = (2048 - this.ch1.frequency) * 4;
+                    this.ch1.frequencyHz = 131072 / (2048 - this.ch1.frequency);
+                    this.ch1.updateOut();
+                    break;
+
+                case 0xFF16: // NR21
+                    this.ch2.length = (val >> 0) & 0b111111;
+                    this.ch2.duty = (val >> 6) & 0b11;
+                    this.ch2.updateOut();
+                    break;
+                case 0xFF17: // NR22 
+                    {
+                        const oldEnvelopeIncrease = this.ch2.envelopeIncrease;
+
+                        this.ch2.dacEnabled = (val & 0b11111000) != 0;
+                        if (!this.ch2.dacEnabled) this.ch2.enabled = false;
+                        this.ch2.envelopePeriod = (val >> 0) & 0b111;
+                        this.ch2.envelopeIncrease = bitTest(val, 3);
+                        this.ch2.envelopeInitial = (val >> 4) & 0b1111;
+
+                        if (this.ch2.enabled) {
+                            if (this.ch2.envelopePeriod == 0) {
+                                if (this.ch2.envelopeIncrease) {
+                                    this.ch2.volume += 1;
+                                    this.ch2.volume &= 0xF;
+                                } else {
+                                    this.ch2.volume += 2;
+                                    this.ch2.volume &= 0xF;
+                                }
+                            }
+                            if (this.ch2.envelopeIncrease != oldEnvelopeIncrease) {
+                                this.ch2.volume = 0;
+                            }
+                        }
+
+                        this.ch2.updateOut();
+                    }
+                    break;
+                case 0xFF18: // NR23
+                    this.ch2.frequency &= 0b11100000000;
+                    this.ch2.frequency |= ((val & 0xFF) << 0);
+
+                    this.ch2.frequencyPeriod = (2048 - this.ch2.frequency) * 4;
+                    this.ch2.frequencyHz = 131072 / (2048 - this.ch2.frequency);
+                    this.ch2.updateOut();
+                    break;
+                case 0xFF19: // NR24
+                    this.ch2.frequency &= 0b00011111111;
+                    this.ch2.frequency |= ((val & 0b111) << 8);
+                    this.ch2.useLength = bitTest(val, 6);
+                    if (bitTest(val, 7)) this.triggerCh2();
+
+                    this.ch2.frequencyPeriod = (2048 - this.ch2.frequency) * 4;
+                    this.ch2.frequencyHz = 131072 / (2048 - this.ch2.frequency);
+                    this.ch2.updateOut();
+                    break;
+
+                case 0xFF1A: // NR30
+                    this.ch3.dacEnabled = bitTest(val, 7);
+                    if (!this.ch3.dacEnabled) this.ch3.enabled = false;
+                    this.ch3.updateOut();
+                    break;
+                case 0xFF1B: // NR31
+                    this.ch3.length = (val >> 0) & 0xFF;
+                    this.ch3.updateOut();
+                    break;
+                case 0xFF1C: // NR32
+                    this.ch3.volumeCode = (val >> 5) & 0b11;
+                    this.ch3.volumeShift = waveShiftCodes[this.ch3.volumeCode];
+                    this.ch3.updateOut();
+                    break;
+                case 0xFF1D: // NR33
+                    this.ch3.frequency &= 0b11100000000;
+                    this.ch3.frequency |= ((val & 0xFF) << 0);
+
+                    this.ch3.frequencyPeriod = (2048 - this.ch3.frequency) * 2;
+                    this.ch3.updateOut();
+                    break;
+                case 0xFF1E: // NR34
+                    this.ch3.frequency &= 0b00011111111;
+                    this.ch3.frequency |= ((val & 0b111) << 8);
+                    this.ch3.useLength = bitTest(val, 6);
+                    if (bitTest(val, 7)) this.triggerCh3();
+
+                    this.ch3.frequencyPeriod = (2048 - this.ch3.frequency) * 2;
+                    this.ch3.updateOut();
+                    break;
+
+                case 0xFF20: // NR41
+                    this.ch4.length = (val >> 0) & 0b111111;
+                    this.ch4.updateOut();
+                    break;
+                case 0xFF21: // NR42
+                    {
+                        let oldEnvelopeIncrease = this.ch4.envelopeIncrease;
+
+                        this.ch4.dacEnabled = (val & 0b11111000) != 0;
+                        if (!this.ch4.dacEnabled) this.ch4.enabled = false;
+                        this.ch4.envelopePeriod = (val >> 0) & 0b111;
+                        this.ch4.envelopeIncrease = bitTest(val, 3);
+                        this.ch4.envelopeInitial = (val >> 4) & 0b1111;
+
+                        if (this.ch4.enabled) {
+                            if (this.ch4.envelopePeriod == 0) {
+                                if (this.ch4.envelopeIncrease) {
+                                    this.ch4.volume += 1;
+                                    this.ch4.volume &= 0xF;
+                                } else {
+                                    this.ch4.volume += 2;
+                                    this.ch4.volume &= 0xF;
+                                }
+                            }
+                            if (this.ch4.envelopeIncrease != oldEnvelopeIncrease) {
+                                this.ch4.volume = 0;
+                            }
+                        }
+
+                        this.ch4.updateOut();
+                    }
+                    break;
+                case 0xFF22: // NR43
+                    this.ch4.frequencyShift = (val >> 4) & 0b1111;
+                    this.ch4.sevenBit = bitTest(val, 3) ? (1 << 7) : 0;
+                    this.ch4.divisorCode = (val >> 0) & 0b111;
+
+                    this.ch4.frequencyPeriod = noiseDivisors[this.ch4.divisorCode] << this.ch4.frequencyShift;
+                    this.ch4.updateOut();
+                    break;
+                case 0xFF23: // NR44
+                    this.ch4.useLength = bitTest(val, 6);
+                    if (bitTest(val, 7)) this.triggerCh4();
+                    this.ch4.updateOut();
+                    break;
+
+                case 0xFF24: // NR50
+                    let volMulL = ((val >> 4) & 0b111) / 7;
+                    let volMulR = ((val >> 0) & 0b111) / 7;
+                    this.ch1.volMulL = volMulL;
+                    this.ch1.volMulR = volMulR;
+                    this.ch2.volMulL = volMulL;
+                    this.ch2.volMulR = volMulR;
+                    this.ch3.volMulL = volMulL;
+                    this.ch3.volMulR = volMulR;
+                    this.ch4.volMulL = volMulL;
+                    this.ch4.volMulR = volMulR;
+
+                    this.ch1.updateOut();
+                    this.ch2.updateOut();
+                    this.ch3.updateOut();
+                    this.ch4.updateOut();
+                    break;
+                case 0xFF25: // NR51
+                    this.ch4.enableL = bitTest(val, 7);
+                    this.ch3.enableL = bitTest(val, 6);
+                    this.ch2.enableL = bitTest(val, 5);
+                    this.ch1.enableL = bitTest(val, 4);
+                    this.ch4.enableR = bitTest(val, 3);
+                    this.ch3.enableR = bitTest(val, 2);
+                    this.ch2.enableR = bitTest(val, 1);
+                    this.ch1.enableR = bitTest(val, 0);
+                    this.ch1.updateOut();
+                    this.ch2.updateOut();
+                    this.ch3.updateOut();
+                    this.ch4.updateOut();
+                    break;
+            }
         }
 
         switch (addr) {
-            case 0xFF10: // NR10
-                this.ch1.sweepShift = (val >> 0) & 0b111;
-                this.ch1.sweepIncrease = bitTest(val, 3);
-                this.ch1.sweepPeriod = (val >> 4) & 0b111;
-                this.ch1.updateOut();
-                break;
-            case 0xFF11: // NR11
-                this.ch1.length = (val >> 0) & 0b111111;
-                this.ch1.duty = (val >> 6) & 0b11;
-                this.ch1.updateOut();
-                break;
-            case 0xFF12: // NR12
-                {
-                    const oldEnvelopeIncrease = this.ch1.envelopeIncrease;
-
-                    this.ch1.dacEnabled = (val & 0b11111000) != 0;
-                    if (!this.ch1.dacEnabled) this.ch1.enabled = false;
-                    this.ch1.envelopePeriod = (val >> 0) & 0b111;
-                    this.ch1.envelopeIncrease = bitTest(val, 3);
-                    this.ch1.envelopeInitial = (val >> 4) & 0b1111;
-
-                    if (this.ch1.enabled) {
-                        if (this.ch1.envelopePeriod == 0) {
-                            if (this.ch1.envelopeIncrease) {
-                                this.ch1.volume += 1;
-                                this.ch1.volume &= 0xF;
-                            } else {
-                                this.ch1.volume += 2;
-                                this.ch1.volume &= 0xF;
-                            }
-                        }
-                        if (this.ch1.envelopeIncrease != oldEnvelopeIncrease) {
-                            this.ch1.volume = 0;
-                        }
-                    }
-
-                    this.ch1.updateOut();
-                }
-                break;
-            case 0xFF13: // NR13
-                this.ch1.frequency &= 0b11100000000;
-                this.ch1.frequency |= ((val & 0xFF) << 0);
-
-                this.ch1.frequencyPeriod = (2048 - this.ch1.frequency) * 4;
-                this.ch1.frequencyHz = 131072 / (2048 - this.ch1.frequency);
-                this.ch1.updateOut();
-                break;
-            case 0xFF14: // NR14
-                this.ch1.frequency &= 0b00011111111;
-                this.ch1.frequency |= ((val & 0b111) << 8);
-                this.ch1.useLength = bitTest(val, 6);
-                if (bitTest(val, 7)) this.triggerCh1();
-
-                this.ch1.frequencyPeriod = (2048 - this.ch1.frequency) * 4;
-                this.ch1.frequencyHz = 131072 / (2048 - this.ch1.frequency);
-                this.ch1.updateOut();
-                break;
-
-            case 0xFF16: // NR21
-                this.ch2.length = (val >> 0) & 0b111111;
-                this.ch2.duty = (val >> 6) & 0b11;
-                this.ch2.updateOut();
-                break;
-            case 0xFF17: // NR22 
-                {
-                    const oldEnvelopeIncrease = this.ch2.envelopeIncrease;
-
-                    this.ch2.dacEnabled = (val & 0b11111000) != 0;
-                    if (!this.ch2.dacEnabled) this.ch2.enabled = false;
-                    this.ch2.envelopePeriod = (val >> 0) & 0b111;
-                    this.ch2.envelopeIncrease = bitTest(val, 3);
-                    this.ch2.envelopeInitial = (val >> 4) & 0b1111;
-
-                    if (this.ch2.enabled) {
-                        if (this.ch2.envelopePeriod == 0) {
-                            if (this.ch2.envelopeIncrease) {
-                                this.ch2.volume += 1;
-                                this.ch2.volume &= 0xF;
-                            } else {
-                                this.ch2.volume += 2;
-                                this.ch2.volume &= 0xF;
-                            }
-                        }
-                        if (this.ch2.envelopeIncrease != oldEnvelopeIncrease) {
-                            this.ch2.volume = 0;
-                        }
-                    }
-
-                    this.ch2.updateOut();
-                }
-                break;
-            case 0xFF18: // NR23
-                this.ch2.frequency &= 0b11100000000;
-                this.ch2.frequency |= ((val & 0xFF) << 0);
-
-                this.ch2.frequencyPeriod = (2048 - this.ch2.frequency) * 4;
-                this.ch2.frequencyHz = 131072 / (2048 - this.ch2.frequency);
-                this.ch2.updateOut();
-                break;
-            case 0xFF19: // NR24
-                this.ch2.frequency &= 0b00011111111;
-                this.ch2.frequency |= ((val & 0b111) << 8);
-                this.ch2.useLength = bitTest(val, 6);
-                if (bitTest(val, 7)) this.triggerCh2();
-
-                this.ch2.frequencyPeriod = (2048 - this.ch2.frequency) * 4;
-                this.ch2.frequencyHz = 131072 / (2048 - this.ch2.frequency);
-                this.ch2.updateOut();
-                break;
-
-            case 0xFF1A: // NR30
-                this.ch3.dacEnabled = bitTest(val, 7);
-                if (!this.ch3.dacEnabled) this.ch3.enabled = false;
-                this.ch3.updateOut();
-                break;
-            case 0xFF1B: // NR31
-                this.ch3.length = (val >> 0) & 0xFF;
-                this.ch3.updateOut();
-                break;
-            case 0xFF1C: // NR32
-                this.ch3.volumeCode = (val >> 5) & 0b11;
-                this.ch3.volumeShift = waveShiftCodes[this.ch3.volumeCode];
-                this.ch3.updateOut();
-                break;
-            case 0xFF1D: // NR33
-                this.ch3.frequency &= 0b11100000000;
-                this.ch3.frequency |= ((val & 0xFF) << 0);
-
-                this.ch3.frequencyPeriod = (2048 - this.ch3.frequency) * 2;
-                this.ch3.updateOut();
-                break;
-            case 0xFF1E: // NR34
-                this.ch3.frequency &= 0b00011111111;
-                this.ch3.frequency |= ((val & 0b111) << 8);
-                this.ch3.useLength = bitTest(val, 6);
-                if (bitTest(val, 7)) this.triggerCh3();
-
-                this.ch3.frequencyPeriod = (2048 - this.ch3.frequency) * 2;
-                this.ch3.updateOut();
-                break;
-
-            case 0xFF20: // NR41
-                this.ch4.length = (val >> 0) & 0b111111;
-                this.ch4.updateOut();
-                break;
-            case 0xFF21: // NR42
-                {
-                    let oldEnvelopeIncrease = this.ch4.envelopeIncrease;
-
-                    this.ch4.dacEnabled = (val & 0b11111000) != 0;
-                    if (!this.ch4.dacEnabled) this.ch4.enabled = false;
-                    this.ch4.envelopePeriod = (val >> 0) & 0b111;
-                    this.ch4.envelopeIncrease = bitTest(val, 3);
-                    this.ch4.envelopeInitial = (val >> 4) & 0b1111;
-
-                    if (this.ch4.enabled) {
-                        if (this.ch4.envelopePeriod == 0) {
-                            if (this.ch4.envelopeIncrease) {
-                                this.ch4.volume += 1;
-                                this.ch4.volume &= 0xF;
-                            } else {
-                                this.ch4.volume += 2;
-                                this.ch4.volume &= 0xF;
-                            }
-                        }
-                        if (this.ch4.envelopeIncrease != oldEnvelopeIncrease) {
-                            this.ch4.volume = 0;
-                        }
-                    }
-
-                    this.ch4.updateOut();
-                }
-                break;
-            case 0xFF22: // NR43
-                this.ch4.frequencyShift = (val >> 4) & 0b1111;
-                this.ch4.sevenBit = bitTest(val, 3) ? (1 << 7) : 0;
-                this.ch4.divisorCode = (val >> 0) & 0b111;
-
-                this.ch4.frequencyPeriod = noiseDivisors[this.ch4.divisorCode] << this.ch4.frequencyShift;
-                this.ch4.updateOut();
-                break;
-            case 0xFF23: // NR44
-                this.ch4.useLength = bitTest(val, 6);
-                if (bitTest(val, 7)) this.triggerCh4();
-                this.ch4.updateOut();
-                break;
-
-            case 0xFF24: // NR50
-                let volMulL = ((val >> 4) & 0b111) / 7;
-                let volMulR = ((val >> 0) & 0b111) / 7;
-                this.ch1.volMulL = volMulL;
-                this.ch1.volMulR = volMulR;
-                this.ch2.volMulL = volMulL;
-                this.ch2.volMulR = volMulR;
-                this.ch3.volMulL = volMulL;
-                this.ch3.volMulR = volMulR;
-                this.ch4.volMulL = volMulL;
-                this.ch4.volMulR = volMulR;
-
-                this.ch1.updateOut();
-                this.ch2.updateOut();
-                this.ch3.updateOut();
-                this.ch4.updateOut();
-                break;
-            case 0xFF25: // NR51
-                this.ch4.enableL = bitTest(val, 7);
-                this.ch3.enableL = bitTest(val, 6);
-                this.ch2.enableL = bitTest(val, 5);
-                this.ch1.enableL = bitTest(val, 4);
-                this.ch4.enableR = bitTest(val, 3);
-                this.ch3.enableR = bitTest(val, 2);
-                this.ch2.enableR = bitTest(val, 1);
-                this.ch1.enableR = bitTest(val, 0);
-                this.ch1.updateOut();
-                this.ch2.updateOut();
-                this.ch3.updateOut();
-                this.ch4.updateOut();
-                break;
             case 0xFF26: // NR52
+                if (!bitTest(val, 7)) {
+                    for (let i = 0xFF10; i < 0xFF26; i++) {
+                        console.log(i);
+                        this.writeHwio8(i, 0);
+                    }
+                }
                 this.enabled = bitTest(val, 7);
                 break;
 
