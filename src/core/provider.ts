@@ -22,6 +22,8 @@ export class GameBoyProvider {
         this.rom[0x100] = 0x18; // JR NZ, -2
         this.rom[0x101] = 0xFE;
 
+        this.rom[0x143] = 0; // DMG mode
+
         if (rom) {
             this.rom = rom;
         }

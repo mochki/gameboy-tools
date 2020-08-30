@@ -78,6 +78,7 @@ export class Scheduler {
         ticks += this.currTicks;
         if (this.heapSize >= this.heap.length) {
             alert("Heap overflow!");
+            return;
         }
 
         let index = this.heapSize;
