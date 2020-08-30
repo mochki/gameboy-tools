@@ -33,8 +33,8 @@ function generatePaletteLookup() {
         // Color correction algorithm, as detailed in https://byuu.net/video/color-emulation/
         // Tweaked to Powerlated's liking
         let rOut = (r * 28 + g * 2 + b * 1);
-        let gOut = (r * 0 + g * 23 + b * 8);
-        let bOut = (r * 4 + g * 2 + b * 25);
+        let gOut = (r * 2 + g * 23 + b * 6);
+        let bOut = (r * 4 + g * 4 + b * 23);
 
         // All factors add up to 31, creating neutral greys.
 
