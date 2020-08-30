@@ -20,8 +20,8 @@ export const colors555: Uint8Array[] = [
     new Uint8Array([0x00 >> 3, 0x00 >> 3, 0x00 >> 3]),
 ];
 
-const paletteLookup = generatePaletteLookup();
-function generatePaletteLookup() {
+const paletteLookup = generatePaletteLookup(true);
+function generatePaletteLookup(enableColorCorrection: boolean) {
     // 32768 colors * 3 bytes each
     let table = new Array(32768).fill(0).map(() => new Uint8Array(3));
 
@@ -30,17 +30,22 @@ function generatePaletteLookup() {
         let g = (i >> 5) & 0b11111;
         let b = (i >> 10) & 0b11111;
 
-        // Color correction algorithm, as detailed in https://byuu.net/video/color-emulation/
-        // Tweaked to Powerlated's liking
-        let rOut = (r * 28 + g * 2 + b * 1);
-        let gOut = (r * 2 + g * 23 + b * 6);
-        let bOut = (r * 4 + g * 4 + b * 23);
+        let rOut: number;
+        let gOut: number;
+        let bOut: number;
 
-        // All factors add up to 31, creating neutral greys.
-
-        rOut = Math.min(240, rOut >> 2);
-        gOut = Math.min(240, gOut >> 2);
-        bOut = Math.min(240, bOut >> 2);
+        if (enableColorCorrection) {
+            // Color correction algorithm, as detailed in https://byuu.net/video/color-emulation/
+            // Tweaked to Powerlated's liking
+            // All factors add up to 31, creating neutral greys.
+            rOut = Math.min(240, (r * 28 + g * 2 + b * 1) >> 2);
+            gOut = Math.min(240, (r * 2 + g * 23 + b * 6) >> 2);
+            bOut = Math.min(240, (r * 4 + g * 4 + b * 23) >> 2);
+        } else {
+            rOut = r * (255/31);
+            gOut = g * (255/31);
+            bOut = b * (255/31);
+        }
 
         table[i][0] = rOut;
         table[i][1] = gOut;
