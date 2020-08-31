@@ -391,6 +391,8 @@ export class APU {
         volMulR: 0,
         // -------
 
+        lastUpdateTicks: 0,
+
         // NR31
         // length: 0,
 
@@ -505,6 +507,7 @@ export class APU {
 
     triggerCh3() {
         this.ch3.pos = 0;
+        this.ch3.lastUpdateTicks = this.gb.scheduler.currTicks;
         this.ch3.frequencyTimer = this.ch3.frequencyPeriod;
         if (this.ch3.dacEnabled) this.ch3.enabled = true;
         if (this.ch3.lengthCounter == 0) this.ch3.lengthCounter = 256;
@@ -569,6 +572,18 @@ export class APU {
     capacitorL = 0;
     capacitorR = 0;
 
+    catchupCh3(cyclesLate: number) {
+        let diff = this.gb.scheduler.currTicks - this.ch3.lastUpdateTicks - cyclesLate;
+        this.ch3.lastUpdateTicks = this.gb.scheduler.currTicks - cyclesLate;
+        this.ch3.frequencyTimer -= diff;
+        if (this.ch3.frequencyPeriod != 0) {
+            while (this.ch3.frequencyTimer <= 0) {
+                this.ch3.frequencyTimer += this.ch3.frequencyPeriod;
+                this.advanceCh3();
+            }
+        }
+    }
+
     sample = (cyclesLate: number) => {
         let finalL = 0;
         let finalR = 0;
@@ -587,8 +602,11 @@ export class APU {
                 this.ch2.frequencyTimer += this.ch2.frequencyPeriod;
                 this.advanceCh2();
             }
-        }
-        this.ch3.frequencyTimer -= cyclesPerSample;
+        } 
+        // Channel 3 requires special consideration, as its position is exposed in Wave RAM.
+        let diff = this.gb.scheduler.currTicks - this.ch3.lastUpdateTicks - cyclesLate;
+        this.ch3.lastUpdateTicks = this.gb.scheduler.currTicks - cyclesLate;
+        this.ch3.frequencyTimer -= diff;
         if (this.ch3.frequencyPeriod != 0) {
             while (this.ch3.frequencyTimer <= 0) {
                 this.ch3.frequencyTimer += this.ch3.frequencyPeriod;
@@ -680,6 +698,7 @@ export class APU {
                 {
                     let index;
                     if (this.ch3.enabled) {
+                        this.catchupCh3(0);
                         index = this.ch3.pos & 0b11111110;
                     } else {
                         index = (addr - 0xFF30) * 2;
@@ -750,10 +769,11 @@ export class APU {
                     this.ch1.frequency &= 0b00011111111;
                     this.ch1.frequency |= ((val & 0b111) << 8);
                     this.ch1.useLength = bitTest(val, 6);
-                    if (bitTest(val, 7)) this.triggerCh1();
 
                     this.ch1.frequencyPeriod = (2048 - this.ch1.frequency) * 4;
                     this.ch1.frequencyHz = 131072 / (2048 - this.ch1.frequency);
+
+                    if (bitTest(val, 7)) this.triggerCh1();
                     this.ch1.updateOut();
                     break;
 
@@ -802,10 +822,11 @@ export class APU {
                     this.ch2.frequency &= 0b00011111111;
                     this.ch2.frequency |= ((val & 0b111) << 8);
                     this.ch2.useLength = bitTest(val, 6);
-                    if (bitTest(val, 7)) this.triggerCh2();
 
                     this.ch2.frequencyPeriod = (2048 - this.ch2.frequency) * 4;
                     this.ch2.frequencyHz = 131072 / (2048 - this.ch2.frequency);
+
+                    if (bitTest(val, 7)) this.triggerCh2();
                     this.ch2.updateOut();
                     break;
 
@@ -834,9 +855,11 @@ export class APU {
                     this.ch3.frequency &= 0b00011111111;
                     this.ch3.frequency |= ((val & 0b111) << 8);
                     this.ch3.useLength = bitTest(val, 6);
-                    if (bitTest(val, 7)) this.triggerCh3();
 
                     this.ch3.frequencyPeriod = (2048 - this.ch3.frequency) * 2;
+
+                    // Trigger after frequency period is written, so frequency timer is reloaded with correct value!
+                    if (bitTest(val, 7)) this.triggerCh3();
                     this.ch3.updateOut();
                     break;
 
@@ -952,7 +975,15 @@ export class APU {
             case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B: case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F: // Wave Table
                 let index;
                 if (this.ch3.enabled) {
+                    // let diff = this.gb.scheduler.currTicks - this.ch3.lastUpdateTicks;
+                    // console.log(`before pos: ${this.ch3.pos}`);
+                    // console.log(`before timer: ${this.ch3.frequencyTimer}`);
+                    this.catchupCh3(0);
+                    // console.log(`after pos: ${this.ch3.pos}`);
                     index = this.ch3.pos & 0b11111110;
+                    // console.log(`write at: ${hex(0xFF30 + (index >> 2), 4)} idx: ${index} pos: ${this.ch3.pos}`);
+                    // console.log(`freq period: ${this.ch3.frequencyPeriod}`);
+                    // console.log(`diff: ${diff}`);
                 } else {
                     index = (addr - 0xFF30) * 2;
                 }
