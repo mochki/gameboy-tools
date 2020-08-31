@@ -6,7 +6,7 @@ export default class NullMBC extends MBC {
     sramDirty = false;
 
     read8(addr: number): number {
-        return 0;
+        return 0xFF;
     }
     write8(addr: number, value: number): void {
         return;

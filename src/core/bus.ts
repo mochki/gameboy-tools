@@ -142,8 +142,12 @@ export class Bus {
                 if (addr >= 0xF000 && addr <= 0xFDFF) {
                     return this.wram[(addr & 0xFFF) + (this.wramBank * 0x1000)];
                 }
-                else if (addr >= 0xFE00 && addr <= 0xFE9F) {
-                    return this.ppu.readOam8(addr);
+                else if (addr >= 0xFE00 && addr <= 0xFEFF) {
+                    if (addr <= 0xFE9F) {
+                        return this.ppu.readOam8(addr);
+                    } else {
+                        return 0x00;
+                    }
                 }
 
                 switch (addr) {
