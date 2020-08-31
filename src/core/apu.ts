@@ -369,11 +369,13 @@ export class APU {
         dacEnabled: false,
 
         pos: 0,
+        posSampler: 0,
         currentVal: 0,
         outL: 0,
         outR: 0,
 
         frequencyTimer: 0,
+        frequencyTimerSampler: 0,
 
         envelopeTimer: 0,
         volume: 0,
@@ -507,8 +509,10 @@ export class APU {
 
     triggerCh3() {
         this.ch3.pos = 0;
+        this.ch3.posSampler = 0;
         this.ch3.lastUpdateTicks = this.gb.scheduler.currTicks;
         this.ch3.frequencyTimer = this.ch3.frequencyPeriod;
+        this.ch3.frequencyTimerSampler = this.ch3.frequencyPeriod;
         if (this.ch3.dacEnabled) this.ch3.enabled = true;
         if (this.ch3.lengthCounter == 0) this.ch3.lengthCounter = 256;
     }
@@ -526,9 +530,8 @@ export class APU {
         this.ch1.updateOut();
         this.ch2.currentVal = pulseDuty[this.ch2.duty][this.ch2.pos];
         this.ch2.updateOut();
-        this.ch3.currentVal = this.ch3.waveTable[this.ch3.pos];
+        this.ch3.currentVal = this.ch3.waveTable[this.ch3.posSampler];
         this.ch3.updateOut();
-
     }
 
     advanceCh1() {
@@ -541,6 +544,12 @@ export class APU {
         this.ch2.pos = (this.ch2.pos + 1) & 7;
         this.ch2.currentVal = pulseDuty[this.ch2.duty][this.ch2.pos];
         this.ch2.updateOut();
+    }
+
+    advanceCh3Sampler() {
+        this.ch3.posSampler = (this.ch3.posSampler + 1) & 31;
+        this.ch3.currentVal = this.ch3.waveTable[this.ch3.posSampler];
+        this.ch3.updateOut();
     }
 
     advanceCh3() {
@@ -603,14 +612,11 @@ export class APU {
                 this.advanceCh2();
             }
         } 
-        // Channel 3 requires special consideration, as its position is exposed in Wave RAM.
-        let diff = this.gb.scheduler.currTicks - this.ch3.lastUpdateTicks - cyclesLate;
-        this.ch3.lastUpdateTicks = this.gb.scheduler.currTicks - cyclesLate;
-        this.ch3.frequencyTimer -= diff;
+        this.ch3.frequencyTimerSampler -= cyclesPerSample;
         if (this.ch3.frequencyPeriod != 0) {
-            while (this.ch3.frequencyTimer <= 0) {
-                this.ch3.frequencyTimer += this.ch3.frequencyPeriod;
-                this.advanceCh3();
+            while (this.ch3.frequencyTimerSampler <= 0) {
+                this.ch3.frequencyTimerSampler += this.ch3.frequencyPeriod;
+                this.advanceCh3Sampler();
             }
         }
         // Prevent Channel 4 from sounding weird if its frequency is faster than the sample rate
@@ -954,6 +960,7 @@ export class APU {
                     this.ch1.pos = 0;
                     this.ch2.pos = 0;
                     this.ch3.pos = 0;
+                    this.ch3.posSampler = 0;
 
                     this.ch1.frequencyPeriod = 0;
                     this.ch2.frequencyPeriod = 0;
@@ -963,6 +970,7 @@ export class APU {
                     this.ch1.frequencyTimer = 0;
                     this.ch2.frequencyTimer = 0;
                     this.ch3.frequencyTimer = 0;
+                    this.ch3.frequencyTimerSampler = 0;
                     this.ch4.frequencyTimer = 0;
 
                     // Upon turning on the APU, the frame sequencer requires an extra trigger to begin functioning.
