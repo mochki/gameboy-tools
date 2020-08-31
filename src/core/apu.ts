@@ -139,6 +139,7 @@ export class APU {
             if (this.ch1.lengthCounter <= 0) {
                 this.ch1.enabled = false;
                 this.ch1.updateOut();
+                // console.log("ch1 disabled");
             } else {
                 this.ch1.lengthCounter--;
             }
@@ -189,10 +190,9 @@ export class APU {
         }
     }
     clockEnvelope() {
-        if (this.ch1.envelopePeriod != 0) {
-            if (this.ch1.envelopeTimer <= 0) {
-                this.ch1.envelopeTimer = this.ch1.envelopePeriod;
-
+        if (this.ch1.envelopeTimer <= 0) {
+            this.ch1.envelopeTimer = this.ch1.envelopePeriod;
+            if (this.ch1.envelopePeriod != 0) {
                 let volume = this.ch1.volume;
                 if (this.ch1.envelopeIncrease) {
                     volume++;
@@ -205,12 +205,12 @@ export class APU {
                     this.ch1.updateOut();
                 }
             }
-            this.ch1.envelopeTimer--;
         }
-        if (this.ch2.envelopePeriod != 0) {
-            if (this.ch2.envelopeTimer <= 0) {
-                this.ch2.envelopeTimer = this.ch2.envelopePeriod;
+        this.ch1.envelopeTimer--;
 
+        if (this.ch2.envelopeTimer <= 0) {
+            this.ch2.envelopeTimer = this.ch2.envelopePeriod;
+            if (this.ch2.envelopePeriod != 0) {
                 let volume = this.ch2.volume;
                 if (this.ch2.envelopeIncrease) {
                     volume++;
@@ -223,13 +223,12 @@ export class APU {
                     this.ch2.updateOut();
                 }
             }
-            this.ch2.envelopeTimer--;
         }
+        this.ch2.envelopeTimer--;
 
-        if (this.ch4.envelopePeriod != 0) {
-            if (this.ch4.envelopeTimer <= 0) {
-                this.ch4.envelopeTimer = this.ch4.envelopePeriod;
-
+        if (this.ch4.envelopeTimer <= 0) {
+            this.ch4.envelopeTimer = this.ch4.envelopePeriod;
+            if (this.ch4.envelopePeriod != 0) {
                 let volume = this.ch4.volume;
                 if (this.ch4.envelopeIncrease) {
                     volume++;
@@ -242,8 +241,8 @@ export class APU {
                     this.ch4.updateOut();
                 }
             }
-            this.ch4.envelopeTimer--;
         }
+        this.ch4.envelopeTimer--;
     }
 
     ch1 = {
@@ -611,7 +610,7 @@ export class APU {
                 this.ch2.frequencyTimer += this.ch2.frequencyPeriod;
                 this.advanceCh2();
             }
-        } 
+        }
         this.ch3.frequencyTimerSampler -= cyclesPerSample;
         if (this.ch3.frequencyPeriod != 0) {
             while (this.ch3.frequencyTimerSampler <= 0) {
@@ -696,6 +695,7 @@ export class APU {
                     if (this.ch4.enabled) val = bitSet(val, 3);
                     if (this.enabled) val = bitSet(val, 7);
                     let rwBits = this.registers[0xFF26 - 0xFF10] & 0b01110000;
+                    // console.log("NR52 read: " + hex((val & 0b10001111) | rwBits | regMask[0xFF26 - 0xFF10], 2));
                     return (val & 0b10001111) | rwBits | regMask[0xFF26 - 0xFF10];
                 }
 
