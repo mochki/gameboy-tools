@@ -486,7 +486,6 @@ export class APU {
 
     triggerCh1() {
         this.ch1.frequencyTimer = this.ch1.frequencyPeriod;
-        this.ch1.pos = 0;
         if (this.ch1.dacEnabled) this.ch1.enabled = true;
         this.ch1.volume = this.ch1.envelopeInitial;
         if (this.ch1.lengthCounter == 0) this.ch1.lengthCounter = 64;
@@ -499,7 +498,6 @@ export class APU {
 
     triggerCh2() {
         this.ch2.frequencyTimer = this.ch2.frequencyPeriod;
-        this.ch2.pos = 0;
         if (this.ch2.dacEnabled) this.ch2.enabled = true;
         this.ch2.volume = this.ch2.envelopeInitial;
         if (this.ch2.lengthCounter == 0) this.ch2.lengthCounter = 64;
@@ -507,7 +505,6 @@ export class APU {
 
     triggerCh3() {
         this.ch3.frequencyTimer = this.ch3.frequencyPeriod;
-        this.ch3.pos = 0;
         if (this.ch3.dacEnabled) this.ch3.enabled = true;
         if (this.ch3.lengthCounter == 0) this.ch3.lengthCounter = 256;
     }
@@ -518,6 +515,16 @@ export class APU {
         if (this.ch4.dacEnabled) this.ch4.enabled = true;
         this.ch4.volume = this.ch4.envelopeInitial;
         if (this.ch4.lengthCounter == 0) this.ch4.lengthCounter = 64;
+    }
+
+    refreshChannels() {
+        this.ch1.currentVal = pulseDuty[this.ch1.duty][this.ch1.pos];
+        this.ch1.updateOut();
+        this.ch2.currentVal = pulseDuty[this.ch2.duty][this.ch2.pos];
+        this.ch2.updateOut();
+        this.ch3.currentVal = this.ch3.waveTable[this.ch3.pos];
+        this.ch3.updateOut();
+
     }
 
     advanceCh1() {
@@ -916,9 +923,26 @@ export class APU {
             case 0xFF26: // NR52
                 if (!bitTest(val, 7)) {
                     for (let i = 0xFF10; i < 0xFF26; i++) {
-                        console.log(i);
+                        // console.log(i);
                         this.writeHwio8(i, 0);
                     }
+
+                    this.ch1.pos = 0;
+                    this.ch2.pos = 0;
+                    this.ch3.pos = 0;
+
+                    this.ch1.frequencyPeriod = 0;
+                    this.ch2.frequencyPeriod = 0;
+                    this.ch3.frequencyPeriod = 0;
+                    this.ch4.frequencyPeriod = 0;
+
+                    this.ch1.frequencyTimer = 0;
+                    this.ch2.frequencyTimer = 0;
+                    this.ch3.frequencyTimer = 0;
+                    this.ch4.frequencyTimer = 0;
+
+                    // Upon turning on the APU, the frame sequencer requires an extra trigger to begin functioning.
+                    this.frameSequencerStep = 255;
                 }
                 this.enabled = bitTest(val, 7);
                 break;

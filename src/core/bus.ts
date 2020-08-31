@@ -167,6 +167,8 @@ export class Bus {
                     case 0xFF24: case 0xFF25: case 0xFF26: // NR5X
                     case 0xFF30: case 0xFF31: case 0xFF32: case 0xFF33: case 0xFF34: case 0xFF35: case 0xFF36: case 0xFF37: // Wave Table
                     case 0xFF38: case 0xFF39: case 0xFF3A: case 0xFF3B: case 0xFF3C: case 0xFF3D: case 0xFF3E: case 0xFF3F: // Wave Table
+
+                    case 0xFF76: case 0xFF77: // CGB PCM Registers
                         return this.apu.readHwio8(addr);
 
                     case 0xFF40: // LCDC
