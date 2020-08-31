@@ -504,6 +504,7 @@ export class APU {
     }
 
     triggerCh3() {
+        this.ch3.pos = 0;
         this.ch3.frequencyTimer = this.ch3.frequencyPeriod;
         if (this.ch3.dacEnabled) this.ch3.enabled = true;
         if (this.ch3.lengthCounter == 0) this.ch3.lengthCounter = 256;
