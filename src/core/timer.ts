@@ -2,10 +2,13 @@ import { GameBoy } from "./gameboy";
 import { SchedulerEvent, SchedulerId, Scheduler } from "./scheduler";
 import { bitTest, bitSet } from "./util/bits";
 import { InterruptId } from "./interrupts";
+import { hex } from "./util/misc";
 
 const timerBits = Uint16Array.from([9, 3, 5, 7]);
 const timerMasks = Uint16Array.from([1 << 9, 1 << 3, 1 << 5, 1 << 7]);
 const timerIntervals = Uint16Array.from([1024, 16, 64, 256]);
+
+const rescheduleMasks = Uint16Array.from([0b1111111111, 0b1111, 0b111111, 0b11111111]);
 
 export class Timer {
 
@@ -68,14 +71,17 @@ export class Timer {
 
     changeBitSel(newBitSel: number) {
         let internal = (this.scheduler.currTicks - this.lastDivResetTicks) & 0xFFFF;
-        if (
-            newBitSel != this.bitSel &&
-            bitTest(internal, timerBits[this.bitSel]) &&
-            !bitTest(internal, timerBits[newBitSel]) &&
-            this.enabled
-        ) {
-            console.log("Unexpected timer increment from bit select change");
-            this.timaIncrement();
+        if (newBitSel != this.bitSel) {
+            if (bitTest(internal, timerBits[this.bitSel]) &&
+                !bitTest(internal, timerBits[newBitSel]) &&
+                this.enabled) {
+                console.log("Unexpected timer increment from bit select change");
+                this.timaIncrement();
+            }
+
+            let ticksUntilIncrement = (rescheduleMasks[newBitSel] + 1) - (internal & rescheduleMasks[newBitSel]);
+            this.scheduler.cancelEventsById(SchedulerId.TimerIncrement);
+            this.scheduler.addEventRelative(SchedulerId.TimerIncrement, ticksUntilIncrement, this.scheduledTimaIncrement);
         }
         this.bitSel = newBitSel;
     }
@@ -90,7 +96,6 @@ export class Timer {
 
     resetDiv() {
         this.div = 0;
-
 
         let internal = (this.scheduler.currTicks - this.lastDivResetTicks) & 0xFFFF;
         if (bitTest(internal, timerBits[this.bitSel]) && this.enabled) {
@@ -139,15 +144,20 @@ export class Timer {
                 break;
             case 0xFF05: // TIMA
                 if (!this.reloading) {
+                    // console.log(`TIMA write success! ${hex(val, 2)}`);
                     this.counter = val;
                 } else {
+                    // console.log("TIMA write failed, reload overlapping!");
                     this.counter = this.modulo;
                 }
                 if (this.reloadPending) this.reloadCancel = true;
                 break;
             case 0xFF06: // TMA
                 this.modulo = val;
-                if (this.reloading) this.counter = val;
+                if (this.reloading) {
+                    // console.log("TMA write while reloading, counter set to written value!");
+                    this.counter = val;
+                }
                 break;
             case 0xFF07: // TAC
                 this.changeBitSel(val & 0b11);

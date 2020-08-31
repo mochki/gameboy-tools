@@ -95,7 +95,7 @@ export class GameBoy {
         this.cpu.setHl(0x014D);
         this.cpu.sp = 0xFFFE;
 
-        this.bus.write8(0xFF05, 0x00);
+        this.timer.counter = 0x00;
         this.bus.write8(0xFF06, 0x00);
         this.bus.write8(0xFF07, 0x00);
         // Sound register writes

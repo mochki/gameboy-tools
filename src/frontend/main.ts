@@ -432,7 +432,11 @@ function _loop(time: number): void {
                 while (mgr.gb.apu.player.sourcesPlaying < 10 && !mgr.gb.errored && attempts > 0) {
                     let startMs = performance.now();
 
-                    let i = mgr.gb.frame();
+                    let i = 0;
+                    let cpu = mgr.gb.cpu;
+                    while (i < 70224 && !mgr.gb.errored) {
+                        i += cpu.execute();
+                    }
                     cycles += i;
 
                     let endMs = performance.now();
@@ -447,7 +451,11 @@ function _loop(time: number): void {
             } else {
                 let attempts = 10;
                 while (mgr.gb.apu.player.sourcesPlaying < 10 && !mgr.gb.errored && attempts > 0) {
-                    cycles += mgr.gb.frame();
+                    let i = 0;
+                    let cpu = mgr.gb.cpu;
+                    while (i < 70224 && !mgr.gb.errored) {
+                        i += cpu.execute();
+                    }
                 }
             }
         } else {
