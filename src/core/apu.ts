@@ -136,35 +136,35 @@ export class APU {
 
     clockLength() {
         if (this.ch1.useLength) {
-            if (this.ch1.lengthTimer <= 0) {
+            if (this.ch1.lengthCounter <= 0) {
                 this.ch1.enabled = false;
                 this.ch1.updateOut();
             } else {
-                this.ch1.lengthTimer--;
+                this.ch1.lengthCounter--;
             }
         }
         if (this.ch2.useLength) {
-            if (this.ch2.lengthTimer <= 0) {
+            if (this.ch2.lengthCounter <= 0) {
                 this.ch2.enabled = false;
                 this.ch2.updateOut();
             } else {
-                this.ch2.lengthTimer--;
+                this.ch2.lengthCounter--;
             }
         }
         if (this.ch3.useLength) {
-            if (this.ch3.lengthTimer <= 0) {
+            if (this.ch3.lengthCounter <= 0) {
                 this.ch3.enabled = false;
                 this.ch3.updateOut();
             } else {
-                this.ch3.lengthTimer--;
+                this.ch3.lengthCounter--;
             }
         }
         if (this.ch4.useLength) {
-            if (this.ch4.lengthTimer <= 0) {
+            if (this.ch4.lengthCounter <= 0) {
                 this.ch4.enabled = false;
                 this.ch4.updateOut();
             } else {
-                this.ch4.lengthTimer--;
+                this.ch4.lengthCounter--;
             }
         }
     }
@@ -265,7 +265,6 @@ export class APU {
         volume: 0,
 
         lengthCounter: 0,
-        lengthTimer: 0,
 
         sweepEnable: false,
         sweepTimer: 0,
@@ -285,7 +284,7 @@ export class APU {
 
         // NR11
         duty: 2,
-        length: 0,
+        // length: 0,
 
         // NR12
         envelopeInitial: 0,
@@ -329,7 +328,6 @@ export class APU {
         volume: 0,
 
         lengthCounter: 0,
-        lengthTimer: 0,
 
         enableL: false,
         enableR: false,
@@ -340,7 +338,7 @@ export class APU {
 
         // NR21
         duty: 2,
-        length: 0,
+        // length: 0,
 
         // NR22
         envelopeInitial: 0,
@@ -381,7 +379,6 @@ export class APU {
         volume: 0,
 
         lengthCounter: 0,
-        lengthTimer: 0,
 
         waveTable: new Uint8Array(32),
 
@@ -395,7 +392,7 @@ export class APU {
         // -------
 
         // NR31
-        length: 0,
+        // length: 0,
 
         // NR32
         volumeCode: 0,
@@ -432,7 +429,6 @@ export class APU {
         volume: 0,
 
         lengthCounter: 0,
-        lengthTimer: 0,
 
         lfsr: 0,
 
@@ -445,7 +441,7 @@ export class APU {
 
         // NR41
         duty: 2,
-        length: 0,
+        // length: 0,
 
         // NR42
         envelopeInitial: 0,
@@ -493,7 +489,7 @@ export class APU {
         this.ch1.pos = 0;
         if (this.ch1.dacEnabled) this.ch1.enabled = true;
         this.ch1.volume = this.ch1.envelopeInitial;
-        this.ch1.lengthTimer = 64 - this.ch1.length;
+        if (this.ch1.lengthCounter == 0) this.ch1.lengthCounter = 64;
 
         this.ch1.sweepShadowFrequency = this.ch1.frequency;
         this.ch1.sweepTimer = this.ch1.sweepPeriod;
@@ -506,14 +502,14 @@ export class APU {
         this.ch2.pos = 0;
         if (this.ch2.dacEnabled) this.ch2.enabled = true;
         this.ch2.volume = this.ch2.envelopeInitial;
-        this.ch2.lengthTimer = 64 - this.ch2.length;
+        if (this.ch2.lengthCounter == 0) this.ch2.lengthCounter = 64;
     }
 
     triggerCh3() {
         this.ch3.frequencyTimer = this.ch3.frequencyPeriod;
         this.ch3.pos = 0;
         if (this.ch3.dacEnabled) this.ch3.enabled = true;
-        this.ch3.lengthTimer = 256 - this.ch3.length;
+        if (this.ch3.lengthCounter == 0) this.ch3.lengthCounter = 256;
     }
 
     triggerCh4() {
@@ -521,7 +517,7 @@ export class APU {
         this.ch4.lfsr = 0x7FFF;
         if (this.ch4.dacEnabled) this.ch4.enabled = true;
         this.ch4.volume = this.ch4.envelopeInitial;
-        this.ch4.lengthTimer = 64 - this.ch4.length;
+        if (this.ch4.lengthCounter == 0) this.ch4.lengthCounter = 64;
     }
 
     advanceCh1() {
@@ -702,7 +698,7 @@ export class APU {
                     this.ch1.updateOut();
                     break;
                 case 0xFF11: // NR11
-                    this.ch1.length = (val >> 0) & 0b111111;
+                    this.ch1.lengthCounter = 64 - ((val >> 0) & 0b111111);
                     this.ch1.duty = (val >> 6) & 0b11;
                     this.ch1.updateOut();
                     break;
@@ -754,7 +750,7 @@ export class APU {
                     break;
 
                 case 0xFF16: // NR21
-                    this.ch2.length = (val >> 0) & 0b111111;
+                    this.ch2.lengthCounter = 64 - ((val >> 0) & 0b111111);
                     this.ch2.duty = (val >> 6) & 0b11;
                     this.ch2.updateOut();
                     break;
@@ -811,7 +807,7 @@ export class APU {
                     this.ch3.updateOut();
                     break;
                 case 0xFF1B: // NR31
-                    this.ch3.length = (val >> 0) & 0xFF;
+                    this.ch3.lengthCounter = 256 - ((val >> 0) & 0xFF);
                     this.ch3.updateOut();
                     break;
                 case 0xFF1C: // NR32
@@ -837,7 +833,7 @@ export class APU {
                     break;
 
                 case 0xFF20: // NR41
-                    this.ch4.length = (val >> 0) & 0b111111;
+                    this.ch4.lengthCounter = 64 - ((val >> 0) & 0b111111);
                     this.ch4.updateOut();
                     break;
                 case 0xFF21: // NR42

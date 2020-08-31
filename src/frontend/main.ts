@@ -456,6 +456,7 @@ function _loop(time: number): void {
                     while (i < 70224 && !mgr.gb.errored) {
                         i += cpu.execute();
                     }
+                    cycles += i;
                 }
             }
         } else {
