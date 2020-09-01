@@ -155,7 +155,7 @@ export class CPU {
         let val = this.read8(this.pc);
         this.pc = (this.pc + 1) & 0xFFFF;
 
-        t[val](this);
+        UNPREFIXED_TABLE[val](this);
 
         if (this.cyclesPending > 0) {
             this.gb.tick(this.cyclesPending);
@@ -174,7 +174,7 @@ export class CPU {
     executeHaltBug(): void {
         let val = this.read8(this.pc);
 
-        t[val](this);
+        UNPREFIXED_TABLE[val](this);
 
         if (this.cyclesPending > 0) {
             this.gb.tick(this.cyclesPending);
@@ -354,10 +354,10 @@ export class CPU {
     }
 }
 
-type Instruction = (cpu: CPU) => void;
+export type Instruction = (cpu: CPU) => void;
 
-const t: Instruction[] = genUnprefixedTable();
-const CB_PREFIX_TABLE: Instruction[] = genCbPrefixTable();
+export const UNPREFIXED_TABLE: Instruction[] = genUnprefixedTable();
+export const CB_PREFIX_TABLE: Instruction[] = genCbPrefixTable();
 
 function genUnprefixedTable(): Instruction[] {
     const t: Instruction[] = new Array(256);

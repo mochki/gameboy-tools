@@ -13,6 +13,7 @@ import { MemoryEditor } from "../lib/imgui-js/imgui_memory_editor";
 import { GameBoy } from "../core/gameboy";
 import { hexN } from '../core/util/misc';
 import { resolveSchedulerId } from '../core/scheduler';
+import { disassemble } from '../core/disassembler';
 
 const clearColor: ImVec4 = new ImVec4(0.114, 0.114, 0.114, 1.00);
 
@@ -147,6 +148,8 @@ async function _init(): Promise<void> {
         switch (e.key) {
             case "Enter": mgr.gb.joypad.start = true; break;
             case "\\": mgr.gb.joypad.select = true; break;
+
+            case "s": mgr.gb.cpu.execute(); break;
 
             // Emulator Control
             case "Tab": {
@@ -482,6 +485,7 @@ function _loop(time: number): void {
         DrawTimingDiagram();
         DrawSoundVisualizer();
         DrawCheats();
+        DrawDisassembly();
 
         ImGui.EndFrame();
 
@@ -554,6 +558,8 @@ function DrawDebug() {
             ImGui.Text(`SP: ${hexN(mgr.gb.cpu.sp, 4)}`);
             ImGui.Text("");
             ImGui.Text(`PC: ${hexN(mgr.gb.cpu.pc, 4)}`);
+
+            ImGui.Text(`Disasm: ${disassemble(mgr.gb.cpu, 0, 0)}`);
 
             ImGui.Checkbox("IME", v => v = mgr.gb.cpu.ime);
             ImGui.Text(`Halted Cycles: \n${mgr.gb.haltSkippedCycles}`);
@@ -632,6 +638,17 @@ function DrawDebug() {
         } else {
             ImGui.Text("No ROM loaded :(");
         }
+    }
+}
+
+function DrawDisassembly() {
+    if (ImGui.Begin("Disassembly")) {
+
+        let lines = (ImGui.GetWindowHeight() / 13.3) - 4;
+
+        ImGui.Text(disassemble(mgr.gb.cpu, lines, 0));
+
+        ImGui.End();
     }
 }
 
