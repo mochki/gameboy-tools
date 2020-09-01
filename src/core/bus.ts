@@ -88,6 +88,8 @@ export class Bus {
         // this.gb.cgb = 
     }
 
+    oamDmaActive = false;
+
     bootrom = new Uint8Array(0x100).fill(0xFF);
     bootromEnabled = true;
 
@@ -111,6 +113,11 @@ export class Bus {
         }
     }
 
+    getOamDmaBusValue(): number {
+        // TODO: Implement OAM DMA bus conflicts
+        return 0xFF;
+    }
+
     read8(addr: number): number {
         if (this.provider.cheatsAddrs[addr]) return this.provider.cheatsValues[addr];
 
@@ -120,31 +127,65 @@ export class Bus {
             case 0x1: // ROM0 - 1###
             case 0x2: // ROM0 - 2###
             case 0x3: // ROM0 - 3###
-                return this.rom[addr];
+                if (!this.oamDmaActive) {
+                    return this.rom[addr];
+                } else {
+                    return this.getOamDmaBusValue();
+                }
             case 0x4: // ROMX - 4### 
             case 0x5: // ROMX - 5### 
             case 0x6: // ROMX - 6### 
-            case 0x7: // ROMX - 7### 
-                return this.rom[(addr & 0x3FFF) + this.romOffset];
+            case 0x7: // ROMX - 7###
+                if (!this.oamDmaActive) {
+                    return this.rom[(addr & 0x3FFF) + this.romOffset];
+                } else {
+                    return this.getOamDmaBusValue();
+                }
             case 0x8: // VRAM - 8###
             case 0x9: // VRAM - 9###
-                return this.ppu.read8(addr);
+                if (!this.oamDmaActive) {
+                    return this.ppu.read8(addr);
+                } else {
+                    return this.getOamDmaBusValue();
+                }
             case 0xA: // SRAM - A###
             case 0xB: // SRAM - B###
-                return this.mbc.read8(addr);
+                if (!this.oamDmaActive) {
+                    return this.mbc.read8(addr);
+                } else {
+                    return this.getOamDmaBusValue();
+                }
             case 0xC: // WRAM0 - C###
-                return this.wram[addr & 0xFFF];
+                if (!this.oamDmaActive) {
+                    return this.wram[addr & 0xFFF];
+                } else {
+                    return this.getOamDmaBusValue();
+                }
             case 0xD: // WRAMX - D###
-                return this.wram[(addr & 0xFFF) + (this.wramBank * 0x1000)];
+                if (!this.oamDmaActive) {
+                    return this.wram[(addr & 0xFFF) + (this.wramBank * 0x1000)];
+                } else {
+                    return this.getOamDmaBusValue();
+                }
             case 0xE: // Echo RAM - E###
-                return this.wram[addr & 0xFFF];
+                if (!this.oamDmaActive) {
+                    return this.wram[addr & 0xFFF];
+                } else {
+                    return this.getOamDmaBusValue();
+                }
             case 0xF: // ZeroPage - F###
                 if (addr >= 0xF000 && addr <= 0xFDFF) {
-                    return this.wram[(addr & 0xFFF) + (this.wramBank * 0x1000)];
+                    if (!this.oamDmaActive) {
+                        return this.wram[(addr & 0xFFF) + (this.wramBank * 0x1000)];
+                    }
                 }
                 else if (addr >= 0xFE00 && addr <= 0xFEFF) {
                     if (addr <= 0xFE9F) {
-                        return this.ppu.readOam8(addr);
+                        if (!this.oamDmaActive) {
+                            return this.ppu.readOam8(addr);
+                        } else {
+                            return 0xFF;
+                        }
                     } else {
                         return 0x00;
                     }
@@ -153,6 +194,9 @@ export class Bus {
                 switch (addr) {
                     case 0xFF00: // JOYP
                         return this.joypad.readHwio8();
+
+                    case 0xFF01: // SB
+                        return 0xFF;
 
                     case 0xFF04: // DIV
                     case 0xFF05: // TIMA
@@ -237,34 +281,48 @@ export class Bus {
             case 0x5: // ROMX - 5### 
             case 0x6: // ROMX - 6### 
             case 0x7: // ROMX - 7### 
-                this.mbc.write8(addr, val);
-                this.romOffset = this.mbc.getOffset() & this.romOffsetMask;
+                if (!this.oamDmaActive) {
+                    this.mbc.write8(addr, val);
+                    this.romOffset = this.mbc.getOffset() & this.romOffsetMask;
+                }
                 return;
             case 0x8: // VRAM - 8###
             case 0x9: // VRAM - 9###
-                this.ppu.write8(addr, val);
+                if (!this.oamDmaActive) {
+                    this.ppu.write8(addr, val);
+                }
                 return;
             case 0xA: // SRAM - A###
             case 0xB: // SRAM - B###
-                this.mbc.write8(addr, val);
+                if (!this.oamDmaActive) {
+                    this.mbc.write8(addr, val);
+                }
                 return;
             case 0xC: // WRAM0 - C###
-                this.wram[addr & 0xFFF] = val;
+                if (!this.oamDmaActive) {
+                    this.wram[addr & 0xFFF] = val;
+                }
                 return;
             case 0xD: // WRAMX - D###
-                this.wram[(addr & 0xFFF) + (this.wramBank * 0x1000)] = val;
+                if (!this.oamDmaActive) {
+                    this.wram[(addr & 0xFFF) + (this.wramBank * 0x1000)] = val;
+                }
                 return;
             case 0xE: // Echo RAM - E###
-                this.wram[addr & 0xFFF] = val;
+                if (!this.oamDmaActive) {
+                    this.wram[addr & 0xFFF] = val;
+                }
                 return;
             case 0xF: // ZeroPage - F###
-                if (addr >= 0xF000 && addr <= 0xFDFF) {
-                    this.wram[(addr & 0xFFF) + (this.wramBank * 0x1000)] = val;
-                    return;
-                }
-                else if (addr >= 0xFE00 && addr <= 0xFE9F) {
-                    this.ppu.writeOam8(addr, val);
-                    return;
+                if (!this.oamDmaActive) {
+                    if (addr >= 0xF000 && addr <= 0xFDFF) {
+                        this.wram[(addr & 0xFFF) + (this.wramBank * 0x1000)] = val;
+                        return;
+                    }
+                    else if (addr >= 0xFE00 && addr <= 0xFE9F) {
+                        this.ppu.writeOam8(addr, val);
+                        return;
+                    }
                 }
 
                 switch (addr) {
