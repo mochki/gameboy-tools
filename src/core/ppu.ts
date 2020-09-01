@@ -293,6 +293,7 @@ export class PPU {
         mode3Extra += this.fastInitialOamScanSpriteCount * 6;
         if (this.wx > 7 && this.ly >= this.wy && this.windowEnable) mode3Extra += 6;
         this.scheduler.addEventRelative(SchedulerId.PPUMode, (172 + mode3Extra - cyclesLate) << this.gb.doubleSpeed, this.endMode3);
+        this.scheduler.addEventRelative(SchedulerId.PPUMode, (376 - cyclesLate) << this.gb.doubleSpeed, this.endMode0);
         this.mode3StartCycles = this.scheduler.currTicks - cyclesLate;
     };
 
@@ -315,7 +316,6 @@ export class PPU {
         this.mode = PPUMode.Hblank;
         this.checkStat();
         this.fetcherCycles = 0;
-        this.scheduler.addEventRelative(SchedulerId.PPUMode, (376 - mode3Length - cyclesLate) << this.gb.doubleSpeed, this.endMode0);
 
         if (this.hdmaActive) {
             if (this.hdmaBlocksRemaining <= 0) {
