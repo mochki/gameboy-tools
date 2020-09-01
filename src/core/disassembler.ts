@@ -444,6 +444,8 @@ function disassembleInstruction(opcode: number, operand: number, pc: number): st
         case InstructionType.POP_R16: return `POP ${r16_1[p]}`;
         case InstructionType.PUSH_R16: return `PUSH ${r16_1[p]}`;
 
+        case InstructionType.DAA: return "DAA";
+
         case InstructionType.CB_PREFIX:
             y = (operand >> 3) & 0b111;
             z = (operand >> 0) & 0b111;

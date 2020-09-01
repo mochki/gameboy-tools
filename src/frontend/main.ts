@@ -1397,6 +1397,19 @@ function download(filename: string, arr: Uint8Array) {
     document.body.removeChild(element);
 }
 
+function downloadText(filename: string, text: string) {
+    var element = document.createElement('a');
+    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+    element.setAttribute('download', filename);
+
+    element.style.display = 'none';
+    document.body.appendChild(element);
+
+    element.click();
+
+    document.body.removeChild(element);
+}
+
 const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 function noteFromFrequency(frequency: number) {

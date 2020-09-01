@@ -8,6 +8,8 @@ import { Timer } from './timer';
 import { APU } from './apu';
 import { bitSetValue, bitTest } from './util/bits';
 import { GetTextLineHeightWithSpacing } from '../lib/imgui-js/imgui';
+import { disassemble } from './disassembler';
+import { hexN } from './util/misc';
 
 export class GameBoy {
     bus: Bus;
@@ -217,6 +219,14 @@ export class GameBoy {
         this.bus.write8(0xFF0F, 0xE1);
 
         this.ppu.cgbBgPaletteIndexInc = true;
+    }
+
+    traceLog = "";
+    trace(count: number) {
+        for (let i = 0; i < count; i++) {
+            this.traceLog += `AF:${hexN(this.cpu.getAf(), 4)} BC:${hexN(this.cpu.getBc(), 4)} DE:${hexN(this.cpu.getDe(), 4)} HL:${hexN(this.cpu.getHl(), 4)} ${disassemble(this.cpu, 1, 0)}`;
+            this.cpu.execute();
+        }
     }
 
     cgb = false;
