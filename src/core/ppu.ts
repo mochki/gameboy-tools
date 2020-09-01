@@ -42,9 +42,9 @@ function generatePaletteLookup(enableColorCorrection: boolean) {
             gOut = Math.min(240, (r * 2 + g * 23 + b * 6) >> 2);
             bOut = Math.min(240, (r * 4 + g * 4 + b * 23) >> 2);
         } else {
-            rOut = r * (255/31);
-            gOut = g * (255/31);
-            bOut = b * (255/31);
+            rOut = r * (255 / 31);
+            gOut = g * (255 / 31);
+            bOut = b * (255 / 31);
         }
 
         table[i][0] = rOut;
@@ -521,20 +521,27 @@ export class PPU {
                 }
 
             case 0xFF68: // BCPS / BGPI - CGB Background Palette Index
-                let bcpsVal = 0;
-                bcpsVal |= this.cgbBgPaletteIndex & 0x3F;
-                if (this.cgbBgPaletteIndexInc) bcpsVal = bitSet(bcpsVal, 7);
-                // console.log(`BG Pal Index Read: ${this.cgbObjPaletteIndex}`);
-                return bcpsVal;
+                if (this.mode != PPUMode.Drawing) {
+                    let bcpsVal = 0;
+                    bcpsVal |= this.cgbBgPaletteIndex & 0x3F;
+                    if (this.cgbBgPaletteIndexInc) bcpsVal = bitSet(bcpsVal, 7);
+                    // console.log(`BG Pal Index Read: ${this.cgbObjPaletteIndex}`);
+                    return bcpsVal;
+                } else {
+                    return 0xFF;
+                }
             case 0xFF69: // BCPD / BGPD - CGB Background Palette Data
                 // console.log(`BG Pal Data Read: ${this.cgbObjPaletteIndex}`);
                 return this.bgPalette.data[this.cgbBgPaletteIndex];
-
             case 0xFF6A: // OCPS / OGPI - CGB Sprite Palette Index
-                let ocpsVal = 0;
-                ocpsVal |= this.cgbObjPaletteIndex & 0x3F;
-                if (this.cgbObjPaletteIndexInc) ocpsVal = bitSet(ocpsVal, 7);
-                return ocpsVal;
+                if (this.mode != PPUMode.Drawing) {
+                    let ocpsVal = 0;
+                    ocpsVal |= this.cgbObjPaletteIndex & 0x3F;
+                    if (this.cgbObjPaletteIndexInc) ocpsVal = bitSet(ocpsVal, 7);
+                    return ocpsVal;
+                } else {
+                    return 0xFF;
+                }
             case 0xFF6B: // OCPD / OGPD - CGB Sprite Palette Data
                 return this.objPalette.data[this.cgbObjPaletteIndex];
 
@@ -672,8 +679,10 @@ export class PPU {
                 return;
             case 0xFF69: // BCPD / BGPD - CGB Background Palette Data
                 // console.log(hex(val, 2));
-                this.bgPalette.data[this.cgbBgPaletteIndex] = val;
-                this.bgPalette.update(this.cgbBgPaletteIndex >> 3, (this.cgbBgPaletteIndex >> 1) & 0b11);
+                if (this.mode != PPUMode.Drawing) {
+                    this.bgPalette.data[this.cgbBgPaletteIndex] = val;
+                    this.bgPalette.update(this.cgbBgPaletteIndex >> 3, (this.cgbBgPaletteIndex >> 1) & 0b11);
+                }
                 if (this.cgbBgPaletteIndexInc) {
                     this.cgbBgPaletteIndex++;
                     this.cgbBgPaletteIndex &= 0x3F;
@@ -685,8 +694,10 @@ export class PPU {
                 this.cgbObjPaletteIndexInc = bitTest(val, 7);
                 return;
             case 0xFF6B: // OCPD / OGPD - CGB Sprite Palette Data
-                this.objPalette.data[this.cgbObjPaletteIndex] = val;
-                this.objPalette.update(this.cgbObjPaletteIndex >> 3, (this.cgbObjPaletteIndex >> 1) & 0b11);
+                if (this.mode != PPUMode.Drawing) {
+                    this.objPalette.data[this.cgbObjPaletteIndex] = val;
+                    this.objPalette.update(this.cgbObjPaletteIndex >> 3, (this.cgbObjPaletteIndex >> 1) & 0b11);
+                }
                 if (this.cgbObjPaletteIndexInc) {
                     this.cgbObjPaletteIndex++;
                     this.cgbObjPaletteIndex &= 0x3F;
