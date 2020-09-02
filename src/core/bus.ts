@@ -68,6 +68,7 @@ export class Bus {
             case 0x03: // MBC1
                 this.mbc = new MBC3();
                 break;
+            case 0x0F:
             case 0x10:
             case 0x11:
             case 0x12:
