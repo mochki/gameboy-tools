@@ -24,6 +24,8 @@ let cpuMeter = false;
 let romsList: string[] = [];
 let romsListLoadFailed = false;
 
+let bigScreen = true;
+
 let mgr = new GameBoyManager();
 (window as any).mgr = mgr;
 
@@ -432,12 +434,12 @@ function _loop(time: number): void {
         if (syncToAudio) {
             if (cpuMeter) {
                 let attempts = 10;
-                while (mgr.gb.apu.player.sourcesPlaying < 10 && !mgr.gb.errored && attempts > 0) {
+                while (mgr.gb.apu.player.sourcesPlaying < 10 && !mgr.gb.breaked && attempts > 0) {
                     let startMs = performance.now();
 
                     let i = 0;
                     let cpu = mgr.gb.cpu;
-                    while (i < 70224 && !mgr.gb.errored) {
+                    while (i < 70224 && !mgr.gb.breaked) {
                         i += cpu.execute();
                     }
                     cycles += i;
@@ -453,10 +455,10 @@ function _loop(time: number): void {
                 }
             } else {
                 let attempts = 10;
-                while (mgr.gb.apu.player.sourcesPlaying < 10 && !mgr.gb.errored && attempts > 0) {
+                while (mgr.gb.apu.player.sourcesPlaying < 10 && !mgr.gb.breaked && attempts > 0) {
                     let i = 0;
                     let cpu = mgr.gb.cpu;
-                    while (i < 70224 && !mgr.gb.errored) {
+                    while (i < 70224 && !mgr.gb.breaked) {
                         i += cpu.execute();
                     }
                     cycles += i;
@@ -469,6 +471,11 @@ function _loop(time: number): void {
             while (startTime + 16.66 > performance.now()) {
                 cycles += mgr.gb.doubleFrame();
             }
+        }
+
+        if (mgr.gb.breaked) {
+            mgr.gb.unbreak();
+            runEmulator = false;
         }
     }
 
@@ -581,12 +588,15 @@ function DrawDebug() {
                 ImGui.Dummy(new ImVec2(0, 8));
 
             }
+            ImGui.Checkbox("Big Screen", (v = bigScreen) => bigScreen = v);
             ImGui.Checkbox("CPU Meter", (v = cpuMeter) => cpuMeter = v);
 
             ImGui.Checkbox("Run Emulator", (v = runEmulator) => runEmulator = v);
-            if (ImGui.Button("Unerror")) mgr.gb.errored = false;
+            if (ImGui.Button("Unbreak")) mgr.gb.unbreak();
             if (ImGui.Button("Step")) mgr.gb.cpu.execute();
             if (ImGui.Button("Reset")) mgr.reset();
+            if (ImGui.Button("Run Frame")) mgr.gb.frame();
+            if (ImGui.Button("Run Scanline")) mgr.gb.scanline();
             ImGui.Checkbox("Skip Boot ROM", (v = mgr.skipBootrom) => mgr.skipBootrom = v);
 
             ImGui.NextColumn();
@@ -615,8 +625,12 @@ function DrawDebug() {
             ImGui.Text(`WY: ${mgr.gb.ppu.wy}`);
             ImGui.Text(`WX: ${mgr.gb.ppu.wx}`);
 
+            ImGui.Text(`Window Line: ${mgr.gb.ppu.windowCurrentLine}`);
+            ImGui.Text(`Window Yet?: ${mgr.gb.ppu.windowTriggeredThisFrame}`);
             ImGui.Text(`Fetcher Step: ${mgr.gb.ppu.fetcherStep}`);
             ImGui.Text(`Fetcher Pixel X: ${mgr.gb.ppu.fetcherX}`);
+            ImGui.Text(`Fetcher Window Mode: ${mgr.gb.ppu.fetcherWindow}`);
+            ImGui.Text(`PPU Mode: ${mgr.gb.ppu.mode}`);
 
             ImGui.NextColumn();
 
@@ -641,12 +655,40 @@ function DrawDebug() {
     }
 }
 
+let disassemblerInput = "";
 function DrawDisassembly() {
-    if (ImGui.Begin("Disassembly")) {
+    let title = mgr.gb.breakedInfo.length > 0 ? `Disassembly - ${mgr.gb.breakedInfo}` : "Disassembly";
+    if (ImGui.Begin(title)) {
+        ImGui.Text("Add Breakpoint (hex):");
+        ImGui.InputText("##disassemblerInput", (v = disassemblerInput) => (disassemblerInput = v));
+        if (gameSharkInvalid) {
+            ImGui.Text("Invalid GameShark code!");
+        }
+        if (ImGui.Button("Add")) {
+            let parsed = parseInt(`0x${disassemblerInput}`);
 
-        let lines = (ImGui.GetWindowHeight() / 13.3) - 4;
+            if (!isNaN(parsed) && parsed >= 0x0000 && parsed <= 0xFFFF) {
+                mgr.gb.cpu.addBreakpoint(parsed);
+            }
+        }
 
-        ImGui.Text(disassemble(mgr.gb.cpu, lines, 0));
+        ImGui.Separator();
+
+        let lines = (ImGui.GetWindowHeight() / 17) - 7;
+
+        let disasm = disassemble(mgr.gb.cpu, lines, 0);
+        for (let i = 0; i < disasm.length; i++) {
+            let line = disasm[i];
+            if (ImGui.Selectable(line.disasm)) {
+                // Toggle breakpoint when clicking
+                let breakpointed = mgr.gb.cpu.breakpoints[line.addr];
+                if (breakpointed) {
+                    mgr.gb.cpu.removeBreakpoint(line.addr);
+                } else {
+                    mgr.gb.cpu.addBreakpoint(line.addr);
+                }
+            }
+        }
 
         ImGui.End();
     }
@@ -731,11 +773,13 @@ function DrawRoms() {
 }
 
 let displayTex: null | WebGLTexture;
-let displaySize = new ImVec2(160 * 4, 144 * 4);
+let displaySizeSmall = new ImVec2(160 * 2, 144 * 2);
+let displaySizeBig = new ImVec2(160 * 4, 144 * 4);
 
 function DrawDisplay() {
     if (ImGui.Begin("Display", null, ImGui.ImGuiWindowFlags.NoResize | ImGui.ImGuiWindowFlags.None)) {
 
+        let displaySize = bigScreen ? displaySizeBig : displaySizeSmall;
         ImGui.SetWindowSize(new ImVec2(displaySize.x + 16, displaySize.y + 36));
 
         const gl: WebGLRenderingContext | null = ImGui_Impl.gl;

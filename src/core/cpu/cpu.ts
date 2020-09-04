@@ -134,6 +134,18 @@ export class CPU {
         return val;
     }
 
+    breakpoints = new Uint8Array(65536);
+    breakpointList = new Set();
+
+    addBreakpoint(addr: number) {
+        this.breakpoints[addr] = 1;
+        this.breakpointList.add(addr);
+    }
+    removeBreakpoint(addr: number) {
+        this.breakpoints[addr] = 0;
+        this.breakpointList.delete(addr);
+    }
+
     cycles = 0;
     cyclesPending = 0;
 
@@ -167,6 +179,10 @@ export class CPU {
         }
 
         // this.gb.info(`Addr:${hexN(origPc, 4)} Opcode:${hexN(val, 2)}`);
+
+        if (this.breakpoints[this.pc]) {
+            this.gb.break("breakpoint");
+        }
 
         return this.cycles;
     }

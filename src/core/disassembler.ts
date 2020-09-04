@@ -440,7 +440,7 @@ function disassembleInstruction(opcode: number, operand: number, pc: number): st
         case InstructionType.RRCA: return "RRCA";
         case InstructionType.RRA: return "RRA";
         case InstructionType.RLA: return "RLA";
-        
+
         case InstructionType.POP_R16: return `POP ${r16_1[p]}`;
         case InstructionType.PUSH_R16: return `PUSH ${r16_1[p]}`;
 
@@ -470,9 +470,18 @@ function disassembleInstruction(opcode: number, operand: number, pc: number): st
     return `Implement: ${decodedType}`;
 }
 
-export function disassemble(cpu: CPU, front: number, back: number): string {
+let disasmArr = new Array(65536);
+
+type DisassembledLine = {
+    disasm: string,
+    addr: number,
+};
+
+export function disassemble(cpu: CPU, front: number, back: number): DisassembledLine[] {
     let disasm = "";
     let disasmPc = cpu.pc;
+
+    let arr: DisassembledLine[] = [];
 
     for (let i = 0; i < front; i++) {
         let opcode = cpu.gb.bus.read8(disasmPc);
@@ -496,11 +505,16 @@ export function disassemble(cpu: CPU, front: number, back: number): string {
                 break;
         }
         let atPc = disasmPc == cpu.pc ? "PC->" : "    ";
+        let isBreakpoint = cpu.breakpoints[disasmPc] ? "[BRK]" : "     ";
+
+        
+        arr.push({
+            disasm: `${isBreakpoint} ${atPc} ${hexN(disasmPc, 4)} ${bytes}: ${disassembleInstruction(opcode, operand, disasmPc)}\n`,
+            addr: disasmPc
+        });
 
         disasmPc = (disasmPc + length) & 0xFFFF;
-
-        disasm += `${atPc} ${hexN(disasmPc, 4)} ${bytes}: ${disassembleInstruction(opcode, operand, disasmPc)}\n`;
     }
 
-    return disasm;
+return arr
 }

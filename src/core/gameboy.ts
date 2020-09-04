@@ -7,7 +7,7 @@ import { Joypad } from './joypad';
 import { Timer } from './timer';
 import { APU } from './apu';
 import { bitSetValue, bitTest } from './util/bits';
-import { GetTextLineHeightWithSpacing } from '../lib/imgui-js/imgui';
+import { GetTextLineHeightWithSpacing, GetFontTexUvWhitePixel } from '../lib/imgui-js/imgui';
 import { disassemble } from './disassembler';
 import { hexN } from './util/misc';
 
@@ -231,14 +231,25 @@ export class GameBoy {
 
     cgb = false;
 
-    errored = false;
+    breaked = false;
+    breakedInfo = "";
     infoText: string[] = [];
     error(text: string) {
-        this.errored = true;
+        this.breaked = true;
         this.infoText.unshift("ERROR:");
         this.infoText.unshift(text);
         this.infoText = this.infoText.slice(0, 10);
     }
+
+    break(info: string) {
+        this.breaked = true;
+        this.breakedInfo = info;
+    }
+    unbreak() {
+        this.breaked = false;
+        this.breakedInfo = "";
+    }
+
     // info(text: string) {
     //     return;
     //     this.infoText.unshift(text);
@@ -277,6 +288,15 @@ export class GameBoy {
         let i = 0;
         let cpu = this.cpu;
         while (i < 70224) {
+            i += cpu.execute();
+        }
+        return i;
+    }
+
+    public scanline(): number {
+        let i = 0;
+        let cpu = this.cpu;
+        while (i < 456) {
             i += cpu.execute();
         }
         return i;
@@ -331,6 +351,6 @@ export class GameBoy {
             }
         }
         // alert(`Processed ${terminateAt} events and couldn't exit HALT! Assuming crashed.`);
-        this.errored = true;
+        this.breaked = true;
     }
 }
