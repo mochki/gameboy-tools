@@ -864,12 +864,13 @@ export class PPU {
                         // tp; tile pixel
                         for (let tp = 0; tp < 8; tp++) {
                             if (windowPixel >= 0) {
-                                this.screenBackBuf[screenBase++] = palette[data[tp]][0];
-                                this.screenBackBuf[screenBase++] = palette[data[tp]][1];
-                                this.screenBackBuf[screenBase++] = palette[data[tp]][2];
+                                this.screenBackBuf[screenBase + 0] = palette[data[tp]][0];
+                                this.screenBackBuf[screenBase + 1] = palette[data[tp]][1];
+                                this.screenBackBuf[screenBase + 2] = palette[data[tp]][2];
                                 this.scanlineRaw[windowPixel] = data[tp];
                                 this.scanlineNoSprites[windowPixel] = (noSprites && data[tp] != 0) ? 1 : 0;
                             }
+                            screenBase += 3;
                             windowPixel += 1;
                             if (windowPixel > 159) break windowLoop;
                         }
