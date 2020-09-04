@@ -5,7 +5,7 @@ import { bitTest, bitSet, BIT_3, byteFlip } from './util/bits';
 import { unTwo8b, hex } from './util/misc';
 import { InterruptId } from './interrupts';
 
-export enum PPUMode {
+export const enum PPUMode {
     Hblank = 0,
     Vblank = 1,
     OamScan = 2,

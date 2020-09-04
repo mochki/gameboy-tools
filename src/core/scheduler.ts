@@ -14,7 +14,7 @@ export class SchedulerEvent {
     }
 }
 
-export enum SchedulerId {
+export const enum SchedulerId {
     None = 255,
     PPUMode = 0,
     TimerDIV = 1,
