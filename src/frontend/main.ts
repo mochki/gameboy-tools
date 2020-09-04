@@ -626,7 +626,7 @@ function DrawDebug() {
             ImGui.Text(`WX: ${mgr.gb.ppu.wx}`);
 
             ImGui.Text(`Window Line: ${mgr.gb.ppu.windowCurrentLine}`);
-            ImGui.Text(`Window Yet?: ${mgr.gb.ppu.windowTriggeredThisFrame}`);
+            ImGui.Text(`Window Yet?: ${mgr.gb.ppu.windowYTrigger}`);
             ImGui.Text(`Fetcher Step: ${mgr.gb.ppu.fetcherStep}`);
             ImGui.Text(`Fetcher Pixel X: ${mgr.gb.ppu.fetcherX}`);
             ImGui.Text(`Fetcher Window Mode: ${mgr.gb.ppu.fetcherWindow}`);

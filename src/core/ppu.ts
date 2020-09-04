@@ -171,8 +171,8 @@ export class PPU {
     wy = 0; // FF4A
     wx = 0; // FF4B
 
-    windowCurrentLine = 0;
-    windowTriggeredThisFrame = false;
+    windowCurrentLine = -1;
+    windowYTrigger = false;
 
     lcdcVal = 0;
 
@@ -274,6 +274,10 @@ export class PPU {
             this.scheduler.addEventRelative(SchedulerId.PPUMode, (4 - cyclesLate) << this.gb.doubleSpeed, this.enterMode2Late);
         }
         this.scheduler.addEventRelative(SchedulerId.PPUMode, (80 - cyclesLate) << this.gb.doubleSpeed, this.endMode2);
+
+        if (this.wy == this.ly) {
+            this.windowYTrigger = true;
+        }
     };
 
     enterMode2Late = (cyclesLate: number) => {
@@ -291,7 +295,7 @@ export class PPU {
         let mode3Extra = 0;
         mode3Extra += this.scx & 0b111;
         mode3Extra += this.fastInitialOamScanSpriteCount * 6;
-        if (this.wx > 7 && this.ly >= this.wy && this.windowEnable) mode3Extra += 6;
+        if (this.wx > 7 && this.windowYTrigger && this.windowEnable) mode3Extra += 6;
         this.scheduler.addEventRelative(SchedulerId.PPUMode, (172 + mode3Extra - cyclesLate) << this.gb.doubleSpeed, this.endMode3);
         this.scheduler.addEventRelative(SchedulerId.PPUMode, (376 - cyclesLate) << this.gb.doubleSpeed, this.endMode0);
         this.mode3StartCycles = this.scheduler.currTicks - cyclesLate;
@@ -308,8 +312,10 @@ export class PPU {
             if (this.renderThisFrame) {
                 this.renderScanline();
             }
+
             mode3Length = this.scheduler.currTicks - this.mode3StartCycles - cyclesLate;
         }
+
 
         this.scanlineTimingsBack[this.ly] = mode3Length >> this.gb.doubleSpeed;
 
@@ -318,17 +324,17 @@ export class PPU {
         this.fetcherCycles = 0;
 
         if (this.hdmaActive) {
-            if (this.hdmaBlocksRemaining <= 0) {
-                this.hdmaActive = false;
-            }
-
             for (let i = 0; i < 16; i++) {
+                this.gb.tick(2);
                 this.write8(this.hdmaDest + i, this.gb.bus.read8(this.hdmaSource + i));
             }
             this.hdmaDest = (this.hdmaDest + 16) & 0x1FF0;
             this.hdmaSource = (this.hdmaSource + 16) & 0xFFF0;
-            this.gb.tick(8);
             this.hdmaBlocksRemaining--;
+
+            if (this.hdmaBlocksRemaining < 0) {
+                this.hdmaActive = false;
+            }
         }
     };
 
@@ -340,27 +346,29 @@ export class PPU {
             this.enterMode2(cyclesLate); // Enter OAM Scan
         } else {
             this.enterMode1(cyclesLate); // Enter Vblank
-            this.renderDoneScreen = true;
-            this.renderDoneTimingDiagram = true;
-            this.windowTriggeredThisFrame = false;
-
-
-            if (this.renderThisFrame) {
-                this.swapBuffers();
-            }
-
-            this.currentFrame++;
-            if (this.frameSkipRate > 0) {
-                this.renderThisFrame = this.currentFrame % this.frameSkipRate == 0;
-            } else {
-                this.renderThisFrame = true;
-            }
         }
     };
 
     enterMode1 = (cyclesLate: number) => { // Enter Vblank
         this.scheduler.addEventRelative(SchedulerId.PPUMode, (4 - cyclesLate) << this.gb.doubleSpeed, this.enterMode1LateEffects);
         this.scheduler.addEventRelative(SchedulerId.PPUMode, (456 - cyclesLate) << this.gb.doubleSpeed, this.continueMode1);
+
+        this.renderDoneScreen = true;
+        this.renderDoneTimingDiagram = true;
+        this.windowCurrentLine = -1;
+
+        this.windowYTrigger = false;
+
+        if (this.renderThisFrame) {
+            this.swapBuffers();
+        }
+
+        this.currentFrame++;
+        if (this.frameSkipRate > 0) {
+            this.renderThisFrame = this.currentFrame % this.frameSkipRate == 0;
+        } else {
+            this.renderThisFrame = true;
+        }
     };
 
     enterMode1LateEffects = (cyclesLate: number) => {
@@ -662,11 +670,11 @@ export class PPU {
 
                         while (blocks > 0) {
                             for (let i = 0; i < 16; i++) {
+                                this.gb.tick(2);
                                 this.write8(this.hdmaDest + i, this.gb.bus.read8(this.hdmaSource + i));
                             }
                             this.hdmaDest = (this.hdmaDest + 16) & 0x1FF0;
                             this.hdmaSource = (this.hdmaSource + 16) & 0xFFF0;
-                            this.gb.tick(8);
                             blocks--;
                         }
                     }
@@ -826,54 +834,47 @@ export class PPU {
                     }
                 }
             }
-            if (this.windowEnable) {
-                if (this.ly >= this.wy && windowPixel < 160) {
-                    if (!this.windowTriggeredThisFrame) {
-                        this.windowTriggeredThisFrame = true;
-                        this.windowCurrentLine = this.ly - this.wy;
-                    } else {
-                        this.windowCurrentLine++;
+            if (this.windowEnable && windowPixel < 160 && this.windowYTrigger) {
+                this.windowCurrentLine++;
+
+                let tilemapBase = (this.windowTilemapSelect ? 1024 : 0) + (((this.windowCurrentLine >> 3) << 5) & 1023);
+                let lineOffset = 0;
+
+                screenBase = (this.ly * 160 + windowPixel) * 3;
+                let tileY = this.windowCurrentLine & 7;
+
+                windowLoop:
+                for (let t = 0; ; t++) {
+                    let tilemapAddr = tilemapBase + ((lineOffset + t) & 31);
+                    let tileIndex = this.tilemap[tilemapAddr];
+
+                    if (!this.bgWindowTiledataSelect) {
+                        // On high tileset, the tile number is signed with Two's complement
+                        tileIndex = unTwo8b(tileIndex) + 256;
                     }
 
-                    let tilemapBase = (this.windowTilemapSelect ? 1024 : 0) + (((this.windowCurrentLine >> 3) << 5) & 1023);
-                    let lineOffset = 0;
+                    let attrs = this.cgbAttrs[tilemapAddr];
 
-                    screenBase = (this.ly * 160 + windowPixel) * 3;
-                    let tileY = this.windowCurrentLine & 7;
+                    let tileBank = (attrs >> 3) & 1;
+                    let noSprites = bitTest(attrs, 7);
+                    let yFlip = bitTest(attrs, 6);
+                    let xFlip = bitTest(attrs, 5);
 
-                    windowLoop:
-                    for (let t = 0; ; t++) {
-                        let tilemapAddr = tilemapBase + ((lineOffset + t) & 31);
-                        let tileIndex = this.tilemap[tilemapAddr];
+                    let data = (xFlip ? this.tilesetXFlipped : this.tileset)[tileBank][tileIndex][yFlip ? tileY ^ 7 : tileY];
+                    let palette = this.bgPalette.shades[attrs & 0b111];
 
-                        if (!this.bgWindowTiledataSelect) {
-                            // On high tileset, the tile number is signed with Two's complement
-                            tileIndex = unTwo8b(tileIndex) + 256;
+                    // tp; tile pixel
+                    for (let tp = 0; tp < 8; tp++) {
+                        if (windowPixel >= 0) {
+                            this.screenBackBuf[screenBase + 0] = palette[data[tp]][0];
+                            this.screenBackBuf[screenBase + 1] = palette[data[tp]][1];
+                            this.screenBackBuf[screenBase + 2] = palette[data[tp]][2];
+                            this.scanlineRaw[windowPixel] = data[tp];
+                            this.scanlineNoSprites[windowPixel] = (noSprites && data[tp] != 0) ? 1 : 0;
                         }
-
-                        let attrs = this.cgbAttrs[tilemapAddr];
-
-                        let tileBank = (attrs >> 3) & 1;
-                        let noSprites = bitTest(attrs, 7);
-                        let yFlip = bitTest(attrs, 6);
-                        let xFlip = bitTest(attrs, 5);
-
-                        let data = (xFlip ? this.tilesetXFlipped : this.tileset)[tileBank][tileIndex][yFlip ? tileY ^ 7 : tileY];
-                        let palette = this.bgPalette.shades[attrs & 0b111];
-
-                        // tp; tile pixel
-                        for (let tp = 0; tp < 8; tp++) {
-                            if (windowPixel >= 0) {
-                                this.screenBackBuf[screenBase + 0] = palette[data[tp]][0];
-                                this.screenBackBuf[screenBase + 1] = palette[data[tp]][1];
-                                this.screenBackBuf[screenBase + 2] = palette[data[tp]][2];
-                                this.scanlineRaw[windowPixel] = data[tp];
-                                this.scanlineNoSprites[windowPixel] = (noSprites && data[tp] != 0) ? 1 : 0;
-                            }
-                            screenBase += 3;
-                            windowPixel += 1;
-                            if (windowPixel > 159) break windowLoop;
-                        }
+                        screenBase += 3;
+                        windowPixel += 1;
+                        if (windowPixel > 159) break windowLoop;
                     }
                 }
             }
@@ -980,13 +981,9 @@ export class PPU {
                 this.fetcherOamScan();
 
                 // Special window trigger case
-                if (this.windowEnable && this.ly >= this.wy && this.wx < 8) {
-                    if (!this.windowTriggeredThisFrame) {
-                        this.windowTriggeredThisFrame = true;
-                        this.windowCurrentLine = this.ly - this.wy;
-                    } else {
-                        this.windowCurrentLine++;
-                    }
+                if (this.windowEnable && this.windowYTrigger && this.wx < 8) {
+                    this.windowCurrentLine++;
+
                     this.fetcherWindow = true;
                     this.fetcherX = this.wx - 7;
                 }
@@ -1024,7 +1021,7 @@ export class PPU {
                 if (this.fastInitialOamScanSpriteCount >= 10) break;
             }
         }
-    }
+    };
 
     fetcherOamScan() {
         let spriteCount = 0;
@@ -1235,14 +1232,10 @@ export class PPU {
                             this.fetcherObjShiftBgPrio >>= 1;
                             this.fetcherBgWindowShiftNoSprites >>= 1;
 
-                            if (this.fetcherX == this.wx - 8 && this.windowEnable && this.ly >= this.wy) {
+                            if (this.fetcherX == this.wx - 8 && this.windowEnable && this.windowYTrigger) {
                                 // Window trigger
-                                if (!this.windowTriggeredThisFrame) {
-                                    this.windowTriggeredThisFrame = true;
-                                    this.windowCurrentLine = this.ly - this.wy;
-                                } else {
-                                    this.windowCurrentLine++;
-                                }
+                                this.windowCurrentLine++;
+
                                 this.fetcherStep = 0;
                                 this.fetcherPushReady = false;
                                 this.fetcherTile = 0;
