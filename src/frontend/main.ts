@@ -735,13 +735,15 @@ function LoadRomFromURL(url: string, bootrom: boolean) {
     client.responseType = "arraybuffer";
     client.open("GET", url);
     client.onreadystatechange = () => {
-        if (client.response instanceof ArrayBuffer) {
-            if (bootrom) {
-                mgr.loadBootrom(new Uint8Array(client.response));
-                console.log("Bootrom loaded!");
-            } else {
-                romLoaded = true;
-                mgr.loadRom(new Uint8Array(client.response));
+        if (client.status != 404) {
+            if (client.response instanceof ArrayBuffer) {
+                if (bootrom) {
+                    mgr.loadBootrom(new Uint8Array(client.response));
+                    console.log("Bootrom loaded!");
+                } else {
+                    romLoaded = true;
+                    mgr.loadRom(new Uint8Array(client.response));
+                }
             }
         }
     };
