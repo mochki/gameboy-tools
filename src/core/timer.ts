@@ -75,7 +75,7 @@ export class Timer {
             if (bitTest(internal, timerBits[this.bitSel]) &&
                 !bitTest(internal, timerBits[newBitSel]) &&
                 this.enabled) {
-                console.log("Unexpected timer increment from bit select change");
+                // console.log("Unexpected timer increment from bit select change");
                 this.timaIncrement();
             }
 
@@ -89,7 +89,7 @@ export class Timer {
     onDisable() {
         let internal = (this.scheduler.currTicks - this.lastDivResetTicks) & 0xFFFF;
         if (bitTest(internal, timerBits[this.bitSel])) {
-            console.log("Unexpected timer increment from disable");
+            // console.log("Unexpected timer increment from disable");
             this.timaIncrement();
         }
     }
@@ -99,7 +99,7 @@ export class Timer {
 
         let internal = (this.scheduler.currTicks - this.lastDivResetTicks) & 0xFFFF;
         if (bitTest(internal, timerBits[this.bitSel]) && this.enabled) {
-            console.log("Unexpected timer increment from DIV reset");
+            // console.log("Unexpected timer increment from DIV reset");
             this.timaIncrement();
         }
 

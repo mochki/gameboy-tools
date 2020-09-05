@@ -10,21 +10,24 @@ import NullMBC from './mbc/nullmbc';
 import MBC3 from './mbc/mbc3';
 import { GameBoyProvider } from './provider';
 import MBC5 from './mbc/mbc5';
+import { Serial } from './serial';
 export class Bus {
     gb: GameBoy;
     ppu: PPU;
     joypad: Joypad;
     timer: Timer;
     apu: APU;
+    serial: Serial;
 
     provider: GameBoyProvider;
 
-    constructor(gb: GameBoy, ppu: PPU, joypad: Joypad, timer: Timer, sound: APU, provider: GameBoyProvider) {
+    constructor(gb: GameBoy, ppu: PPU, joypad: Joypad, timer: Timer, sound: APU, serial: Serial, provider: GameBoyProvider) {
         this.gb = gb;
         this.ppu = ppu;
         this.joypad = joypad;
         this.timer = timer;
         this.apu = sound;
+        this.serial = serial;
 
         this.provider = provider;
 
@@ -197,7 +200,8 @@ export class Bus {
                         return this.joypad.readHwio8();
 
                     case 0xFF01: // SB
-                        return 0xFF;
+                    case 0xFF02: // SC
+                        return this.serial.readHwio8(addr);
 
                     case 0xFF04: // DIV
                     case 0xFF05: // TIMA
@@ -332,7 +336,9 @@ export class Bus {
                         return;
 
                     case 0xFF01: // SB
-                        this.serialOut += String.fromCharCode(val);
+                    case 0xFF02: // SC
+                        // this.serialOut += String.fromCharCode(val);
+                        this.serial.writeHwio8(addr, val);
                         return;
 
                     case 0xFF04: // DIV

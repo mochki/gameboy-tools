@@ -27,6 +27,7 @@ export const enum SchedulerId {
     TimerIncrement = 9,
     TimerReload = 10,
     OAMDMA = 11,
+    SerialClock = 12,
 }
 
 export const SchedulerSpeedSwitchAffected: SchedulerId[] = [

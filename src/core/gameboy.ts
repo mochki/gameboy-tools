@@ -10,6 +10,7 @@ import { bitSetValue, bitTest } from './util/bits';
 import { GetTextLineHeightWithSpacing, GetFontTexUvWhitePixel } from '../lib/imgui-js/imgui';
 import { disassemble } from './disassembler';
 import { hexN } from './util/misc';
+import { Serial } from './serial';
 
 export class GameBoy {
     bus: Bus;
@@ -18,6 +19,7 @@ export class GameBoy {
     joypad: Joypad;
     timer: Timer;
     apu: APU;
+    serial: Serial;
 
     provider: GameBoyProvider;
     scheduler: Scheduler;
@@ -31,11 +33,12 @@ export class GameBoy {
 
     constructor(skipBootrom: boolean, provider: GameBoyProvider) {
         this.scheduler = new Scheduler();
-        this.joypad = new Joypad();
         this.ppu = new PPU(this, this.scheduler);
+        this.joypad = new Joypad();
         this.apu = new APU(this, this.scheduler);
         this.timer = new Timer(this, this.scheduler);
-        this.bus = new Bus(this, this.ppu, this.joypad, this.timer, this.apu, provider);
+        this.serial = new Serial(this, this.scheduler);
+        this.bus = new Bus(this, this.ppu, this.joypad, this.timer, this.apu, this.serial, provider);
         this.cpu = new CPU(this, this.bus);
 
         this.provider = provider;
