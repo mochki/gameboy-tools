@@ -250,11 +250,13 @@ export class PPU {
     fetcherXFlip = false;
     fetcherTiledataAddr = 0;
 
+    newdmaLength = 0;
+    hdmaRemaining = 0;
     hdmaSource = 0;
     hdmaDest = 0;
-    // Blocks of 16 bytes remaining
-    hdmaBlocksRemaining = 0;
-    hdmaActive = false;
+    hdmaComplete = false;
+    hdmaPaused = false;
+    gdmaComplete = false;
 
     swapBuffers() {
         let tempScreenBuf = this.screenBackBuf;
@@ -323,18 +325,13 @@ export class PPU {
         this.checkStat();
         this.fetcherCycles = 0;
 
-        if (this.hdmaActive) {
-            for (let i = 0; i < 16; i++) {
-                this.gb.tick(2);
-                this.write8(this.hdmaDest + i, this.gb.bus.read8(this.hdmaSource + i));
-            }
-            this.hdmaDest = (this.hdmaDest + 16) & 0x1FF0;
-            this.hdmaSource = (this.hdmaSource + 16) & 0xFFF0;
-            this.hdmaBlocksRemaining--;
-
-            if (this.hdmaBlocksRemaining < 0) {
-                this.hdmaActive = false;
-            }
+        if (this.hdmaRemaining > 0 && this.hdmaPaused === false) {
+            this.newDma(1);
+            this.hdmaRemaining--;
+            // this.gb.cpuPausedTCyclesRemaining += 8;
+        } else {
+            this.hdmaRemaining = 0;
+            this.hdmaComplete = true;
         }
     };
 
@@ -421,6 +418,21 @@ export class PPU {
         }
 
         this.previousStatCondition = currentCondition;
+    }
+
+    newDma(length: number) {
+        for (let i = 0; i < length; i++) {
+            this.gb.tick(8);
+
+            for (let j = 0; j < 16; j++) {
+                this.write8(this.hdmaDest, this.gb.bus.read8(this.hdmaSource));
+
+                this.hdmaSource++;
+                this.hdmaSource &= 0xFFFF;
+                this.hdmaDest++;
+                this.hdmaDest &= 0xFFFF;
+            }
+        }
     }
 
     read8(addr: number): number {
@@ -521,12 +533,16 @@ export class PPU {
             case 0xFF4F: // VRAM Bank
                 return this.vramBank;
 
-            case 0xFF55: // HDMA5
-                if (this.hdmaActive) {
-                    return (this.hdmaBlocksRemaining & 0x7F) | 0x80;
-                } else {
-                    return 0xFF;
+            case 0xFF55:
+                if (this.gb.cgb) {
+                    if (this.hdmaComplete || this.gdmaComplete) {
+                        return 0xFF;
+                    }
+                    else {
+                        return this.hdmaRemaining - 1;
+                    }
                 }
+                break;
 
             case 0xFF68: // BCPS / BGPI - CGB Background Palette Index
                 if (this.mode != PPUMode.Drawing) {
@@ -657,25 +673,24 @@ export class PPU {
                 this.hdmaDest |= (val << 0) & 0x00F0;
                 return;
             case 0xFF55: // HDMA5
-                // Bit 7 - Use H-Blank DMA 
-                if (bitTest(val, 7)) {
-                    this.hdmaBlocksRemaining = val & 0x7F;
-                    this.hdmaActive = true;
-                } else {
-                    if (this.hdmaActive) {
-                        this.hdmaActive = false;
+                if (this.gb.cgb) {
+                    this.newdmaLength = (val & 127) + 1;
+                    // Bit 7 - Use H-Blank DMA 
+                    if (bitTest(val, 7)) {
+                        // console.log(`Init HDMA ${this.newDmaLength} bytes: ${hex(this.newDmaSource, 4)} => ${hex(this.newDmaDest, 4)}`);
+                        this.hdmaRemaining = this.newdmaLength;
+                        this.hdmaComplete = false;
+                        this.hdmaPaused = false;
+                        this.gdmaComplete = false;
                     } else {
-
-                        let blocks = (val & 0x7F) + 1;
-
-                        while (blocks > 0) {
-                            for (let i = 0; i < 16; i++) {
-                                this.gb.tick(2);
-                                this.write8(this.hdmaDest + i, this.gb.bus.read8(this.hdmaSource + i));
-                            }
-                            this.hdmaDest = (this.hdmaDest + 16) & 0x1FF0;
-                            this.hdmaSource = (this.hdmaSource + 16) & 0xFFF0;
-                            blocks--;
+                        if (this.hdmaRemaining > 0) {
+                            this.hdmaPaused = true;
+                            this.gdmaComplete = false;
+                            // console.log(`Paused HDMA ${this.hDmaRemaining} bytes remaining`);
+                        } else {
+                            // console.log(`GDMA ${this.newDmaLength} bytes: ${hex(this.newDmaSource, 4)} => ${hex(this.newDmaDest, 4)}`);
+                            this.newDma(this.newdmaLength);
+                            this.gdmaComplete = true;
                         }
                     }
                 }
