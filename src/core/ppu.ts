@@ -422,9 +422,8 @@ export class PPU {
 
     newDma(length: number) {
         for (let i = 0; i < length; i++) {
-            this.gb.tick(8);
-
             for (let j = 0; j < 16; j++) {
+                this.gb.tick(2 << this.gb.doubleSpeed);
                 this.write8(this.hdmaDest, this.gb.bus.read8(this.hdmaSource));
 
                 this.hdmaSource++;
