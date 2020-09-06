@@ -46,7 +46,7 @@ export class Timer {
             this.reloadCancel = false;
         }
         this.reloading = true;
-        this.scheduler.addEventRelative(SchedulerId.TimerReload, 4, this.finishReloading);
+        this.scheduler.addEventRelative(SchedulerId.TimerReload, 4 - cyclesLate, this.finishReloading);
     };
 
     finishReloading = (cyclesLate: number) => {
@@ -54,17 +54,17 @@ export class Timer {
     };
 
     scheduledTimaIncrement = (cyclesLate: number) => {
-        this.timaIncrement();
+        this.timaIncrement(cyclesLate);
         this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel] - cyclesLate, this.scheduledTimaIncrement);
     };
 
-    timaIncrement() {
+    timaIncrement(cyclesLate: number) {
         if (this.enabled) {
             this.counter++;
             if (this.counter > 255) {
                 this.counter = 0;
                 this.reloadPending = true;
-                this.scheduler.addEventRelative(SchedulerId.TimerReload, 4, this.interruptAndReloadTima);
+                this.scheduler.addEventRelative(SchedulerId.TimerReload, 4 - cyclesLate, this.interruptAndReloadTima);
             }
         }
     }
@@ -76,7 +76,7 @@ export class Timer {
                 !bitTest(internal, timerBits[newBitSel]) &&
                 this.enabled) {
                 // console.log("Unexpected timer increment from bit select change");
-                this.timaIncrement();
+                this.timaIncrement(0);
             }
 
             let ticksUntilIncrement = (rescheduleMasks[newBitSel] + 1) - (internal & rescheduleMasks[newBitSel]);
@@ -90,7 +90,7 @@ export class Timer {
         let internal = (this.scheduler.currTicks - this.lastDivResetTicks) & 0xFFFF;
         if (bitTest(internal, timerBits[this.bitSel])) {
             // console.log("Unexpected timer increment from disable");
-            this.timaIncrement();
+            this.timaIncrement(0);
         }
     }
 
@@ -100,7 +100,7 @@ export class Timer {
         let internal = (this.scheduler.currTicks - this.lastDivResetTicks) & 0xFFFF;
         if (bitTest(internal, timerBits[this.bitSel]) && this.enabled) {
             // console.log("Unexpected timer increment from DIV reset");
-            this.timaIncrement();
+            this.timaIncrement(0);
         }
 
         this.lastDivResetTicks = this.scheduler.currTicks;
