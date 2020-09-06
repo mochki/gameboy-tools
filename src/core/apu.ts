@@ -660,8 +660,8 @@ export class APU {
                 if (this.player.sourcesPlaying < 24) {
                     this.player.queueAudio(this.sampleBufL, this.sampleBufR);
                 }
-                if (this.player.sourcesPlaying >= 16) {
-                    this.scheduler.addEventRelative(SchedulerId.APUSample, ((sampleBufMax * cyclesPerSample * 16) - cyclesLate) << this.gb.doubleSpeed, this.sample);
+                if (this.player.sourcesPlaying >= 12) {
+                    this.scheduler.addEventRelative(SchedulerId.APUSample, ((sampleBufMax * cyclesPerSample * 32) - cyclesLate) << this.gb.doubleSpeed, this.sample);
                     return;
                 }
             }
