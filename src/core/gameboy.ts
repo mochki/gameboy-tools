@@ -325,10 +325,7 @@ export class GameBoy {
 
     public tick(ticks: number): void {
         this.scheduler.currTicks += ticks;
-        while (
-            this.scheduler.currTicks >= this.scheduler.nextEventTicks &&
-            this.scheduler.heapSize > 0
-        ) {
+        while (this.scheduler.currTicks >= this.scheduler.nextEventTicks) {
             let current = this.scheduler.currTicks;
             let next = this.scheduler.nextEventTicks;
             this.scheduler.popFirstEvent().callback(current - next);
