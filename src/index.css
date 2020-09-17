@@ -10,7 +10,7 @@ label {
   float: right;
 }
 
-#volume-slider {
+.slider {
   height: 10px;
 }
 

@@ -51,9 +51,14 @@ export const waveShiftCodes = Uint8Array.from([4, 0, 1, 2]);
 // 262144 | Chrome
 // 131072 | Firefox
 // 65536  | Safari
-const channelSampleRate = SAMPLE_RATE;
+const channelSampleRate = SAMPLE_RATE / 1;
 const cyclesPerSample = 4194304 / channelSampleRate;
+let channelCyclesPerSample = 4194304 / channelSampleRate;
 const outputSampleRate = SAMPLE_RATE;
+
+export function setPitchScaler(scaler: number) {
+    channelCyclesPerSample = scaler * cyclesPerSample;
+}
 
 const dmgChargeFactorBase = 0.999958;
 const cgbChargeFactorBase = 0.998943;
@@ -596,7 +601,7 @@ export class APU {
         let finalL = 0;
         let finalR = 0;
 
-        this.ch1.frequencyTimer -= cyclesPerSample;
+        this.ch1.frequencyTimer -= channelCyclesPerSample;
         if (this.ch1.frequencyPeriod != 0) {
             while (this.ch1.frequencyTimer <= 0) {
                 this.ch1.frequencyTimer += this.ch1.frequencyPeriod;
@@ -604,14 +609,14 @@ export class APU {
                 this.ch1.updateOut();
             }
         }
-        this.ch2.frequencyTimer -= cyclesPerSample;
+        this.ch2.frequencyTimer -= channelCyclesPerSample;
         if (this.ch2.frequencyPeriod != 0) {
             while (this.ch2.frequencyTimer <= 0) {
                 this.ch2.frequencyTimer += this.ch2.frequencyPeriod;
                 this.advanceCh2();
             }
         }
-        this.ch3.frequencyTimerSampler -= cyclesPerSample;
+        this.ch3.frequencyTimerSampler -= channelCyclesPerSample;
         if (this.ch3.frequencyPeriod != 0) {
             while (this.ch3.frequencyTimerSampler <= 0) {
                 this.ch3.frequencyTimerSampler += this.ch3.frequencyPeriod;
@@ -619,7 +624,7 @@ export class APU {
             }
         }
         // Prevent Channel 4 from sounding weird if its frequency is faster than the sample rate
-        this.ch4.frequencyTimer -= cyclesPerSample;
+        this.ch4.frequencyTimer -= channelCyclesPerSample;
         let noiseSamplesTaken = 1;
         let noiseFinalL = this.ch4.outL;
         let noiseFinalR = this.ch4.outR;

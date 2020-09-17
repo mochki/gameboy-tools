@@ -1,4 +1,4 @@
-import { pulseDuty, pulseDutyArray, waveShiftCodes, noise7Array, noiseDivisors, noise15Array } from './../core/apu';
+import { pulseDuty, pulseDutyArray, waveShiftCodes, noise7Array, noiseDivisors, noise15Array, setPitchScaler } from './../core/apu';
 
 import { GameBoyManager } from './manager';
 import * as ImGui from "../lib/imgui-js/imgui";
@@ -280,6 +280,12 @@ async function _init(): Promise<void> {
         let percentVolume = (e.target as HTMLInputElement).value as unknown as number;
         let ratio = percentVolume / 100;
         changeVolume(ratio);
+    };
+
+    document.getElementById("pitch-slider")!.oninput = e => {
+        let percentVolume = (e.target as HTMLInputElement).value as unknown as number;
+        let ratio = percentVolume / 100;
+        setPitchScaler(ratio);
     };
 
     loadSettings();
