@@ -558,7 +558,7 @@ export function RETI(cpu: CPU): void {
     cpu.pc = (upper << 8) | lower;
 
     cpu.tickPending(4); // Branching takes 4 cycles
-    cpu.ime = true;
+    cpu.setIme(true);
 };
 
 export function DAA(cpu: CPU): void {
@@ -627,7 +627,7 @@ export function LD_iFF00plusC_A(cpu: CPU): void {  // LD [$FF00+C], A
 };
 
 export function DI(cpu: CPU): void {  // DI - Disable interrupts master flag
-    cpu.ime = false;
+    cpu.setIme(false);
 };
 export function EI(cpu: CPU): void {  // EI - Enable interrupts master flag
     cpu.gb.scheduler.addEventRelative(SchedulerId.EnableInterrupts, 4, cpu.enableInterrupts);

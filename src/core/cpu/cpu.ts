@@ -50,8 +50,6 @@ export class CPU {
         this.cyclesPending += cycles;
     }
 
-    ime = false;
-
     zero = false;
     negative = false;
     halfCarry = false;
@@ -149,7 +147,10 @@ export class CPU {
     cycles = 0;
     cyclesPending = 0;
 
+    instructionsExecuted = 0;
+
     execute(): number {
+        this.instructionsExecuted++;
         // boundsCheck16(this.pc);
         // boundsCheck8(this.b);
         // boundsCheck8(this.c);
@@ -174,7 +175,7 @@ export class CPU {
             this.cyclesPending = 0;
         }
 
-        if (this.ime && (this.if & this.ie & 0x1F) != 0) {
+        if (this.interruptReady) {
             this.dispatchInterrupt(false);
         }
 
@@ -188,6 +189,8 @@ export class CPU {
     }
 
     executeHaltBug(): void {
+        this.instructionsExecuted++;
+
         let val = this.read8(this.pc);
 
         UNPREFIXED_TABLE[val](this);
@@ -197,7 +200,7 @@ export class CPU {
             this.cyclesPending = 0;
         }
 
-        if (this.ime && (this.if & this.ie & 0x1F) != 0) {
+        if (this.interruptReady) {
             this.dispatchInterrupt(false);
         }
     }
@@ -213,34 +216,19 @@ export class CPU {
         this.write8(this.sp, upperPc);
 
         if (!fromHalt) this.tick(2);
-        if (
-            bitTest(this.ie, InterruptId.Vblank) &&
-            bitTest(this.if, InterruptId.Vblank)
-        ) {
+        if (this.ie & this.if & InterruptId.Vblank) {
             this.clearInterrupt(InterruptId.Vblank);
             vector = VBLANK_VECTOR;
-        } else if (
-            bitTest(this.ie, InterruptId.Stat) &&
-            bitTest(this.if, InterruptId.Stat)
-        ) {
+        } else if (this.ie & this.if & InterruptId.Stat) {
             this.clearInterrupt(InterruptId.Stat);
             vector = STAT_VECTOR;
-        } else if (
-            bitTest(this.ie, InterruptId.Timer) &&
-            bitTest(this.if, InterruptId.Timer)
-        ) {
+        } else if (this.ie & this.if & InterruptId.Timer) {
             this.clearInterrupt(InterruptId.Timer);
             vector = TIMER_VECTOR;
-        } else if (
-            bitTest(this.ie, InterruptId.Serial) &&
-            bitTest(this.if, InterruptId.Serial)
-        ) {
+        } else if (this.ie & this.if & InterruptId.Serial) {
             this.clearInterrupt(InterruptId.Serial);
             vector = SERIAL_VECTOR;
-        } else if (
-            bitTest(this.ie, InterruptId.Joypad) &&
-            bitTest(this.if, InterruptId.Joypad)
-        ) {
+        } else if (this.ie & this.if & InterruptId.Joypad) {
             this.clearInterrupt(InterruptId.Joypad);
             vector = JOYPAD_VECTOR;
         }
@@ -248,7 +236,7 @@ export class CPU {
 
         if (fromHalt) this.tick(4);
 
-        this.ime = false;
+        this.setIme(false);
 
         this.sp = (this.sp - 1) & 0xFFFF;
         this.write8(this.sp, lowerPc);
@@ -335,17 +323,31 @@ export class CPU {
     }
 
     enableInterrupts = () => {
-        this.ime = true;
+        this.setIme(true);
     };
 
     ie = 0;
     if = 0b11100000;
+    ime = false; // Never manually set! Always go through CPU.setIme()
+    interruptReady = false;
+    interruptAvailable = false;
 
+    setIme(ime: boolean) {
+        this.ime = ime;
+        this.checkInterruptAvailable();
+    }
     flagInterrupt(id: InterruptId) {
-        this.if = bitSet(this.if, id);
+        this.if |= id;
+        this.checkInterruptAvailable();
     }
     clearInterrupt(id: InterruptId) {
-        this.if = bitReset(this.if, id);
+        this.if &= ~id;
+        this.checkInterruptAvailable();
+    }
+
+    checkInterruptAvailable() {
+        this.interruptAvailable = (this.if & this.ie & 0x1F) != 0;
+        this.interruptReady = this.ime && this.interruptAvailable;
     }
 
     readHwio8(addr: number): number {
@@ -362,9 +364,11 @@ export class CPU {
         switch (addr) {
             case 0xFF0F: // IF
                 this.if = (val & 0b11111) | 0b11100000;
+                this.checkInterruptAvailable();
                 break;
             case 0xFFFF: // IE
                 this.ie = val;
+                this.checkInterruptAvailable();
                 break;
         }
     }
@@ -628,7 +632,7 @@ function genUnprefixedTable(): Instruction[] {
     t[0x19] = ADD_HL_DE; // ADD HL, DE
     t[0x29] = ADD_HL_HL; // ADD HL, HL
     t[0x39] = ADD_HL_SP; // ADD HL, SP
-    t[0xCB] = CB_FORWARD; 
+    t[0xCB] = CB_FORWARD;
 
     t[0x10] = STOP;
 

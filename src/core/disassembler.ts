@@ -507,7 +507,7 @@ export function disassemble(cpu: CPU, front: number, back: number): Disassembled
         let atPc = disasmPc == cpu.pc ? "PC->" : "    ";
         let isBreakpoint = cpu.breakpoints[disasmPc] ? "[BRK]" : "     ";
 
-        
+
         arr.push({
             disasm: `${isBreakpoint} ${atPc} ${hexN(disasmPc, 4)} ${bytes}: ${disassembleInstruction(opcode, operand, disasmPc)}\n`,
             addr: disasmPc
@@ -516,5 +516,5 @@ export function disassemble(cpu: CPU, front: number, back: number): Disassembled
         disasmPc = (disasmPc + length) & 0xFFFF;
     }
 
-return arr
+    return arr;
 }

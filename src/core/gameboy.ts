@@ -343,7 +343,7 @@ export class GameBoy {
             this.cpu.cycles += ticksPassed;
             this.haltSkippedCycles += ticksPassed;
 
-            if ((this.cpu.ie & this.cpu.if & 0x1F) != 0) {
+            if (this.cpu.interruptAvailable) {
                 if (this.cpu.ime) {
                     this.cpu.dispatchInterrupt(true);
                 }
