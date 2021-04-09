@@ -4,18 +4,19 @@ export class SchedulerEvent {
     id: SchedulerId;
     ticks: number;
     callback: SchedulerCallback;
-    index: number = 0;
+    nextEvent: SchedulerEvent | null = null;
+    prevEvent: SchedulerEvent | null = null;
 
-
-    constructor(id: SchedulerId, ticks: number, ticksOffset: number, callback: SchedulerCallback) {
+    constructor(id: SchedulerId, ticks: number, callback: SchedulerCallback) {
         this.id = id;
         this.ticks = ticks;
         this.callback = callback;
     }
 }
 
-export const enum SchedulerId {
+export enum SchedulerId {
     None = 255,
+    RootNode = 254,
     PPUMode = 0,
     TimerDIV = 1,
     EnableInterrupts = 2,
@@ -60,147 +61,110 @@ function rightChild(n: number) { return n * 2 + 2; }
 export class Scheduler {
     constructor() {
         for (let i = 0; i < 64; i++) {
-            this.heap[i] = new SchedulerEvent(SchedulerId.None, 0, 0, () => { });
-            this.heap[i].index = i;
+            this.freeEventStack[i] = new SchedulerEvent(SchedulerId.None, 0, () => { });
         }
+
+        let evt = this.popStack();
+        evt.id = SchedulerId.RootNode;
+        evt.ticks = 0;
+        this.rootEvent = evt;
     }
 
-    currTicks = 0;
+    rootEvent: SchedulerEvent;
+    eventsQueued = 0;
+    currentTicks = 0;
     nextEventTicks = 0;
+    freeEventStackIndex = 0;
+    freeEventStack: SchedulerEvent[] = new Array(64);
 
-    heap: SchedulerEvent[] = new Array(64);
-    heapSize = 0;
+    popStack(): SchedulerEvent {
+        return this.freeEventStack[this.freeEventStackIndex++];
+    }
+
+    pushStack(schedulerEvent: SchedulerEvent) {
+        this.freeEventStack[--this.freeEventStackIndex] = schedulerEvent;
+    }
 
     static createEmptyEvent() {
-        return new SchedulerEvent(SchedulerId.None, 0, 0, () => { });
+        return new SchedulerEvent(SchedulerId.None, 0, () => { });
     }
 
-    addEventRelative(id: SchedulerId, ticks: number, callback: SchedulerCallback): void {
+    addEventRelative(id: SchedulerId, ticks: number, callback: SchedulerCallback) {
         let origTicks = ticks;
-        ticks += this.currTicks;
-        if (this.heapSize >= this.heap.length) {
-            alert("Heap overflow!");
-            return;
-        }
+        ticks += this.currentTicks;
 
-        let index = this.heapSize;
-        this.heapSize++;
-        this.heap[index].id = id;
-        this.heap[index].ticks = ticks;
-        this.heap[index].callback = callback;
-        this.heap[index].index = index;
+        let newEvt = this.popStack();
+        newEvt.id = id;
+        newEvt.ticks = ticks;
+        newEvt.callback = callback;
 
-        while (index != 0) {
-            let parentIndex = parent(index);
-            if (this.heap[parentIndex].ticks > this.heap[index].ticks) {
-                this.swap(index, parentIndex);
-                index = parentIndex;
-            } else {
+        let prevEvt = this.rootEvent;
+        // Traverse linked list and splice at correct location
+        while (prevEvt.nextEvent != null) {
+            if (ticks >= prevEvt.ticks && ticks <= prevEvt.nextEvent!.ticks) {
                 break;
             }
+            prevEvt = prevEvt.nextEvent;
         }
+
+        let nextEvt = prevEvt.nextEvent;
+        if (nextEvt != null) {
+            nextEvt.prevEvent = newEvt;
+        }
+        prevEvt.nextEvent = newEvt;
+        newEvt.nextEvent = nextEvt;
+        newEvt.prevEvent = prevEvt;
+
+        this.eventsQueued++;
         this.updateNextEvent();
     }
 
     cancelEventsById(id: SchedulerId) {
-        let go = true;
-        while (go) {
-            go = false;
-            for (let i = 0; i < this.heapSize; i++) {
-                if (this.heap[i].id == id) {
-                    this.deleteEvent(i);
-                    go = true;
-                    break;
-                }
+        let evt = this.rootEvent.nextEvent;
+        while (evt != null)
+        {
+            if (evt.id == id)
+            {
+                this.removeEvent(evt);
             }
+            evt = evt.nextEvent;
         }
     }
 
     updateNextEvent() {
-        if (this.heapSize > 0) {
-            this.nextEventTicks = this.heap[0].ticks;
+        if (this.eventsQueued > 0) {
+            this.nextEventTicks = this.rootEvent.nextEvent!.ticks;
         }
     }
 
     getFirstEvent(): SchedulerEvent {
-        if (this.heapSize <= 0) {
-            alert("Tried to get from empty heap!");
-            return this.heap[0]; // This isn't supposed to happen.
-        }
-
-        return this.heap[0];
+        return this.rootEvent.nextEvent!;
     }
 
     returnEvent = Scheduler.createEmptyEvent();
 
     popFirstEvent(): SchedulerEvent {
-        let event = this.getFirstEvent();
+        var evt = this.rootEvent.nextEvent!;
+        this.removeEvent(evt);
+        return evt;
+    }
 
-        this.returnEvent.ticks = event.ticks;
-        this.returnEvent.id = event.id;
-        this.returnEvent.callback = event.callback;
-        this.returnEvent.index = event.index;
-
-        if (this.heapSize == 1) {
-            this.heapSize--;
-            return this.returnEvent;
+    removeEvent(schedulerEvent: SchedulerEvent)
+    {
+        if (schedulerEvent == this.rootEvent) {
+            throw "Cannot remove root event!";
         }
-
-        this.swap(0, this.heapSize - 1);
-
-        this.heapSize--;
-
-        // Satisfy the heap property again
-        let index = 0;
-        while (true) {
-            let left = leftChild(index);
-            let right = rightChild(index);
-            let smallest = index;
-
-            if (left < this.heapSize && this.heap[left].ticks < this.heap[index].ticks) {
-                smallest = left;
-            }
-            if (right < this.heapSize && this.heap[right].ticks < this.heap[smallest].ticks) {
-                smallest = right;
-            }
-
-            if (smallest != index) {
-                this.swap(index, smallest);
-                index = smallest;
-            } else {
-                break;
-            }
+        var prev = schedulerEvent.prevEvent!;
+        var next = schedulerEvent.nextEvent!;
+        if (schedulerEvent.nextEvent != null)
+        {
+            next.prevEvent = prev;
         }
-
+        prev.nextEvent = next;
+        schedulerEvent.nextEvent = null;
+        schedulerEvent.prevEvent = null;
+        this.eventsQueued--;
         this.updateNextEvent();
-        return this.returnEvent;
-    }
-
-    setTicksLower(index: number, newVal: number) {
-        this.heap[index].ticks = newVal;
-
-        while (index != 0) {
-            let parentIndex = parent(index);
-            if (this.heap[parentIndex].ticks > this.heap[index].ticks) {
-                this.swap(index, parentIndex);
-                index = parentIndex;
-            } else {
-                break;
-            }
-        }
-    }
-
-    deleteEvent(index: number) {
-        this.setTicksLower(index, -9999);
-        this.popFirstEvent();
-    }
-
-    swap(ix: number, iy: number) {
-        // console.log(`Swapped ${ix} with ${iy}`);
-        let temp = this.heap[ix];
-        this.heap[ix] = this.heap[iy];
-        this.heap[ix].index = ix;
-        this.heap[iy] = temp;
-        this.heap[iy].index = iy;
+        this.pushStack(schedulerEvent);
     }
 }
