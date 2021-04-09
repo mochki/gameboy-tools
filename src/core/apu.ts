@@ -5,6 +5,8 @@ import { AudioPlayer, SAMPLE_RATE } from "./audioplayer";
 import { GetTextLineHeightWithSpacing } from "../lib/imgui-js/imgui";
 import { hex } from "./util/misc";
 import { WavDownloader } from "./util/wavdownloader";
+import { PPUMode } from "./ppu";
+import { FastRNG } from "../frontend/FastRNG";
 
 // Starts from NR10 / 0xFF10
 const regMask = Uint8Array.from([
@@ -17,10 +19,10 @@ const regMask = Uint8Array.from([
 
 
 export const pulseDuty = [
-    Uint8Array.from([0, 0, 0, 0, 0, 0, 0, 1]),
-    Uint8Array.from([1, 0, 0, 0, 0, 0, 0, 1]),
-    Uint8Array.from([1, 0, 0, 0, 0, 1, 1, 1]),
-    Uint8Array.from([0, 1, 1, 1, 1, 1, 1, 0]),
+    Uint8Array.from([1, 1, 1, 1, 1, 1, 0, 1]),
+    Uint8Array.from([1, 1, 1, 1, 1, 1, 0, 0]),
+    Uint8Array.from([1, 1, 1, 1, 0, 0, 0, 0]),
+    Uint8Array.from([1, 1, 0, 0, 0, 0, 0, 0]),
 ];
 
 // Table of positions that when advancing, will change the value.
@@ -514,7 +516,7 @@ export class APU {
     triggerCh3() {
         this.ch3.pos = 0;
         this.ch3.posSampler = 0;
-        this.ch3.lastUpdateTicks = this.gb.scheduler.currTicks;
+        this.ch3.lastUpdateTicks = this.gb.scheduler.currentTicks;
         this.ch3.frequencyTimer = this.ch3.frequencyPeriod;
         this.ch3.frequencyTimerSampler = this.ch3.frequencyPeriod;
         if (this.ch3.dacEnabled) this.ch3.enabled = true;
@@ -522,7 +524,7 @@ export class APU {
     }
 
     triggerCh4() {
-        this.ch4.frequencyTimer = this.ch4.frequencyPeriod;
+        this.ch4.frequencyTimer = 0;
         this.ch4.lfsr = 0x7FFF;
         if (this.ch4.dacEnabled) this.ch4.enabled = true;
         this.ch4.volume = this.ch4.envelopeInitial;
@@ -586,8 +588,8 @@ export class APU {
     capacitorR = 0;
 
     catchupCh3(cyclesLate: number) {
-        let diff = this.gb.scheduler.currTicks - this.ch3.lastUpdateTicks - cyclesLate;
-        this.ch3.lastUpdateTicks = this.gb.scheduler.currTicks - cyclesLate;
+        let diff = this.gb.scheduler.currentTicks - this.ch3.lastUpdateTicks - cyclesLate;
+        this.ch3.lastUpdateTicks = this.gb.scheduler.currentTicks - cyclesLate;
         this.ch3.frequencyTimer -= diff;
         if (this.ch3.frequencyPeriod != 0) {
             while (this.ch3.frequencyTimer <= 0) {
@@ -647,6 +649,10 @@ export class APU {
         finalL += noiseFinalL / noiseSamplesTaken;
         finalR += noiseFinalR / noiseSamplesTaken;
 
+        let interferenceValue = this.sampleInterference();
+        finalL += interferenceValue;
+        finalR += interferenceValue;
+
         let outL = finalL - this.capacitorL;
         let outR = finalR - this.capacitorR;
 
@@ -674,6 +680,26 @@ export class APU {
 
         this.scheduler.addEventRelative(SchedulerId.APUSample, (cyclesPerSample - cyclesLate) << this.gb.doubleSpeed, this.sample);
     };
+
+    sampleInterference(): number {
+        let val = 0;
+        if (this.gb.ppu.lcdDisplayEnable && this.gb.ppu.mode == PPUMode.Drawing) {
+            if (this.gb.ppu.ly < 144) {
+                val += 0.1;
+            } else {
+                val += 0.5;
+            }
+        }
+        if (this.gb.halted) {
+            val -= 0.5;
+        }
+
+        val += this.rng.next() % 0.5;
+
+        return val;
+    }
+
+    rng = new FastRNG();
 
     downloader = new WavDownloader(outputSampleRate);
 

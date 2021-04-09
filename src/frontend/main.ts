@@ -12,7 +12,7 @@ import { MemoryEditor } from "../lib/imgui-js/imgui_memory_editor";
 
 import { GameBoy } from "../core/gameboy";
 import { hexN } from '../core/util/misc';
-import { resolveSchedulerId } from '../core/scheduler';
+import { resolveSchedulerId, SchedulerId } from '../core/scheduler';
 import { disassemble } from '../core/disassembler';
 
 const clearColor: ImVec4 = new ImVec4(0.114, 0.114, 0.114, 1.00);
@@ -701,11 +701,11 @@ function DrawDisassembly() {
 }
 
 function DrawSchedulerInfo() {
-    if (ImGui.Begin("Scheduler")) {
-
-        ImGui.Text(`Current Ticks: ${mgr.gb.scheduler.currTicks}`);
+    if (ImGui.Begin("Scheduler"))
+    {
+        ImGui.Text(`Current Ticks: ${mgr.gb.scheduler.currentTicks}`);
         ImGui.Text(`Next event at: ${mgr.gb.scheduler.nextEventTicks}`);
-        ImGui.Text(`Events queued: ${mgr.gb.scheduler.heapSize}`);
+        ImGui.Text(`Events queued: ${mgr.gb.scheduler.eventsQueued}`);
 
         ImGui.Separator();
 
@@ -721,15 +721,21 @@ function DrawSchedulerInfo() {
 
         ImGui.Separator();
 
-        for (let i = 0; i < mgr.gb.scheduler.heapSize; i++) {
-            let evt = mgr.gb.scheduler.heap[i];
-            ImGui.Text(i.toString());
+        let evt = mgr.gb.scheduler.rootEvent.nextEvent;
+        let index = 0;
+        while (evt != null)
+        {
+            ImGui.Text(index.toString());
             ImGui.NextColumn();
-            ImGui.Text((evt.ticks - mgr.gb.scheduler.currTicks).toString());
+            ImGui.Text((evt.ticks - mgr.gb.scheduler.currentTicks).toString());
             ImGui.NextColumn();
-            ImGui.Text(resolveSchedulerId(evt.id));
+            ImGui.Text(SchedulerId[evt.id]);
             ImGui.NextColumn();
+
+            evt = evt.nextEvent;
+            index++;
         }
+
         ImGui.Columns(1);
 
         ImGui.End();

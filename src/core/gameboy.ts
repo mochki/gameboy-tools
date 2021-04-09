@@ -31,6 +31,8 @@ export class GameBoy {
     doubleSpeed = 0;
     queueSpeedSwitch = false;
 
+    halted = false;
+
     constructor(skipBootrom: boolean, provider: GameBoyProvider) {
         this.scheduler = new Scheduler();
         this.ppu = new PPU(this, this.scheduler);
@@ -62,8 +64,8 @@ export class GameBoy {
             this.doubleSpeed = 1;
         }
 
-        for (let i = 0; i < this.scheduler.heap.length; i++) {
-            let event = this.scheduler.heap[i];
+        for (let i = 0; i < this.scheduler.freeEventStack.length; i++) {
+            let event = this.scheduler.freeEventStack[i];
             let affected = false;
             for (let j = 0; j < SchedulerSpeedSwitchAffected.length; j++) {
                 if (event.id = SchedulerSpeedSwitchAffected[i]) {
@@ -76,7 +78,7 @@ export class GameBoy {
             let ticks = event.ticks;
 
             if (affected) {
-                this.scheduler.deleteEvent(i);
+                this.scheduler.removeEvent(event);
                 // console.log(`Canceling: ${id}, ${ticks}`);
                 if (this.doubleSpeed) {
                     // Switching to double speed
@@ -324,9 +326,9 @@ export class GameBoy {
     }
 
     public tick(ticks: number): void {
-        this.scheduler.currTicks += ticks;
-        while (this.scheduler.currTicks >= this.scheduler.nextEventTicks) {
-            let current = this.scheduler.currTicks;
+        this.scheduler.currentTicks += ticks;
+        while (this.scheduler.currentTicks >= this.scheduler.nextEventTicks) {
+            let current = this.scheduler.currentTicks;
             let next = this.scheduler.nextEventTicks;
             this.scheduler.popFirstEvent().callback(current - next);
         }
@@ -334,10 +336,11 @@ export class GameBoy {
 
     haltSkippedCycles = 0;
     haltSkip(): void {
+        this.halted = true;
         const terminateAt = 100000;
         for (let i = 0; i < terminateAt; i++) {
-            let ticksPassed = this.scheduler.nextEventTicks - this.scheduler.currTicks;
-            this.scheduler.currTicks = this.scheduler.nextEventTicks;
+            let ticksPassed = this.scheduler.nextEventTicks - this.scheduler.currentTicks;
+            this.scheduler.currentTicks = this.scheduler.nextEventTicks;
             this.scheduler.popFirstEvent().callback(0);
 
             this.cpu.cycles += ticksPassed;
@@ -352,5 +355,6 @@ export class GameBoy {
         }
         // alert(`Processed ${terminateAt} events and couldn't exit HALT! Assuming crashed.`);
         this.breaked = true;
+        this.halted = false;
     }
 }

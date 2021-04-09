@@ -300,7 +300,7 @@ export class PPU {
         if (this.wx > 7 && this.windowYTrigger && this.windowEnable) mode3Extra += 6;
         this.scheduler.addEventRelative(SchedulerId.PPUMode, (172 + mode3Extra - cyclesLate) << this.gb.doubleSpeed, this.endMode3);
         this.scheduler.addEventRelative(SchedulerId.PPUMode, (376 - cyclesLate) << this.gb.doubleSpeed, this.endMode0);
-        this.mode3StartCycles = this.scheduler.currTicks - cyclesLate;
+        this.mode3StartCycles = this.scheduler.currentTicks - cyclesLate;
     };
 
     endMode3 = (cyclesLate: number) => { // Drawing -> Hblank
@@ -315,7 +315,7 @@ export class PPU {
                 this.renderScanline();
             }
 
-            mode3Length = this.scheduler.currTicks - this.mode3StartCycles - cyclesLate;
+            mode3Length = this.scheduler.currentTicks - this.mode3StartCycles - cyclesLate;
         }
 
 
@@ -1010,7 +1010,7 @@ export class PPU {
                 }
             }
 
-            let current = this.scheduler.currTicks;
+            let current = this.scheduler.currentTicks;
             let diff = current - this.mode3StartCycles;
             this.mode3StartCycles = current;
 

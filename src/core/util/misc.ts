@@ -1,24 +1,15 @@
 import { BIT_3, BIT_4, BIT_7, BIT_8, BIT_15, BIT_16 } from "./bits";
 
 export function unTwo4b(n: number): number {
-    if ((n & BIT_3) !== 0)
-        n -= BIT_4;
-
-    return n;
+    return (n << 28) >> 28;
 }
 
 export function unTwo8b(n: number): number {
-    if ((n & BIT_7) !== 0)
-        n -= BIT_8;
-
-    return n;
+    return (n << 24) >> 24;
 }
 
 export function unTwo16b(n: number): number {
-    if ((n & BIT_15) !== 0)
-        n -= BIT_16;
-
-    return n;
+    return (n << 16) >> 16;
 }
 
 export function do4b(i: number): boolean {

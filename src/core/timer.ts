@@ -20,16 +20,16 @@ export class Timer {
         this.scheduler = scheduler;
 
         // -4 offsets are needed, as timer starts ticking even before instruction fetch 
-        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 8192 - 4, this.gb.apu.advanceFrameSequencer);
-        this.scheduler.addEventRelative(SchedulerId.TimerIncrement, (timerIntervals[this.bitSel] * 2) - 4, this.scheduledTimaIncrement);
+        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 8192, this.gb.apu.advanceFrameSequencer);
+        this.scheduler.addEventRelative(SchedulerId.TimerIncrement, (timerIntervals[this.bitSel] * 2), this.scheduledTimaIncrement);
     }
 
     enabled = false;
     bitSel = 0;
 
     private div = 0;
-    lastDivResetTicks = -4; // In scheduler ticks
-    lastDivLazyResetTicks = -4;
+    lastDivResetTicks = 0; // In scheduler ticks
+    lastDivLazyResetTicks = 0;
 
     counter = 0;
     modulo = 0;
@@ -46,6 +46,7 @@ export class Timer {
             this.reloadCancel = false;
         }
         this.reloading = true;
+
         this.scheduler.addEventRelative(SchedulerId.TimerReload, 4 - cyclesLate, this.finishReloading);
     };
 
@@ -54,29 +55,34 @@ export class Timer {
     };
 
     scheduledTimaIncrement = (cyclesLate: number) => {
-        this.timaIncrement(cyclesLate);
+        this.timaIncrement(cyclesLate, true);
         this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel] - cyclesLate, this.scheduledTimaIncrement);
     };
 
-    timaIncrement(cyclesLate: number) {
+    timaIncrement(cyclesLate: number, delay: boolean) {
         if (this.enabled) {
             this.counter++;
             if (this.counter > 255) {
                 this.counter = 0;
                 this.reloadPending = true;
-                this.scheduler.addEventRelative(SchedulerId.TimerReload, 4 - cyclesLate, this.interruptAndReloadTima);
+
+                if (delay) {
+                    this.scheduler.addEventRelative(SchedulerId.TimerReload, 4 - cyclesLate, this.interruptAndReloadTima);
+                } else {
+                    this.scheduler.addEventRelative(SchedulerId.TimerReload, 0 - cyclesLate, this.interruptAndReloadTima);
+                }
             }
         }
     }
 
     changeBitSel(newBitSel: number) {
-        let internal = (this.scheduler.currTicks - this.lastDivResetTicks) & 0xFFFF;
+        let internal = (this.scheduler.currentTicks - this.lastDivResetTicks) & 0xFFFF;
         if (newBitSel != this.bitSel) {
             if (bitTest(internal, timerBits[this.bitSel]) &&
                 !bitTest(internal, timerBits[newBitSel]) &&
                 this.enabled) {
                 // console.log("Unexpected timer increment from bit select change");
-                this.timaIncrement(0);
+                this.timaIncrement(0, false);
             }
 
             let ticksUntilIncrement = (rescheduleMasks[newBitSel] + 1) - (internal & rescheduleMasks[newBitSel]);
@@ -87,24 +93,24 @@ export class Timer {
     }
 
     onDisable() {
-        let internal = (this.scheduler.currTicks - this.lastDivResetTicks) & 0xFFFF;
+        let internal = (this.scheduler.currentTicks - this.lastDivResetTicks) & 0xFFFF;
         if (bitTest(internal, timerBits[this.bitSel])) {
             // console.log("Unexpected timer increment from disable");
-            this.timaIncrement(0);
+            this.timaIncrement(0, false);
         }
     }
 
     resetDiv() {
         this.div = 0;
 
-        let internal = (this.scheduler.currTicks - this.lastDivResetTicks) & 0xFFFF;
+        let internal = (this.scheduler.currentTicks - this.lastDivResetTicks) & 0xFFFF;
         if (bitTest(internal, timerBits[this.bitSel]) && this.enabled) {
             // console.log("Unexpected timer increment from DIV reset");
-            this.timaIncrement(0);
+            this.timaIncrement(0, false);
         }
 
-        this.lastDivResetTicks = this.scheduler.currTicks;
-        this.lastDivLazyResetTicks = this.scheduler.currTicks;
+        this.lastDivResetTicks = this.scheduler.currentTicks;
+        this.lastDivLazyResetTicks = this.scheduler.currentTicks;
         if (bitTest(this.div, 5 << this.gb.doubleSpeed)) this.gb.apu.advanceFrameSequencer(0); // Frame sequencer clock uses falling edge detector
 
         this.scheduler.cancelEventsById(SchedulerId.TimerAPUFrameSequencer);
@@ -115,7 +121,7 @@ export class Timer {
     }
 
     getDiv() {
-        this.div = ((this.scheduler.currTicks - this.lastDivResetTicks) & 0xFFFF) >> 8;
+        this.div = ((this.scheduler.currentTicks - this.lastDivResetTicks) & 0xFFFF) >> 8;
         return this.div;
     }
 
