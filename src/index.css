@@ -55,12 +55,11 @@ button {
 
 body {
   margin: 0;
+  background-color: #1d1d1d;
 }
 
 #container {
   height: 100vh;
   display: flex;
   flex-direction: column;
-
-  background-color: #1d1d1d;
 }

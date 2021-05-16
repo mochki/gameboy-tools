@@ -4,6 +4,7 @@ import { BackendFlags, GetTextLineHeightWithSpacing } from '../lib/imgui-js/imgu
 import { bitTest, bitSet, BIT_3, byteFlip } from './util/bits';
 import { unTwo8b, hex } from './util/misc';
 import { InterruptId } from './interrupts';
+import { ExpoRender } from '../frontend/exporender';
 
 export const enum PPUMode {
     Hblank = 0,
@@ -135,8 +136,8 @@ export class PPU {
     dmgObj0Palette = 0;
     dmgObj1Palette = 0;
 
-    screenBackBuf = new Uint8Array(160 * 144 * 3);
-    screenFrontBuf = new Uint8Array(160 * 144 * 3);
+    screenBackBuf = new Uint8Array(160 * 144 * 4).fill(0xFF);
+    screenFrontBuf = new Uint8Array(160 * 144 * 4).fill(0xFF);
     renderDoneScreen = true;
     renderDoneTimingDiagram = true;
     scanlineRaw = new Uint8Array(160);
@@ -257,6 +258,8 @@ export class PPU {
     hdmaComplete = false;
     hdmaPaused = false;
     gdmaComplete = false;
+
+    expoRender = new ExpoRender();
 
     swapBuffers() {
         let tempScreenBuf = this.screenBackBuf;
@@ -774,7 +777,7 @@ export class PPU {
     }
 
     renderScanline() {
-        let screenBase = this.ly * 160 * 3;
+        let screenBase = this.ly * 160 * 4;
         let windowPixel = this.wx - 7;
         if (this.bgWindowEnable || this.gb.cgb) {
             {
@@ -809,9 +812,10 @@ export class PPU {
                         if (t < 20) {
                             for (let tp = 0; tp < 8; tp++) {
                                 if (pixel >= 0) {
-                                    this.screenBackBuf[screenBase++] = palette[data[tp]][0];
-                                    this.screenBackBuf[screenBase++] = palette[data[tp]][1];
-                                    this.screenBackBuf[screenBase++] = palette[data[tp]][2];
+                                    this.screenBackBuf[screenBase + 0] = palette[data[tp]][0];
+                                    this.screenBackBuf[screenBase + 1] = palette[data[tp]][1];
+                                    this.screenBackBuf[screenBase + 2] = palette[data[tp]][2];
+                                    screenBase += 4;
                                     this.scanlineRaw[pixel] = data[tp];
                                     this.scanlineNoSprites[pixel] = (noSprites && data[tp] != 0) ? 1 : 0;
                                 }
@@ -820,9 +824,10 @@ export class PPU {
                         } else {
                             for (let tp = 0; tp < 8; tp++) {
                                 if (pixel >= 0) {
-                                    this.screenBackBuf[screenBase++] = palette[data[tp]][0];
-                                    this.screenBackBuf[screenBase++] = palette[data[tp]][1];
-                                    this.screenBackBuf[screenBase++] = palette[data[tp]][2];
+                                    this.screenBackBuf[screenBase + 0] = palette[data[tp]][0];
+                                    this.screenBackBuf[screenBase + 1] = palette[data[tp]][1];
+                                    this.screenBackBuf[screenBase + 2] = palette[data[tp]][2];
+                                    screenBase += 4;
                                     this.scanlineRaw[pixel] = data[tp];
                                     this.scanlineNoSprites[pixel] = (noSprites && data[tp] != 0) ? 1 : 0;
                                 }
@@ -835,9 +840,10 @@ export class PPU {
                     else {
                         for (let tp = 0; tp < 8; tp++) {
                             if (pixel >= 0) {
-                                this.screenBackBuf[screenBase++] = palette[data[tp]][0];
-                                this.screenBackBuf[screenBase++] = palette[data[tp]][1];
-                                this.screenBackBuf[screenBase++] = palette[data[tp]][2];
+                                this.screenBackBuf[screenBase + 0] = palette[data[tp]][0];
+                                this.screenBackBuf[screenBase + 1] = palette[data[tp]][1];
+                                this.screenBackBuf[screenBase + 2] = palette[data[tp]][2];
+                                screenBase += 4;
                                 this.scanlineRaw[pixel] = data[tp];
                                 this.scanlineNoSprites[pixel] = (noSprites && data[tp] != 0) ? 1 : 0;
                             }
@@ -854,7 +860,7 @@ export class PPU {
                 let tilemapBase = (this.windowTilemapSelect ? 1024 : 0) + (((this.windowCurrentLine >> 3) << 5) & 1023);
                 let lineOffset = 0;
 
-                screenBase = (this.ly * 160 + windowPixel) * 3;
+                screenBase = (this.ly * 160 + windowPixel) * 4;
                 let tileY = this.windowCurrentLine & 7;
 
                 windowLoop:
@@ -886,7 +892,7 @@ export class PPU {
                             this.scanlineRaw[windowPixel] = data[tp];
                             this.scanlineNoSprites[windowPixel] = (noSprites && data[tp] != 0) ? 1 : 0;
                         }
-                        screenBase += 3;
+                        screenBase += 4;
                         windowPixel += 1;
                         if (windowPixel > 159) break windowLoop;
                     }
@@ -894,9 +900,10 @@ export class PPU {
             }
         } else {
             for (let p = 0; p < 160; p++) {
-                this.screenBackBuf[screenBase++] = 0xFF;
-                this.screenBackBuf[screenBase++] = 0xFF;
-                this.screenBackBuf[screenBase++] = 0xFF;
+                this.screenBackBuf[screenBase + 0] = 0xFF;
+                this.screenBackBuf[screenBase + 1] = 0xFF;
+                this.screenBackBuf[screenBase + 2] = 0xFF;
+                screenBase += 4;
                 this.scanlineRaw[p] = 0;
             }
         }
@@ -926,7 +933,7 @@ export class PPU {
                     let cgbPalette = flags & 0b111;
 
                     let screenX = xPos - 8;
-                    screenBase = (this.ly * 160 + screenX) * 3;
+                    screenBase = (this.ly * 160 + screenX) * 4;
 
                     let spriteY = this.ly - screenYStart;
                     let tileY = spriteY & 0b111;
@@ -963,7 +970,7 @@ export class PPU {
                                     this.screenBackBuf[screenBase + 2] = palette[prePalette][2];
                                 }
                             }
-                            screenBase += 3;
+                            screenBase += 4;
                             screenX++;
                         }
                     } else {
@@ -977,7 +984,7 @@ export class PPU {
                                     this.screenBackBuf[screenBase + 2] = palette[prePalette][2];
                                 }
                             }
-                            screenBase += 3;
+                            screenBase += 4;
                             screenX++;
                         }
                     }
@@ -1205,7 +1212,7 @@ export class PPU {
                             let bgWindowPixelLower = this.fetcherBgWindowShiftLower & 1;
                             let bgWindowCol = (bgWindowPixelUpper << 1) | bgWindowPixelLower;
 
-                            let screenBase = (this.ly * 160 + this.fetcherX) * 3;
+                            let screenBase = (this.ly * 160 + this.fetcherX) * 4;
                             if (this.bgWindowEnable || this.gb.cgb) {
                                 this.screenBackBuf[screenBase + 0] = this.bgPalette.shades[this.fetcherBgWindowShiftPal][bgWindowCol][0];
                                 this.screenBackBuf[screenBase + 1] = this.bgPalette.shades[this.fetcherBgWindowShiftPal][bgWindowCol][1];

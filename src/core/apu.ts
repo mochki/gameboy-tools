@@ -479,6 +479,8 @@ export class APU {
 
     enabled = false;
 
+    emulateInterference = false;
+
     registers = new Uint8Array(23);
 
     enableL1 = false;
@@ -649,9 +651,11 @@ export class APU {
         finalL += noiseFinalL / noiseSamplesTaken;
         finalR += noiseFinalR / noiseSamplesTaken;
 
-        let interferenceValue = this.sampleInterference();
-        finalL += interferenceValue;
-        finalR += interferenceValue;
+        if (this.emulateInterference) {
+            let interferenceValue = this.sampleInterference();
+            finalL += interferenceValue;
+            finalR += interferenceValue;
+        }
 
         let outL = finalL - this.capacitorL;
         let outR = finalR - this.capacitorR;

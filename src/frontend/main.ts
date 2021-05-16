@@ -14,6 +14,7 @@ import { GameBoy } from "../core/gameboy";
 import { hexN } from '../core/util/misc';
 import { resolveSchedulerId, SchedulerId } from '../core/scheduler';
 import { disassemble } from '../core/disassembler';
+import { ExpoRender } from './exporender';
 
 const clearColor: ImVec4 = new ImVec4(0.114, 0.114, 0.114, 1.00);
 
@@ -23,6 +24,10 @@ let cpuMeter = false;
 
 let romsList: string[] = [];
 let romsListLoadFailed = false;
+
+let expoRender = new ExpoRender();
+expoRender.load(false);
+(window as any).expoRender = expoRender;
 
 let bigScreen = true;
 
@@ -408,8 +413,6 @@ function setupOutputWebGl() {
             let tLoc = gl.getAttribLocation(shaderProgram, "aTex");
             gl.enableVertexAttribArray(tLoc);
             gl.vertexAttribPointer(tLoc, 2, gl.FLOAT, false, 8, 0);
-
-            gl.viewport(0, 0, 160, 144);
         } catch {
             console.log("WebGL initialization failed");
         }
@@ -527,6 +530,7 @@ function RenderOutput() {
         mgr.gb.ppu.renderDoneScreen = false;
 
         let gl = outputCtx;
+
         if (gl) {
             gl.useProgram(shaderProgram);
 
@@ -538,18 +542,48 @@ function RenderOutput() {
 
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            gl.texImage2D(
-                gl.TEXTURE_2D,
-                0,
-                gl.RGB,
-                160,
-                144,
-                0,
-                gl.RGB,
-                gl.UNSIGNED_BYTE,
-                mgr.gb.ppu.screenFrontBuf,
-            );
-            gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+            if ((window as any).cube) {
+                expoRender.worldRotateX += 1;
+                expoRender.worldRotateZ += 1;
+
+                expoRender.cameraTranslateX = 0;
+                expoRender.cameraTranslateY = 0;
+                expoRender.cameraTranslateZ = -120;
+                // expoRender.worldRotateX = -160;
+                // expoRender.worldRotateY = 20;
+                // expoRender.worldRotateZ = -90;
+                expoRender.loadTexture(1, 160, 144, mgr.gb.ppu.screenFrontBuf);
+                expoRender.frame(0);
+
+                gl.viewport(0, 0, 320, 288);
+                gl.texImage2D(
+                    gl.TEXTURE_2D,
+                    0,
+                    gl.RGBA,
+                    320,
+                    288,
+                    0,
+                    gl.RGBA,
+                    gl.UNSIGNED_BYTE,
+                    expoRender.buffer.data
+                );
+                gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+            } else {
+                gl.viewport(0, 0, 320, 288);
+                gl.texImage2D(
+                    gl.TEXTURE_2D,
+                    0,
+                    gl.RGBA,
+                    160,
+                    144,
+                    0,
+                    gl.RGBA,
+                    gl.UNSIGNED_BYTE,
+                    mgr.gb.ppu.screenFrontBuf
+                );
+                gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+            }
         }
     }
 }
@@ -701,8 +735,7 @@ function DrawDisassembly() {
 }
 
 function DrawSchedulerInfo() {
-    if (ImGui.Begin("Scheduler"))
-    {
+    if (ImGui.Begin("Scheduler")) {
         ImGui.Text(`Current Ticks: ${mgr.gb.scheduler.currentTicks}`);
         ImGui.Text(`Next event at: ${mgr.gb.scheduler.nextEventTicks}`);
         ImGui.Text(`Events queued: ${mgr.gb.scheduler.eventsQueued}`);
@@ -723,8 +756,7 @@ function DrawSchedulerInfo() {
 
         let evt = mgr.gb.scheduler.rootEvent.nextEvent;
         let index = 0;
-        while (evt != null)
-        {
+        while (evt != null) {
             ImGui.Text(index.toString());
             ImGui.NextColumn();
             ImGui.Text((evt.ticks - mgr.gb.scheduler.currentTicks).toString());
@@ -817,11 +849,11 @@ function DrawDisplay() {
                 gl.texImage2D(
                     gl.TEXTURE_2D,
                     0,
-                    gl.RGB,
+                    gl.RGBA,
                     160,
                     144,
                     0,
-                    gl.RGB,
+                    gl.RGBA,
                     gl.UNSIGNED_BYTE,
                     mgr.gb.ppu.screenFrontBuf,
                 );
