@@ -601,9 +601,83 @@ export class APU {
         }
     }
 
+    crazyBus = false;
+    crazyBusTimer = 0;
+    crazyBusTimerInterval = 70224 * 10; // Change note every 10 frames,
+    crazyBusPsg0Timer = 0;
+    crazyBusPsg1Timer = 0;
+    crazyBusPsg2Timer = 0;
+    crazyBusPsg0TimerInterval = 0;
+    crazyBusPsg1TimerInterval = 0;
+    crazyBusPsg2TimerInterval = 0;
+    crazyBusPsg0Val = 0;
+    crazyBusPsg1Val = 0;
+    crazyBusPsg2Val = 0;
+
     sample = (cyclesLate: number) => {
         let finalL = 0;
         let finalR = 0;
+
+        if (this.crazyBus) {
+            this.crazyBusTimer -= channelCyclesPerSample;
+            if (this.crazyBusTimer <= 0) {
+                this.crazyBusTimer += this.crazyBusTimerInterval;
+                // TI SN76489 PSG manual says frequency = reference clock / (32 * 10 bit binary number)
+                // Crazy Bus creates the 10 bit numbers by generating a random number between 1 and 40,
+                // multiplying that number by 10, and then adding 200, 250, 325 for PSG 1, 2, 3 respectively.
+
+                function reverse32bit(x: number) {
+                    x = ((x >>> 1) & 0x55555555) | ((x & 0x55555555) << 1);
+                    x = ((x >>> 2) & 0x33333333) | ((x & 0x33333333) << 2);
+                    x = ((x >>> 4) & 0x0f0f0f0f) | ((x & 0x0f0f0f0f) << 4);
+                    x = ((x >>> 8) & 0x00ff00ff) | ((x & 0x00ff00ff) << 8);
+                    x = ((x >>> 16) & 0xffff) | ((x & 0xffff) << 16);
+                    return x;
+                }
+
+                // NTSC clock for Sega Genesis PSG
+                const sn76489Clock = 3579545;
+
+                let n0 = (Math.floor(Math.random() * 40) + 1) * 10 + 200;
+                let n1 = (Math.floor(Math.random() * 40) + 1) * 10 + 250;
+                let n2 = (Math.floor(Math.random() * 40) + 1) * 10 + 325;
+
+                // The bit order's swapped on the PSG frequency.
+                n0 = reverse32bit(n0) >>> 22;
+                n1 = reverse32bit(n1) >>> 22;
+                n2 = reverse32bit(n2) >>> 22;
+
+                let n0Freq = sn76489Clock / (32 * n0);
+                let n1Freq = sn76489Clock / (32 * n1);
+                let n2Freq = sn76489Clock / (32 * n2);
+
+                // Split timer interval in half convert actual frequency to flipping frequency 
+                this.crazyBusPsg0TimerInterval = (4194304 / n0Freq) / 2;
+                this.crazyBusPsg1TimerInterval = (4194304 / n1Freq) / 2;
+                this.crazyBusPsg2TimerInterval = (4194304 / n2Freq) / 2;
+            }
+
+            // I'm not going to override the GB PSGs but add another set just for the Crazy Bus music
+            this.crazyBusPsg0Timer -= channelCyclesPerSample;
+            if (this.crazyBusPsg0Timer <= 0) {
+                this.crazyBusPsg0Timer += this.crazyBusPsg0TimerInterval;
+                this.crazyBusPsg0Val ^= 1;
+            }
+            this.crazyBusPsg1Timer -= channelCyclesPerSample;
+            if (this.crazyBusPsg1Timer <= 0) {
+                this.crazyBusPsg1Timer += this.crazyBusPsg1TimerInterval;
+                this.crazyBusPsg1Val ^= 1;
+            }
+            this.crazyBusPsg2Timer -= channelCyclesPerSample;
+            if (this.crazyBusPsg2Timer <= 0) {
+                this.crazyBusPsg2Timer += this.crazyBusPsg2TimerInterval;
+                this.crazyBusPsg2Val ^= 1;
+            }
+
+            let finalVal = this.crazyBusPsg0Val + this.crazyBusPsg1Val + this.crazyBusPsg2Val;
+            finalL += finalVal;
+            finalR += finalVal;
+        }
 
         this.ch1.frequencyTimer -= channelCyclesPerSample;
         if (this.ch1.frequencyPeriod != 0) {
