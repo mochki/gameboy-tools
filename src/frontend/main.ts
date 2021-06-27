@@ -424,7 +424,7 @@ let hostCpuRatioPos = 0;
 
 const gbHz = 4194304 * 1;
 
-(window as any).renderUi = true;
+(window as any).renderUi = false;
 
 let syncToAudio = true;
 
