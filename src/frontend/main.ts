@@ -72,12 +72,12 @@ let lastFpsDisplayMs = 0;
 
 function enableTurbo() {
     mgr.gb.turboMode = true;
-    mgr.gb.ppu.frameSkipRate = 10;
+    // mgr.gb.ppu.frameSkipRate = 10;
     syncToAudio = false;
 }
 function disableTurbo() {
     mgr.gb.turboMode = false;
-    mgr.gb.ppu.frameSkipRate = 0;
+    // mgr.gb.ppu.frameSkipRate = 0;
     syncToAudio = true;
 }
 
@@ -553,7 +553,7 @@ function RenderOutput() {
                 // expoRender.worldRotateX = -160;
                 // expoRender.worldRotateY = 20;
                 // expoRender.worldRotateZ = -90;
-                expoRender.loadTexture(1, 160, 144, mgr.gb.ppu.screenFrontBuf);
+                expoRender.loadTexture(1, 160, 144, new Uint8Array(mgr.gb.ppu.screenFrontBuf));
                 expoRender.frame(0);
 
                 gl.viewport(0, 0, 320, 288);
@@ -580,7 +580,7 @@ function RenderOutput() {
                     0,
                     gl.RGBA,
                     gl.UNSIGNED_BYTE,
-                    mgr.gb.ppu.screenFrontBuf
+                    new Uint8Array(mgr.gb.ppu.screenFrontBuf.buffer)
                 );
                 gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
             }
@@ -834,17 +834,17 @@ function DrawDisplay() {
                 displayTex = gl.createTexture()!;
 
                 gl.bindTexture(gl.TEXTURE_2D, displayTex);
-
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
             }
 
             if (mgr.gb.ppu.renderDoneScreen) {
                 mgr.gb.ppu.renderDoneScreen = false;
                 gl.bindTexture(gl.TEXTURE_2D, displayTex);
+                
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
                 gl.texImage2D(
                     gl.TEXTURE_2D,
@@ -855,7 +855,7 @@ function DrawDisplay() {
                     0,
                     gl.RGBA,
                     gl.UNSIGNED_BYTE,
-                    mgr.gb.ppu.screenFrontBuf,
+                    new Uint8Array(mgr.gb.ppu.screenFrontBuf.buffer)
                 );
             }
 

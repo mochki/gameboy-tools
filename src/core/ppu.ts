@@ -24,7 +24,7 @@ export const colors555: Uint8Array[] = [
 const paletteLookup = generatePaletteLookup(true);
 function generatePaletteLookup(enableColorCorrection: boolean) {
     // 32768 colors * 3 bytes each
-    let table = new Array(32768).fill(0).map(() => new Uint8Array(3));
+    let table = new Uint32Array(32768);
 
     for (let i = 0; i < 32768; i++) {
         let r = (i >> 0) & 0b11111;
@@ -48,24 +48,17 @@ function generatePaletteLookup(enableColorCorrection: boolean) {
             bOut = b * (255 / 31);
         }
 
-        table[i][0] = rOut;
-        table[i][1] = gOut;
-        table[i][2] = bOut;
+        table[i] = (0xFF << 24) | (bOut << 16) | (gOut << 8) | rOut;
     }
 
     return table;
 }
 
-const RGB_5_TO_8 = [0, 5, 8, 11, 16, 22, 28, 36, 43, 51, 59, 67, 77, 87, 97, 107, 119, 130, 141, 153, 166, 177, 188, 200, 209, 221, 230, 238, 245, 249, 252, 255];
+// const RGB_5_TO_8 = [0, 5, 8, 11, 16, 22, 28, 36, 43, 51, 59, 67, 77, 87, 97, 107, 119, 130, 141, 153, 166, 177, 188, 200, 209, 221, 230, 238, 245, 249, 252, 255];
 class PaletteData {
     data = new Uint8Array(64).fill(0xFF);
 
-    shades: Uint8Array[][] = new Array(8).fill(0).map(() => [
-        new Uint8Array(3),
-        new Uint8Array(3),
-        new Uint8Array(3),
-        new Uint8Array(3),
-    ]);
+    shades: Uint32Array[] = new Array(8).fill(0).map(() => new Uint32Array(4));
 
     constructor() {
         this.updateAll();
@@ -77,9 +70,7 @@ class PaletteData {
 
         const rgb555 = ((b1 << 8) | b0) & 0b111111111111111;
 
-        this.shades[pal][col][0] = paletteLookup[rgb555][0];
-        this.shades[pal][col][1] = paletteLookup[rgb555][1];
-        this.shades[pal][col][2] = paletteLookup[rgb555][2];
+        this.shades[pal][col] = paletteLookup[rgb555];
     }
 
     updateAll() {
@@ -136,8 +127,8 @@ export class PPU {
     dmgObj0Palette = 0;
     dmgObj1Palette = 0;
 
-    screenBackBuf = new Uint8Array(160 * 144 * 4).fill(0xFF);
-    screenFrontBuf = new Uint8Array(160 * 144 * 4).fill(0xFF);
+    screenBackBuf = new Uint32Array(160 * 144).fill(0xFFFFFFFF);
+    screenFrontBuf = new Uint32Array(160 * 144).fill(0xFFFFFFFF);
     renderDoneScreen = true;
     renderDoneTimingDiagram = true;
     scanlineRaw = new Uint8Array(160);
@@ -151,14 +142,6 @@ export class PPU {
 
     oam = new Uint8Array(160);
 
-    tileset = [
-        new Array(384).fill(0).map(() => new Array(8).fill(0).map(() => new Uint8Array(8))), // Bank 0
-        new Array(384).fill(0).map(() => new Array(8).fill(0).map(() => new Uint8Array(8))), // Bank 1
-    ];
-    tilesetXFlipped = [
-        new Array(384).fill(0).map(() => new Array(8).fill(0).map(() => new Uint8Array(8))), // Bank 0
-        new Array(384).fill(0).map(() => new Array(8).fill(0).map(() => new Uint8Array(8))), // Bank 1
-    ];
     tilemap = new Uint8Array(2048);
     cgbAttrs = new Uint8Array(2048);
 
@@ -448,53 +431,49 @@ export class PPU {
 
         addr &= 0x1FFF;
 
-        if (this.vram[this.vramBank][addr] != val) {
-            this.vram[this.vramBank][addr] = val;
+        this.vram[this.vramBank][addr] = val;
 
-            const tile = addr >> 4;
+        // // Write to tile set
+        // if (addr >= 0x0000 && addr < 0x1800) {
+        //     let adjAddr = addr & 0xFFFE;
 
-            // Write to tile set
-            if (addr >= 0x0000 && addr < 0x1800) {
-                let adjAddr = addr & 0xFFFE;
+        //     // Work out which tile and row was updated
+        //     const y = (addr & 0xF) >> 1;
 
-                // Work out which tile and row was updated
-                const y = (addr & 0xF) >> 1;
+        //     for (let x = 0; x < 8; x++) {
+        //         // Find bit index for this pixel
+        //         const byte0 = this.vram[this.vramBank][adjAddr];
+        //         const byte1 = this.vram[this.vramBank][adjAddr + 1];
 
-                for (let x = 0; x < 8; x++) {
-                    // Find bit index for this pixel
-                    const byte0 = this.vram[this.vramBank][adjAddr];
-                    const byte1 = this.vram[this.vramBank][adjAddr + 1];
+        //         const mask = 0b1 << (7 - x);
+        //         const lsb = byte0 & mask;
+        //         const msb = byte1 & mask;
 
-                    const mask = 0b1 << (7 - x);
-                    const lsb = byte0 & mask;
-                    const msb = byte1 & mask;
+        //         const maskFlip = 0b1 << x;
+        //         const lsbFlip = byte0 & maskFlip;
+        //         const msbFlip = byte1 & maskFlip;
 
-                    const maskFlip = 0b1 << x;
-                    const lsbFlip = byte0 & maskFlip;
-                    const msbFlip = byte1 & maskFlip;
+        //         // Update tile set
+        //         this.tileset[this.vramBank][tile][y][x] =
+        //             (lsb !== 0 ? 1 : 0) +
+        //             (msb !== 0 ? 2 : 0);
 
-                    // Update tile set
-                    this.tileset[this.vramBank][tile][y][x] =
-                        (lsb !== 0 ? 1 : 0) +
-                        (msb !== 0 ? 2 : 0);
+        //         this.tilesetXFlipped[this.vramBank][tile][y][x] =
+        //             (lsbFlip !== 0 ? 1 : 0) +
+        //             (msbFlip !== 0 ? 2 : 0);
+        //     }
+        // }
 
-                    this.tilesetXFlipped[this.vramBank][tile][y][x] =
-                        (lsbFlip !== 0 ? 1 : 0) +
-                        (msbFlip !== 0 ? 2 : 0);
+        if (this.vramBank == 0) {
+            // Write to tile map
+            if (addr >= 0x1800 && addr < 0x2000) {
+                if (this.tilemap[addr - 0x1800] !== val) {
+                    this.tilemap[addr - 0x1800] = val;
                 }
             }
-
-            if (this.vramBank == 0) {
-                // Write to tile map
-                if (addr >= 0x1800 && addr < 0x2000) {
-                    if (this.tilemap[addr - 0x1800] !== val) {
-                        this.tilemap[addr - 0x1800] = val;
-                    }
-                }
-            } else if (this.vramBank == 1) {
-                // Write to CGB tile flags
-                this.cgbAttrs[addr - 0x1800] = val;
-            }
+        } else if (this.vramBank == 1) {
+            // Write to CGB tile flags
+            this.cgbAttrs[addr - 0x1800] = val;
         }
         return;
     }
@@ -777,18 +756,21 @@ export class PPU {
     }
 
     renderScanline() {
-        let screenBase = this.ly * 160 * 4;
+        let screenBase = this.ly * 160;
         let windowPixel = this.wx - 7;
         if (this.bgWindowEnable || this.gb.cgb) {
             {
                 let tilemapBase = (this.bgTilemapSelect ? 1024 : 0) + ((((this.scy + this.ly) >> 3) << 5) & 1023);
                 let lineOffset = this.scx >> 3;
 
-                let pixel = -(this.scx & 0b111);
+                let pixel = 0;
                 let tileY = (this.scy + this.ly) & 7;
+
+                let tp = this.scx & 7;
 
                 bgLoop:
                 for (let t = 0; ; t++) {
+
                     let tilemapAddr = tilemapBase + ((lineOffset + t) & 31);
                     let tileIndex = this.tilemap[tilemapAddr];
 
@@ -804,54 +786,53 @@ export class PPU {
                     let yFlip = bitTest(attrs, 6);
                     let xFlip = bitTest(attrs, 5);
 
-                    let data = (xFlip ? this.tilesetXFlipped : this.tileset)[tileBank][tileIndex][yFlip ? tileY ^ 7 : tileY];
+                    let tileAddr = tileIndex * 16 + 2 * (yFlip ? tileY ^ 7 : tileY);
+
+                    let b0 = this.vram[tileBank][tileAddr + 0];
+                    let b1 = this.vram[tileBank][tileAddr + 1] << 1;
+
                     let palette = this.bgPalette.shades[attrs & 0b111];
 
                     // tp; tile pixel
-                    if (t > 1) {
-                        if (t < 20) {
-                            for (let tp = 0; tp < 8; tp++) {
-                                if (pixel >= 0) {
-                                    this.screenBackBuf[screenBase + 0] = palette[data[tp]][0];
-                                    this.screenBackBuf[screenBase + 1] = palette[data[tp]][1];
-                                    this.screenBackBuf[screenBase + 2] = palette[data[tp]][2];
-                                    screenBase += 4;
-                                    this.scanlineRaw[pixel] = data[tp];
-                                    this.scanlineNoSprites[pixel] = (noSprites && data[tp] != 0) ? 1 : 0;
-                                }
-                                pixel += 1;
-                            }
-                        } else {
-                            for (let tp = 0; tp < 8; tp++) {
-                                if (pixel >= 0) {
-                                    this.screenBackBuf[screenBase + 0] = palette[data[tp]][0];
-                                    this.screenBackBuf[screenBase + 1] = palette[data[tp]][1];
-                                    this.screenBackBuf[screenBase + 2] = palette[data[tp]][2];
-                                    screenBase += 4;
-                                    this.scanlineRaw[pixel] = data[tp];
-                                    this.scanlineNoSprites[pixel] = (noSprites && data[tp] != 0) ? 1 : 0;
-                                }
-                                pixel += 1;
+                    if (xFlip) {
+                        // shift for first tile
+                        b0 >>= tp;
+                        b1 >>= tp;
 
-                                if (pixel > 159) break bgLoop;
-                            }
-                        }
-                    }
-                    else {
-                        for (let tp = 0; tp < 8; tp++) {
+                        for (; tp < 8; tp++) {
                             if (pixel >= 0) {
-                                this.screenBackBuf[screenBase + 0] = palette[data[tp]][0];
-                                this.screenBackBuf[screenBase + 1] = palette[data[tp]][1];
-                                this.screenBackBuf[screenBase + 2] = palette[data[tp]][2];
-                                screenBase += 4;
-                                this.scanlineRaw[pixel] = data[tp];
-                                this.scanlineNoSprites[pixel] = (noSprites && data[tp] != 0) ? 1 : 0;
+                                let data = (b0 & 0b1) | (b1 & 0b10);
+                                this.screenBackBuf[screenBase] = palette[data];
+                                this.scanlineRaw[pixel] = data;
+                                this.scanlineNoSprites[pixel] = (noSprites && data != 0) ? 1 : 0;
                             }
+                            screenBase++;
+                            b0 >>= 1;
+                            b1 >>= 1;
                             pixel += 1;
+                            if (pixel > 159) break bgLoop;
+                        }
+                    } else {
+                        // shift for first tile
+                        b0 <<= tp;
+                        b1 <<= tp;
 
+                        for (; tp < 8; tp++) {
+                            if (pixel >= 0) {
+                                let data = ((b0 & 0b10000000) | (b1 & 0b100000000)) >> 7;
+                                this.screenBackBuf[screenBase] = palette[data];
+                                this.scanlineRaw[pixel] = data;
+                                this.scanlineNoSprites[pixel] = (noSprites && data != 0) ? 1 : 0;
+                            }
+                            screenBase++;
+                            b0 <<= 1;
+                            b1 <<= 1;
+                            pixel += 1;
                             if (pixel > 159) break bgLoop;
                         }
                     }
+
+                    tp = 0;
                 }
             }
             if (this.windowEnable && windowPixel < 160 && this.windowYTrigger) {
@@ -860,7 +841,7 @@ export class PPU {
                 let tilemapBase = (this.windowTilemapSelect ? 1024 : 0) + (((this.windowCurrentLine >> 3) << 5) & 1023);
                 let lineOffset = 0;
 
-                screenBase = (this.ly * 160 + windowPixel) * 4;
+                screenBase = this.ly * 160 + windowPixel;
                 let tileY = this.windowCurrentLine & 7;
 
                 windowLoop:
@@ -880,30 +861,49 @@ export class PPU {
                     let yFlip = bitTest(attrs, 6);
                     let xFlip = bitTest(attrs, 5);
 
-                    let data = (xFlip ? this.tilesetXFlipped : this.tileset)[tileBank][tileIndex][yFlip ? tileY ^ 7 : tileY];
+                    let tileAddr = tileIndex * 16 + 2 * (yFlip ? tileY ^ 7 : tileY);
+
+                    let b0 = this.vram[tileBank][tileAddr + 0];
+                    let b1 = this.vram[tileBank][tileAddr + 1] << 1;
+
                     let palette = this.bgPalette.shades[attrs & 0b111];
 
                     // tp; tile pixel
-                    for (let tp = 0; tp < 8; tp++) {
-                        if (windowPixel >= 0) {
-                            this.screenBackBuf[screenBase + 0] = palette[data[tp]][0];
-                            this.screenBackBuf[screenBase + 1] = palette[data[tp]][1];
-                            this.screenBackBuf[screenBase + 2] = palette[data[tp]][2];
-                            this.scanlineRaw[windowPixel] = data[tp];
-                            this.scanlineNoSprites[windowPixel] = (noSprites && data[tp] != 0) ? 1 : 0;
+                    if (xFlip) {
+                        for (let tp = 0; tp < 8; tp++) {
+                            if (windowPixel >= 0) {
+                                let data = (b0 & 0b1) | (b1 & 0b10);
+                                this.screenBackBuf[screenBase] = palette[data];
+                                this.scanlineRaw[windowPixel] = data;
+                                this.scanlineNoSprites[windowPixel] = (noSprites && data != 0) ? 1 : 0;
+                            }
+                            screenBase++;
+                            b0 >>= 1;
+                            b1 >>= 1;
+                            windowPixel += 1;
+                            if (windowPixel > 159) break windowLoop;
                         }
-                        screenBase += 4;
-                        windowPixel += 1;
-                        if (windowPixel > 159) break windowLoop;
+                    } else {
+                        for (let tp = 0; tp < 8; tp++) {
+                            if (windowPixel >= 0) {
+                                let data = ((b0 & 0b10000000) | (b1 & 0b100000000)) >> 7;
+                                this.screenBackBuf[screenBase] = palette[data];
+                                this.scanlineRaw[windowPixel] = data;
+                                this.scanlineNoSprites[windowPixel] = (noSprites && data != 0) ? 1 : 0;
+                            }
+                            screenBase++;
+                            b0 <<= 1;
+                            b1 <<= 1;
+                            windowPixel += 1;
+                            if (windowPixel > 159) break windowLoop;
+                        }
                     }
                 }
             }
         } else {
             for (let p = 0; p < 160; p++) {
-                this.screenBackBuf[screenBase + 0] = 0xFF;
-                this.screenBackBuf[screenBase + 1] = 0xFF;
-                this.screenBackBuf[screenBase + 2] = 0xFF;
-                screenBase += 4;
+                this.screenBackBuf[screenBase] = 0xFFFFFFFF;
+                screenBase++;
                 this.scanlineRaw[p] = 0;
             }
         }
@@ -933,7 +933,7 @@ export class PPU {
                     let cgbPalette = flags & 0b111;
 
                     let screenX = xPos - 8;
-                    screenBase = (this.ly * 160 + screenX) * 4;
+                    screenBase = this.ly * 160 + screenX;
 
                     let spriteY = this.ly - screenYStart;
                     let tileY = spriteY & 0b111;
@@ -950,42 +950,49 @@ export class PPU {
                         }
 
                     }
-                    if (yFlip) {
-                        tileY ^= 0b111;
-                    }
 
-                    let tileData = this.tileset[this.gb.cgb ? (cgbVramBank ? 1 : 0) : 0][tileIndex][tileY];
+                    let tileAddr = tileIndex * 16 + 2 * (yFlip ? tileY ^ 7 : tileY);
+
+                    let b0 = this.vram[this.gb.cgb ? (cgbVramBank ? 1 : 0) : 0][tileAddr + 0];
+                    let b1 = this.vram[this.gb.cgb ? (cgbVramBank ? 1 : 0) : 0][tileAddr + 1] << 1;
 
                     let paletteId = this.gb.cgb ? cgbPalette : (dmgPalette ? 1 : 0);
                     let palette = this.objPalette.shades[paletteId];
 
+                    // tp; tile pixel
                     if (xFlip) {
-                        for (let px = 7; px >= 0; px--) {
-                            let prePalette = tileData[px];
-                            if (screenX >= 0 && prePalette != 0) {
-                                let cgbMasterPriority = this.gb.cgb && !this.bgWindowEnable;
-                                if (((!bgPriority || this.scanlineRaw[screenX] == 0) && !this.scanlineNoSprites[screenX]) || cgbMasterPriority) {
-                                    this.screenBackBuf[screenBase + 0] = palette[prePalette][0];
-                                    this.screenBackBuf[screenBase + 1] = palette[prePalette][1];
-                                    this.screenBackBuf[screenBase + 2] = palette[prePalette][2];
+                        for (let tp = 0; tp < 8; tp++) {
+                            if (screenX >= 0) {
+                                let data = (b0 & 0b1) | (b1 & 0b10);
+                                if (data != 0) {
+                                    let cgbMasterPriority = this.gb.cgb && !this.bgWindowEnable;
+                                    if (((!bgPriority || this.scanlineRaw[screenX] == 0) && !this.scanlineNoSprites[screenX]) || cgbMasterPriority) {
+                                        this.screenBackBuf[screenBase] = palette[data];
+                                    }
                                 }
                             }
-                            screenBase += 4;
-                            screenX++;
+                            screenBase++;
+                            b0 >>= 1;
+                            b1 >>= 1;
+                            screenX += 1;
+                            if (screenX > 159) break;
                         }
                     } else {
-                        for (let px = 0; px < 8; px++) {
-                            let prePalette = tileData[px];
-                            if (screenX >= 0 && prePalette != 0) {
-                                let cgbMasterPriority = this.gb.cgb && !this.bgWindowEnable;
-                                if (((!bgPriority || this.scanlineRaw[screenX] == 0) && !this.scanlineNoSprites[screenX]) || cgbMasterPriority) {
-                                    this.screenBackBuf[screenBase + 0] = palette[prePalette][0];
-                                    this.screenBackBuf[screenBase + 1] = palette[prePalette][1];
-                                    this.screenBackBuf[screenBase + 2] = palette[prePalette][2];
+                        for (let tp = 0; tp < 8; tp++) {
+                            if (screenX >= 0) {
+                                let data = ((b0 & 0b10000000) | (b1 & 0b100000000)) >> 7;
+                                if (data != 0) {
+                                    let cgbMasterPriority = this.gb.cgb && !this.bgWindowEnable;
+                                    if (((!bgPriority || this.scanlineRaw[screenX] == 0) && !this.scanlineNoSprites[screenX]) || cgbMasterPriority) {
+                                        this.screenBackBuf[screenBase] = palette[data];
+                                    }
                                 }
                             }
-                            screenBase += 4;
-                            screenX++;
+                            screenBase++;
+                            b0 <<= 1;
+                            b1 <<= 1;
+                            screenX += 1;
+                            if (screenX > 159) break;
                         }
                     }
                 }
@@ -1212,15 +1219,11 @@ export class PPU {
                             let bgWindowPixelLower = this.fetcherBgWindowShiftLower & 1;
                             let bgWindowCol = (bgWindowPixelUpper << 1) | bgWindowPixelLower;
 
-                            let screenBase = (this.ly * 160 + this.fetcherX) * 4;
+                            let screenBase = this.ly * 160 + this.fetcherX;
                             if (this.bgWindowEnable || this.gb.cgb) {
-                                this.screenBackBuf[screenBase + 0] = this.bgPalette.shades[this.fetcherBgWindowShiftPal][bgWindowCol][0];
-                                this.screenBackBuf[screenBase + 1] = this.bgPalette.shades[this.fetcherBgWindowShiftPal][bgWindowCol][1];
-                                this.screenBackBuf[screenBase + 2] = this.bgPalette.shades[this.fetcherBgWindowShiftPal][bgWindowCol][2];
+                                this.screenBackBuf[screenBase] = this.bgPalette.shades[this.fetcherBgWindowShiftPal][bgWindowCol];
                             } else {
-                                this.screenBackBuf[screenBase + 0] = 0xFF;
-                                this.screenBackBuf[screenBase + 1] = 0xFF;
-                                this.screenBackBuf[screenBase + 2] = 0xFF;
+                                this.screenBackBuf[screenBase] = 0xFFFFFFFF;
                             }
 
                             let objPixelUpper = this.fetcherObjShiftUpper & 1;
@@ -1239,9 +1242,7 @@ export class PPU {
                                 let priority = this.fetcherObjShiftBgPrio & 1;
                                 let palette = this.objPalette.shades[objPalette];
                                 if (!priority || bgWindowCol == 0) {
-                                    this.screenBackBuf[screenBase + 0] = palette[objCol][0];
-                                    this.screenBackBuf[screenBase + 1] = palette[objCol][1];
-                                    this.screenBackBuf[screenBase + 2] = palette[objCol][2];
+                                    this.screenBackBuf[screenBase] = palette[objCol];
                                 }
                             }
 
