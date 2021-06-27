@@ -553,7 +553,7 @@ function RenderOutput() {
                 // expoRender.worldRotateX = -160;
                 // expoRender.worldRotateY = 20;
                 // expoRender.worldRotateZ = -90;
-                expoRender.loadTexture(1, 160, 144, new Uint8Array(mgr.gb.ppu.screenFrontBuf));
+                expoRender.loadTexture(1, 160, 144, new Uint8Array(mgr.gb.ppu.screenFrontBuf.buffer));
                 expoRender.frame(0);
 
                 gl.viewport(0, 0, 320, 288);
