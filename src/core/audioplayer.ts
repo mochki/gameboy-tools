@@ -9,9 +9,8 @@ try {
         firefoxHax = true;
 }
 
-export const NORMAL_SAMPLE_RATE = 262144;
-export const SAMPLE_RATE = firefoxHax ? 131072 : (safariHax ? 65536 : NORMAL_SAMPLE_RATE);
-export const LATENCY = firefoxHax ? 4096 : (safariHax ? 2048 : 8192);
+export const SAMPLE_RATE = 48000;
+export const LATENCY = SAMPLE_RATE / 32;
 export const LATENCY_SEC = LATENCY / SAMPLE_RATE;
 
 function genBufferPool(ctx: AudioContext, count: number, length: number, sampleRate: number): AudioBuffer[] {
