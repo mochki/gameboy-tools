@@ -877,7 +877,7 @@ export class PPU {
                             if (windowPixel >= 0) {
                                 let data = (b0 & 0b1) | (b1 & 0b10);
                                 this.screenBackBuf[screenBase] = palette[data];
-                                this.bgMeta[pixel] = data | noSpritesMeta;
+                                this.bgMeta[windowPixel] = data | noSpritesMeta;
                             }
                             screenBase++;
                             b0 >>= 1;
@@ -890,7 +890,7 @@ export class PPU {
                             if (windowPixel >= 0) {
                                 let data = ((b0 & 0b10000000) | (b1 & 0b100000000)) >> 7;
                                 this.screenBackBuf[screenBase] = palette[data];
-                                this.bgMeta[pixel] = data | noSpritesMeta;
+                                this.bgMeta[windowPixel] = data | noSpritesMeta;
                             }
                             screenBase++;
                             b0 <<= 1;
@@ -968,7 +968,9 @@ export class PPU {
                                 if (data != 0) {
                                     let cgbMasterPriority = this.gb.cgb && !this.bgWindowEnable;
                                     let bgMeta = this.bgMeta[screenX];
-                                    if (((!bgPriority || (bgMeta & 0b11) == 0) && bgMeta != 0b100) || cgbMasterPriority) {
+                                    let bgColor = bgMeta & 0b11;
+                                    let noSprites = (bgMeta & 0b100) != 0 && bgColor != 0;
+                                    if (((!bgPriority || bgColor == 0) && !noSprites) || cgbMasterPriority) {
                                         this.screenBackBuf[screenBase] = palette[data];
                                     }
                                 }
@@ -986,7 +988,9 @@ export class PPU {
                                 if (data != 0) {
                                     let cgbMasterPriority = this.gb.cgb && !this.bgWindowEnable;
                                     let bgMeta = this.bgMeta[screenX];
-                                    if (((!bgPriority || (bgMeta & 0b11) == 0) && bgMeta != 0b100) || cgbMasterPriority) {
+                                    let bgColor = bgMeta & 0b11;
+                                    let noSprites = (bgMeta & 0b100) != 0 && bgColor != 0;
+                                    if (((!bgPriority || bgColor == 0) && !noSprites) || cgbMasterPriority) {
                                         this.screenBackBuf[screenBase] = palette[data];
                                     }
                                 }
