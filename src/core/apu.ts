@@ -222,6 +222,8 @@ export class APU {
     lastUpdatedCh3 = 0;
     lastUpdatedCh4 = 0;
 
+    sampleTimer = 0;
+
     frameSequencerStep = 0;
     advanceFrameSequencer = (cyclesLate: number) => {
         switch (this.frameSequencerStep) {
@@ -251,9 +253,10 @@ export class APU {
         // this.resamplerL.setValue(4, (this.scheduler.currentTicks) / (SAMPLE_RATE / 4194304), 0);
         // this.resamplerR.setValue(4, (this.scheduler.currentTicks) / (SAMPLE_RATE / 4194304), 0);
 
-        let samples = 0;
-        // Keep reading samples as long as we have some
-        while (this.resamplerL.currentSampleOutPos + 512 < this.resamplerL.currentSampleInPos) {
+        this.sampleTimer += SAMPLE_RATE * (4194304/512);
+        while (this.sampleTimer >= 4194304) {
+            this.sampleTimer -= 4194304;
+
             let finalL = this.resamplerL.readOutSample();
             let finalR = this.resamplerR.readOutSample();
 
@@ -266,7 +269,6 @@ export class APU {
             this.sampleBufL[this.sampleBufPos] = outL;
             this.sampleBufR[this.sampleBufPos] = outR;
             this.sampleBufPos++;
-            samples++;
 
             if (this.sampleBufPos >= sampleBufMax) {
                 this.sampleBufPos = 0;
@@ -278,6 +280,11 @@ export class APU {
                 }
             }
         }
+
+        // Keep reading samples as long as we have some
+        // while (this.resamplerL.currentSampleOutPos + 512 < this.resamplerL.currentSampleInPos) {
+
+        // }
         // if (samples != 0) console.log(samples)
     };
 
@@ -285,11 +292,11 @@ export class APU {
         let ratio = this.gb.doubleSpeed ? 0.5 : 1;
 
         // TODO: I'm too tired to deal with this crap
-        let temp = ch.id != 2 ? ch.currentVal * ch.volume : ch.currentVal >> (ch as any).volumeShift;
+        let temp = ch.id != 2 ? ch.currentVal * ch.volume : ch.currentVal >> (ch as WaveChannel).volumeShift;
         if (!ch.enabled) temp = 0;
         if (ch.dacEnabled) {
-            if (ch.enableL) { ch.outL = (((temp / 15) * 2) - 1) * ch.volMulL; } else { ch.outL = 0; };
-            if (ch.enableR) { ch.outR = (((temp / 15) * 2) - 1) * ch.volMulR; } else { ch.outR = 0; };
+            if (ch.enableL) { ch.outL = (((temp / 15) * 2) - 1) * ch.volMulL } else { ch.outL = 0; };
+            if (ch.enableR) { ch.outR = (((temp / 15) * 2) - 1) * ch.volMulR } else { ch.outR = 0; };
         }
 
         if (this.debugEnables[ch.id]) {
@@ -477,7 +484,6 @@ export class APU {
 
     triggerCh4() {
         this.lastUpdatedCh4 = this.scheduler.currentTicks;
-
         this.ch4.frequencyTimer = this.ch3.frequencyPeriod;
         this.ch4.lfsr = 0x7FFF;
         if (this.ch4.dacEnabled) this.ch4.enabled = true;
@@ -873,6 +879,7 @@ export class APU {
                     this.ch3.enableR = bitTest(val, 2);
                     this.ch2.enableR = bitTest(val, 1);
                     this.ch1.enableR = bitTest(val, 0);
+
                     this.fastForwardCh1();
                     this.fastForwardCh2();
                     this.fastForwardCh3();
@@ -907,6 +914,11 @@ export class APU {
 
                     // Upon turning on the APU, the frame sequencer requires an extra trigger to begin functioning.
                     this.frameSequencerStep = 255;
+                } else {
+                    this.lastUpdatedCh1 = this.scheduler.currentTicks;
+                    this.lastUpdatedCh2 = this.scheduler.currentTicks;
+                    this.lastUpdatedCh3 = this.scheduler.currentTicks;
+                    this.lastUpdatedCh4 = this.scheduler.currentTicks;
                 }
                 this.enabled = bitTest(val, 7);
                 break;

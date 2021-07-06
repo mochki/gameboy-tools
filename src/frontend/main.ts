@@ -155,6 +155,7 @@ async function _init(): Promise<void> {
         switch (e.key) {
             case "Enter": mgr.gb.joypad.start = true; break;
             case "\\": mgr.gb.joypad.select = true; break;
+            case "Shift": mgr.gb.joypad.select = true; break;
 
             case "s": mgr.gb.cpu.execute(); break;
 
@@ -193,6 +194,7 @@ async function _init(): Promise<void> {
         switch (e.key) {
             case "Enter": mgr.gb.joypad.start = false; break;
             case "\\": mgr.gb.joypad.select = false; break;
+            case "Shift": mgr.gb.joypad.select = false; break;
 
             // Emulator Control
             case "Tab": {
@@ -1141,8 +1143,9 @@ function DrawSoundVisualizer() {
         let pulse1Note = noteFromFrequency(pulse1Hz);
         let pulse1CentsOff = centsOffFromPitch(pulse1Hz, pulse1Note);
         ImGui.Text(`Pitch: ${pulse1Hz} hz`);
-        ImGui.Text(`Volume: ${gb.apu.ch1.volume}`);
-        ImGui.Text(`Volume Init: ${gb.apu.ch1.envelopeInitial}`);
+        ImGui.Text(`Value: ${gb.apu.ch1.currentVal * gb.apu.ch1.volume}`);
+        // ImGui.Text(`Volume: ${gb.apu.ch1.volume}`);
+        // ImGui.Text(`Volume Init: ${gb.apu.ch1.envelopeInitial}`);
         ImGui.Text(`Envelope Period: ${gb.apu.ch1.envelopePeriod}`);
         ImGui.Text(`Note: ${noteNameFromFrequency(pulse1Hz)}${octaveFromFrequency(pulse1Hz)} ${(pulse1CentsOff < 0 ? "" : "+") + pulse1CentsOff}`);
 
@@ -1155,8 +1158,9 @@ function DrawSoundVisualizer() {
         let pulse2Note = noteFromFrequency(pulse2Hz);
         let pulse2CentsOff = centsOffFromPitch(pulse2Hz, pulse2Note);
         ImGui.Text(`Pitch: ${pulse2Hz} hz`);
-        ImGui.Text(`Volume: ${gb.apu.ch2.volume}`);
-        ImGui.Text(`Volume Init: ${gb.apu.ch2.envelopeInitial}`);
+        ImGui.Text(`Value: ${gb.apu.ch2.currentVal * gb.apu.ch2.volume}`);
+        // ImGui.Text(`Volume: ${gb.apu.ch2.volume}`);
+        // ImGui.Text(`Volume Init: ${gb.apu.ch2.envelopeInitial}`);
         ImGui.Text(`Envelope Period: ${gb.apu.ch2.envelopePeriod}`);
         ImGui.Text(`Note: ${noteNameFromFrequency(pulse2Hz)}${octaveFromFrequency(pulse2Hz)} ${(pulse2CentsOff < 0 ? "" : "+") + pulse2CentsOff}`);
 
@@ -1169,6 +1173,7 @@ function DrawSoundVisualizer() {
         let waveNote = noteFromFrequency(waveHz);
         let waveCentsOff = centsOffFromPitch(waveHz, waveNote);
         ImGui.Text(`Pitch: ${waveHz} hz`);
+        ImGui.Text(`Value: ${gb.apu.ch3.currentVal >> gb.apu.ch3.volume}`);
         ImGui.Text(`Note: ${noteNameFromFrequency(waveHz)}${octaveFromFrequency(waveHz)} ${(waveCentsOff < 0 ? "" : "+") + waveCentsOff}`);
 
         ImGui.Separator();
@@ -1178,6 +1183,7 @@ function DrawSoundVisualizer() {
         let noiseHz = 524288 / noiseDivisors[gb.apu.ch4.divisorCode] / 2 ^ (gb.apu.ch4.frequencyShift + 1);
         let noiseActive = gb.apu.ch4.enabled && gb.apu.ch4.dacEnabled && (gb.apu.ch4.enableL || gb.apu.ch4.enableR);
         drawNoiseBox(gb.apu.ch4.sevenBit ? noise7Array : noise15Array, 0.025, noiseActive ? gb.apu.ch4.volume / 15 : 0);
+        ImGui.Text(`Value: ${gb.apu.ch4.currentVal * gb.apu.ch4.volume}`);
         ImGui.End();
     }
 }
