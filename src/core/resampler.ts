@@ -9,6 +9,8 @@ export class LanzcosResampler {
     outSampleRate = 0;
 
     channelVals: Float64Array;
+    channelSample: Float64Array;
+    channelRealSample: Float64Array;
 
     // This is a buffer of differences we are going to write bandlimited impulses to
     buf: Float64Array = null!;
@@ -22,6 +24,8 @@ export class LanzcosResampler {
 
     constructor(kernelSize: number, inSampleRate: number, outSampleRate: number, channels: number) {
         this.channelVals = new Float64Array(channels);
+        this.channelSample = new Float64Array(channels);
+        this.channelRealSample = new Float64Array(channels);
         this.setSampleRate(kernelSize, inSampleRate, outSampleRate, true);
     }
 
@@ -90,18 +94,20 @@ export class LanzcosResampler {
         }
     }
 
-    last = 0;
-
     // Sample is in terms of out samples
-    setValue(channel: number, sample: number, val: number) {
+    setValue(channel: number, sample: number, val: number, ratio: number) {
+        let realSample = sample;
+        let dist = sample - this.channelRealSample[channel];
+        sample = this.channelSample[channel] + dist * ratio;
+
         if (sample > this.currentSampleInPos) {
             this.currentSampleInPos = sample;
         }
 
+        this.channelSample[channel] = sample;
+        this.channelRealSample[channel] = realSample;
+
         if (val != this.channelVals[channel]) {
-            // console.log(sample - this.last);
-            this.last = sample;
-            
             let diff = val - this.channelVals[channel];
 
             let subsamplePos = Math.floor((sample % 1) * KERNEL_RESOLUTION);
@@ -116,6 +122,7 @@ export class LanzcosResampler {
             this.channelVals[channel] = val;
         }
     }
+
     readOutSample() {
         this.currentVal += this.buf[this.bufPos];
         this.buf[this.bufPos] = 0;

@@ -87,24 +87,117 @@ function genNoiseArray(sevenBit: boolean): Uint8Array {
     return array;
 }
 
-type Channel = {
+abstract class Channel {
     id: number;
 
-    outL: number;
-    outR: number;
+    constructor(id: number) {
+        this.id = id;
+    }
 
-    currentVal: number;
-    lastVal: number;
+    outL = 0;
+    outR = 0;
 
-    volume: number;
-    volMulL: number;
-    volMulR: number;
-    enableL: boolean;
-    enableR: boolean;
+    currentVal: number = 0;
+    lastVal = 0;
 
-    enabled: boolean;
-    dacEnabled: boolean;
+    lengthCounter = 0;
+    frequencyTimer = 0;
+    frequencyPeriod = 256;
+    frequency = 0;
+
+    volume = 0;
+    volMulL = 0;
+    volMulR = 0;
+    enableL = false;
+    enableR = false;
+
+    enabled = false;
+    dacEnabled = false;
+
+    useLength = false;
 };
+
+class PulseChannel extends Channel {
+    pos = 0;
+
+    envelopeTimer = 0;
+
+    sweepEnable = false;
+    sweepTimer = 0;
+    sweepShadowFrequency = 0;
+
+    // -------
+
+    // NR{1,2}0
+    sweepPeriod = 0;
+    sweepIncrease = false;
+    sweepShift = 0;
+
+    // NR{1,2}1
+    duty = 2;
+    // length: 0,
+
+    // NR{1,2}2
+    envelopeInitial = 0;
+    envelopeIncrease = false;
+    envelopePeriod = 0;
+
+    // NR{1,2}3
+    // NR{1,2}4
+    frequencyHz = 0;
+}
+
+class WaveChannel extends Channel {
+    pos = 0;
+    posSampler = 0;
+    currentVal = 0;
+
+    frequencyTimerSampler = 0;
+
+    envelopeTimer = 0;
+
+    waveTable = new Uint8Array(32);
+
+    volumeShift = 0;
+
+    // -------
+
+    lastUpdateTicks = 0;
+
+    // NR31
+    // length: 0,
+
+    // NR32
+    volumeCode = 0;
+
+    // NR33
+    // NR34
+    useLength = false;
+}
+
+class NoiseChannel extends Channel {
+    currentVal = 0;
+    lastVal = 0;
+
+    envelopeTimer = 0;
+
+    lfsr = 0;
+    // -------
+
+    // NR42
+    envelopeInitial = 0;
+    envelopeIncrease = false;
+    envelopePeriod = 0;
+
+    // NR43
+    frequencyShift = 0;
+    sevenBit = 0;
+    divisorCode = 0;
+
+    // NR44
+    useLength = false;
+}
+
 
 export class APU {
 
@@ -155,12 +248,12 @@ export class APU {
         this.fastForwardCh3();
         this.fastForwardCh4();
 
-        this.resamplerL.setValue(4, 0, 0);
-        this.resamplerR.setValue(4, 0, 0);
+        // this.resamplerL.setValue(4, (this.scheduler.currentTicks) / (SAMPLE_RATE / 4194304), 0);
+        // this.resamplerR.setValue(4, (this.scheduler.currentTicks) / (SAMPLE_RATE / 4194304), 0);
 
         let samples = 0;
         // Keep reading samples as long as we have some
-        while (this.resamplerL.currentSampleOutPos + 256 < this.resamplerL.currentSampleInPos) {
+        while (this.resamplerL.currentSampleOutPos + 512 < this.resamplerL.currentSampleInPos) {
             let finalL = this.resamplerL.readOutSample();
             let finalR = this.resamplerR.readOutSample();
 
@@ -189,8 +282,7 @@ export class APU {
     };
 
     addChange(ch: Channel, time: number) {
-        if (this.gb.doubleSpeed)
-            time /= 2;
+        let ratio = this.gb.doubleSpeed ? 0.5 : 1;
 
         // TODO: I'm too tired to deal with this crap
         let temp = ch.id != 2 ? ch.currentVal * ch.volume : ch.currentVal >> (ch as any).volumeShift;
@@ -198,17 +290,14 @@ export class APU {
         if (ch.dacEnabled) {
             if (ch.enableL) { ch.outL = (((temp / 15) * 2) - 1) * ch.volMulL; } else { ch.outL = 0; };
             if (ch.enableR) { ch.outR = (((temp / 15) * 2) - 1) * ch.volMulR; } else { ch.outR = 0; };
-        } else {
-            ch.outL = 0;
-            ch.outR = 0;
         }
 
         if (this.debugEnables[ch.id]) {
-            this.resamplerL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), ch.outL / 4);
-            this.resamplerR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), ch.outR / 4);
+            this.resamplerL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), ch.outL / 4, ratio);
+            this.resamplerR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), ch.outR / 4, ratio);
         } else {
-            this.resamplerL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0);
-            this.resamplerR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0);
+            this.resamplerL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, ratio);
+            this.resamplerR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, ratio);
         }
     }
 
@@ -327,208 +416,10 @@ export class APU {
         this.ch4.envelopeTimer--;
     }
 
-    ch1 = {
-        id: 0,
-
-        // Internal state
-        enabled: false,
-        dacEnabled: false,
-
-        pos: 0,
-        currentVal: 0,
-        lastVal: 0,
-        outL: 0,
-        outR: 0,
-        lastOutL: 0,
-        lastOutR: 0,
-
-        frequencyTimer: 0,
-
-        envelopeTimer: 0,
-        volume: 0,
-
-        lengthCounter: 0,
-
-        sweepEnable: false,
-        sweepTimer: 0,
-        sweepShadowFrequency: 0,
-
-        enableL: false,
-        enableR: false,
-
-        volMulL: 0,
-        volMulR: 0,
-        // -------
-
-        // NR10
-        sweepPeriod: 0,
-        sweepIncrease: false,
-        sweepShift: 0,
-
-        // NR11
-        duty: 2,
-        // length: 0,
-
-        // NR12
-        envelopeInitial: 0,
-        envelopeIncrease: false,
-        envelopePeriod: 0,
-
-        // NR13
-        // NR14
-        frequency: 0,
-        useLength: false,
-
-        frequencyPeriod: 256,
-        frequencyHz: 0,
-    };
-
-    ch2 = {
-        id: 1,
-
-        // Internal state
-        enabled: false,
-        dacEnabled: false,
-
-        pos: 0,
-        currentVal: 0,
-        lastVal: 0,
-        outL: 0,
-        outR: 0,
-        lastOutL: 0,
-        lastOutR: 0,
-
-        frequencyTimer: 0,
-
-        envelopeTimer: 0,
-        volume: 0,
-
-        lengthCounter: 0,
-
-        enableL: false,
-        enableR: false,
-
-        volMulL: 0,
-        volMulR: 0,
-        // -------
-
-        // NR21
-        duty: 2,
-        // length: 0,
-
-        // NR22
-        envelopeInitial: 0,
-        envelopeIncrease: false,
-        envelopePeriod: 0,
-
-        // NR23
-        // NR24
-        frequency: 0,
-        useLength: false,
-
-        frequencyPeriod: 256,
-        frequencyHz: 0,
-    };
-
-    ch3 = {
-        id: 2,
-
-        // Internal state
-        enabled: false,
-        dacEnabled: false,
-
-        pos: 0,
-        posSampler: 0,
-        currentVal: 0,
-        lastVal: 0,
-        outL: 0,
-        outR: 0,
-        lastOutL: 0,
-        lastOutR: 0,
-
-        frequencyTimer: 0,
-        frequencyTimerSampler: 0,
-
-        envelopeTimer: 0,
-        volume: 0,
-
-        lengthCounter: 0,
-
-        waveTable: new Uint8Array(32),
-
-        volumeShift: 0,
-
-        enableL: false,
-        enableR: false,
-
-        volMulL: 0,
-        volMulR: 0,
-        // -------
-
-        lastUpdateTicks: 0,
-
-        // NR31
-        // length: 0,
-
-        // NR32
-        volumeCode: 0,
-
-        // NR33
-        // NR34
-        frequency: 0,
-        useLength: false,
-
-        frequencyPeriod: 256,
-    };
-
-    ch4 = {
-        id: 3,
-
-        // Internal state
-        enabled: false,
-        dacEnabled: false,
-
-        currentVal: 0,
-        lastVal: 0,
-        outL: 0,
-        outR: 0,
-        lastOutL: 0,
-        lastOutR: 0,
-
-        frequencyTimer: 0,
-
-        envelopeTimer: 0,
-        volume: 0,
-
-        lengthCounter: 0,
-
-        lfsr: 0,
-
-        enableL: false,
-        enableR: false,
-
-        volMulL: 0,
-        volMulR: 0,
-        // -------
-
-        // NR41
-        duty: 2,
-        // length: 0,
-
-        // NR42
-        envelopeInitial: 0,
-        envelopeIncrease: false,
-        envelopePeriod: 0,
-
-        // NR43
-        frequencyShift: 0,
-        sevenBit: 0,
-        divisorCode: 0,
-
-        // NR44
-        useLength: false,
-        frequencyPeriod: 256,
-    };
+    ch1 = new PulseChannel(0);
+    ch2 = new PulseChannel(1);
+    ch3 = new WaveChannel(2);
+    ch4 = new NoiseChannel(3);
 
     enabled = false;
 
