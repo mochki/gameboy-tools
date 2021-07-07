@@ -253,7 +253,7 @@ export class APU {
         // this.resamplerL.setValue(4, (this.scheduler.currentTicks) / (SAMPLE_RATE / 4194304), 0);
         // this.resamplerR.setValue(4, (this.scheduler.currentTicks) / (SAMPLE_RATE / 4194304), 0);
 
-        this.sampleTimer += SAMPLE_RATE * (4194304/512);
+        this.sampleTimer += SAMPLE_RATE * (4194304 / 512);
         while (this.sampleTimer >= 4194304) {
             this.sampleTimer -= 4194304;
 
@@ -293,10 +293,11 @@ export class APU {
 
         // TODO: I'm too tired to deal with this crap
         let temp = ch.id != 2 ? ch.currentVal * ch.volume : ch.currentVal >> (ch as WaveChannel).volumeShift;
+
         if (!ch.enabled) temp = 0;
         if (ch.dacEnabled) {
-            if (ch.enableL) { ch.outL = (((temp / 15) * 2) - 1) * ch.volMulL } else { ch.outL = 0; };
-            if (ch.enableR) { ch.outR = (((temp / 15) * 2) - 1) * ch.volMulR } else { ch.outR = 0; };
+            if (ch.enableL) { ch.outL = (((temp / 15) * 2) - 1) * ch.volMulL; } else { ch.outL = 0; };
+            if (ch.enableR) { ch.outR = (((temp / 15) * 2) - 1) * ch.volMulR; } else { ch.outR = 0; };
         }
 
         if (this.debugEnables[ch.id]) {
@@ -663,18 +664,22 @@ export class APU {
 
             switch (addr) {
                 case 0xFF10: // NR10
+                    this.fastForwardCh1();
+
                     this.ch1.sweepShift = (val >> 0) & 0b111;
                     this.ch1.sweepIncrease = bitTest(val, 3);
                     this.ch1.sweepPeriod = (val >> 4) & 0b111;
-                    this.fastForwardCh1();
                     break;
                 case 0xFF11: // NR11
+                    this.fastForwardCh1();
+
                     this.ch1.lengthCounter = 64 - ((val >> 0) & 0b111111);
                     this.ch1.duty = (val >> 6) & 0b11;
-                    this.fastForwardCh1();
                     break;
                 case 0xFF12: // NR12
                     {
+                        this.fastForwardCh1();
+
                         const oldEnvelopeIncrease = this.ch1.envelopeIncrease;
 
                         this.ch1.dacEnabled = (val & 0b11111000) != 0;
@@ -697,19 +702,20 @@ export class APU {
                                 this.ch1.volume = 0;
                             }
                         }
-
-                        this.fastForwardCh1();
                     }
                     break;
                 case 0xFF13: // NR13
+                    this.fastForwardCh1();
+
                     this.ch1.frequency &= 0b11100000000;
                     this.ch1.frequency |= ((val & 0xFF) << 0);
 
                     this.ch1.frequencyPeriod = (2048 - this.ch1.frequency) * 4;
                     this.ch1.frequencyHz = 131072 / (2048 - this.ch1.frequency);
-                    this.fastForwardCh1();
                     break;
                 case 0xFF14: // NR14
+                    this.fastForwardCh1();
+
                     this.ch1.frequency &= 0b00011111111;
                     this.ch1.frequency |= ((val & 0b111) << 8);
                     this.ch1.useLength = bitTest(val, 6);
@@ -718,16 +724,18 @@ export class APU {
                     this.ch1.frequencyHz = 131072 / (2048 - this.ch1.frequency);
 
                     if (bitTest(val, 7)) this.triggerCh1();
-                    this.fastForwardCh1();
                     break;
 
                 case 0xFF16: // NR21
+                    this.fastForwardCh2();
+
                     this.ch2.lengthCounter = 64 - ((val >> 0) & 0b111111);
                     this.ch2.duty = (val >> 6) & 0b11;
-                    this.fastForwardCh2();
                     break;
                 case 0xFF17: // NR22 
                     {
+                        this.fastForwardCh2();
+
                         const oldEnvelopeIncrease = this.ch2.envelopeIncrease;
 
                         this.ch2.dacEnabled = (val & 0b11111000) != 0;
@@ -750,19 +758,20 @@ export class APU {
                                 this.ch2.volume = 0;
                             }
                         }
-
-                        this.fastForwardCh2();
                     }
                     break;
                 case 0xFF18: // NR23
+                    this.fastForwardCh2();
+
                     this.ch2.frequency &= 0b11100000000;
                     this.ch2.frequency |= ((val & 0xFF) << 0);
 
                     this.ch2.frequencyPeriod = (2048 - this.ch2.frequency) * 4;
                     this.ch2.frequencyHz = 131072 / (2048 - this.ch2.frequency);
-                    this.fastForwardCh2();
                     break;
                 case 0xFF19: // NR24
+                    this.fastForwardCh2();
+
                     this.ch2.frequency &= 0b00011111111;
                     this.ch2.frequency |= ((val & 0b111) << 8);
                     this.ch2.useLength = bitTest(val, 6);
@@ -771,22 +780,24 @@ export class APU {
                     this.ch2.frequencyHz = 131072 / (2048 - this.ch2.frequency);
 
                     if (bitTest(val, 7)) this.triggerCh2();
-                    this.fastForwardCh2();
                     break;
 
                 case 0xFF1A: // NR30
+                    this.fastForwardCh3();
+
                     this.ch3.dacEnabled = bitTest(val, 7);
                     if (!this.ch3.dacEnabled) this.ch3.enabled = false;
-                    this.fastForwardCh3();
                     break;
                 case 0xFF1B: // NR31
-                    this.ch3.lengthCounter = 256 - ((val >> 0) & 0xFF);
                     this.fastForwardCh3();
+
+                    this.ch3.lengthCounter = 256 - ((val >> 0) & 0xFF);
                     break;
                 case 0xFF1C: // NR32
+                    this.fastForwardCh3();
+
                     this.ch3.volumeCode = (val >> 5) & 0b11;
                     this.ch3.volumeShift = waveShiftCodes[this.ch3.volumeCode];
-                    this.fastForwardCh3();
                     break;
                 case 0xFF1D: // NR33
                     this.ch3.frequency &= 0b11100000000;
@@ -796,6 +807,8 @@ export class APU {
                     this.fastForwardCh3();
                     break;
                 case 0xFF1E: // NR34
+                    this.fastForwardCh3();
+
                     this.ch3.frequency &= 0b00011111111;
                     this.ch3.frequency |= ((val & 0b111) << 8);
                     this.ch3.useLength = bitTest(val, 6);
@@ -804,15 +817,17 @@ export class APU {
 
                     // Trigger after frequency period is written, so frequency timer is reloaded with correct value!
                     if (bitTest(val, 7)) this.triggerCh3();
-                    this.fastForwardCh3();
                     break;
 
                 case 0xFF20: // NR41
-                    this.ch4.lengthCounter = 64 - ((val >> 0) & 0b111111);
                     this.fastForwardCh4();
+
+                    this.ch4.lengthCounter = 64 - ((val >> 0) & 0b111111);
                     break;
                 case 0xFF21: // NR42
                     {
+                        this.fastForwardCh4();
+
                         let oldEnvelopeIncrease = this.ch4.envelopeIncrease;
 
                         this.ch4.dacEnabled = (val & 0b11111000) != 0;
@@ -835,25 +850,30 @@ export class APU {
                                 this.ch4.volume = 0;
                             }
                         }
-
-                        this.fastForwardCh4();
                     }
                     break;
                 case 0xFF22: // NR43
+                    this.fastForwardCh4();
+
                     this.ch4.frequencyShift = (val >> 4) & 0b1111;
                     this.ch4.sevenBit = bitTest(val, 3) ? (1 << 7) : 0;
                     this.ch4.divisorCode = (val >> 0) & 0b111;
 
                     this.ch4.frequencyPeriod = noiseDivisors[this.ch4.divisorCode] << this.ch4.frequencyShift;
-                    this.fastForwardCh4();
                     break;
                 case 0xFF23: // NR44
+                    this.fastForwardCh4();
+
                     this.ch4.useLength = bitTest(val, 6);
                     if (bitTest(val, 7)) this.triggerCh4();
-                    this.fastForwardCh4();
                     break;
 
                 case 0xFF24: // NR50
+                    this.fastForwardCh1();
+                    this.fastForwardCh2();
+                    this.fastForwardCh3();
+                    this.fastForwardCh4();
+
                     let volMulL = ((val >> 4) & 0b111) / 7;
                     let volMulR = ((val >> 0) & 0b111) / 7;
                     this.ch1.volMulL = volMulL;
@@ -864,13 +884,13 @@ export class APU {
                     this.ch3.volMulR = volMulR;
                     this.ch4.volMulL = volMulL;
                     this.ch4.volMulR = volMulR;
-
+                    break;
+                case 0xFF25: // NR51
                     this.fastForwardCh1();
                     this.fastForwardCh2();
                     this.fastForwardCh3();
                     this.fastForwardCh4();
-                    break;
-                case 0xFF25: // NR51
+
                     this.ch4.enableL = bitTest(val, 7);
                     this.ch3.enableL = bitTest(val, 6);
                     this.ch2.enableL = bitTest(val, 5);
@@ -880,10 +900,10 @@ export class APU {
                     this.ch2.enableR = bitTest(val, 1);
                     this.ch1.enableR = bitTest(val, 0);
 
-                    this.fastForwardCh1();
-                    this.fastForwardCh2();
-                    this.fastForwardCh3();
-                    this.fastForwardCh4();
+                    this.addChange(this.ch1, this.scheduler.currentTicks);
+                    this.addChange(this.ch2, this.scheduler.currentTicks);
+                    this.addChange(this.ch3, this.scheduler.currentTicks);
+                    this.addChange(this.ch4, this.scheduler.currentTicks);
                     break;
             }
         }
