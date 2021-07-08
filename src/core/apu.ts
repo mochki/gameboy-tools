@@ -224,34 +224,19 @@ export class APU {
 
     sampleTimer = 0;
 
-    frameSequencerStep = 0;
-    advanceFrameSequencer = (cyclesLate: number) => {
-        switch (this.frameSequencerStep) {
-            case 0:
-            case 4:
-                this.clockLength();
-                break;
-            case 2:
-            case 6:
-                this.clockLength();
-                this.clockSweep();
-                break;
-            case 7:
-                this.clockEnvelope();
-                break;
-        }
-        this.frameSequencerStep++;
-        this.frameSequencerStep &= 7;
+    record = false;
 
-        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, (8192 - cyclesLate) << this.gb.doubleSpeed, this.advanceFrameSequencer);
+    frameSequencerTimer = (cyclesLate: number) => {
+        this.advanceFrameSequencer();
+        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, (8192 - cyclesLate) << this.gb.doubleSpeed, this.frameSequencerTimer);
 
-        this.fastForwardCh1();
-        this.fastForwardCh2();
-        this.fastForwardCh3();
-        this.fastForwardCh4();
+        this.fastForwardCh1(cyclesLate >> this.gb.doubleSpeed);
+        this.fastForwardCh2(cyclesLate >> this.gb.doubleSpeed);
+        this.fastForwardCh3(cyclesLate >> this.gb.doubleSpeed);
+        this.fastForwardCh4(cyclesLate >> this.gb.doubleSpeed);
 
-        // this.resamplerL.setValue(4, (this.scheduler.currentTicks) / (SAMPLE_RATE / 4194304), 0);
-        // this.resamplerR.setValue(4, (this.scheduler.currentTicks) / (SAMPLE_RATE / 4194304), 0);
+        // this.resamplerL.setValue(4, (this.gb.constantRateTicks) / (SAMPLE_RATE / 4194304), 0);
+        // this.resamplerR.setValue(4, (this.gb.constantRateTicks) / (SAMPLE_RATE / 4194304), 0);
 
         this.sampleTimer += SAMPLE_RATE * (4194304 / 512);
         while (this.sampleTimer >= 4194304) {
@@ -266,11 +251,17 @@ export class APU {
             this.capacitorL = finalL - outL * capacitorChargeFactor;
             this.capacitorR = finalR - outR * capacitorChargeFactor;
 
-            this.sampleBufL[this.sampleBufPos] = outL;
-            this.sampleBufR[this.sampleBufPos] = outR;
+            // this.sampleBufL[this.sampleBufPos] = outL;
+            // this.sampleBufR[this.sampleBufPos] = outR;
+            this.sampleBufL[this.sampleBufPos] = finalL;
+            this.sampleBufR[this.sampleBufPos] = finalR;
             this.sampleBufPos++;
 
             if (this.sampleBufPos >= sampleBufMax) {
+                if (this.record) {
+                    this.downloader.addSamples(this.sampleBufL, this.sampleBufR, sampleBufMax);
+                }
+
                 this.sampleBufPos = 0;
                 if (!this.gb.turboMode) {
                     // console.log(sampleBufMax);
@@ -288,9 +279,27 @@ export class APU {
         // if (samples != 0) console.log(samples)
     };
 
-    addChange(ch: Channel, time: number) {
-        let ratio = this.gb.doubleSpeed ? 0.5 : 1;
+    frameSequencerStep = 0;
+    advanceFrameSequencer() {
+        switch (this.frameSequencerStep) {
+            case 0:
+            case 4:
+                this.clockLength();
+                break;
+            case 2:
+            case 6:
+                this.clockLength();
+                this.clockSweep();
+                break;
+            case 7:
+                this.clockEnvelope();
+                break;
+        }
+        this.frameSequencerStep++;
+        this.frameSequencerStep &= 7;
+    }
 
+    addChange(ch: Channel, time: number) {
         // TODO: I'm too tired to deal with this crap
         let temp = ch.id != 2 ? ch.currentVal * ch.volume : ch.currentVal >> (ch as WaveChannel).volumeShift;
 
@@ -301,11 +310,11 @@ export class APU {
         }
 
         if (this.debugEnables[ch.id]) {
-            this.resamplerL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), ch.outL / 4, ratio);
-            this.resamplerR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), ch.outR / 4, ratio);
+            this.resamplerL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), ch.outL / 4, 1);
+            this.resamplerR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), ch.outR / 4, 1);
         } else {
-            this.resamplerL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, ratio);
-            this.resamplerR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, ratio);
+            this.resamplerL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, 1);
+            this.resamplerR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, 1);
         }
     }
 
@@ -317,7 +326,7 @@ export class APU {
         if (this.ch1.useLength) {
             if (this.ch1.lengthCounter <= 0) {
                 this.ch1.enabled = false;
-                this.fastForwardCh1();
+                this.fastForwardCh1(0);
                 // console.log("ch1 disabled");
             } else {
                 this.ch1.lengthCounter--;
@@ -326,7 +335,7 @@ export class APU {
         if (this.ch2.useLength) {
             if (this.ch2.lengthCounter <= 0) {
                 this.ch2.enabled = false;
-                this.fastForwardCh2();
+                this.fastForwardCh2(0);
             } else {
                 this.ch2.lengthCounter--;
             }
@@ -334,7 +343,7 @@ export class APU {
         if (this.ch3.useLength) {
             if (this.ch3.lengthCounter <= 0) {
                 this.ch3.enabled = false;
-                this.fastForwardCh3();
+                this.fastForwardCh3(0);
             } else {
                 this.ch3.lengthCounter--;
             }
@@ -342,7 +351,7 @@ export class APU {
         if (this.ch4.useLength) {
             if (this.ch4.lengthCounter <= 0) {
                 this.ch4.enabled = false;
-                this.fastForwardCh4();
+                this.fastForwardCh4(0);
             } else {
                 this.ch4.lengthCounter--;
             }
@@ -381,7 +390,7 @@ export class APU {
 
                 if (volume >= 0 && volume <= 15) {
                     this.ch1.volume = volume;
-                    this.fastForwardCh1();
+                    this.fastForwardCh1(0);
                 }
             }
         }
@@ -399,7 +408,7 @@ export class APU {
 
                 if (volume >= 0 && volume <= 15) {
                     this.ch2.volume = volume;
-                    this.fastForwardCh2();
+                    this.fastForwardCh2(0);
                 }
             }
         }
@@ -417,7 +426,7 @@ export class APU {
 
                 if (volume >= 0 && volume <= 15) {
                     this.ch4.volume = volume;
-                    this.fastForwardCh4();
+                    this.fastForwardCh4(0);
                 }
             }
         }
@@ -449,7 +458,7 @@ export class APU {
     volMulR = 0;
 
     triggerCh1() {
-        this.lastUpdatedCh1 = this.scheduler.currentTicks;
+        this.lastUpdatedCh1 = this.gb.constantRateTicks;
         this.ch1.frequencyTimer = this.ch1.frequencyPeriod;
 
         if (this.ch1.dacEnabled) this.ch1.enabled = true;
@@ -463,16 +472,18 @@ export class APU {
     }
 
     triggerCh2() {
-        this.lastUpdatedCh2 = this.scheduler.currentTicks;
+        this.lastUpdatedCh2 = this.gb.constantRateTicks;
         this.ch2.frequencyTimer = this.ch2.frequencyPeriod;
 
         if (this.ch2.dacEnabled) this.ch2.enabled = true;
         this.ch2.volume = this.ch2.envelopeInitial;
         if (this.ch2.lengthCounter == 0) this.ch2.lengthCounter = 64;
+
+        // console.log("ch2 trigger");''
     }
 
     triggerCh3() {
-        this.lastUpdatedCh3 = this.scheduler.currentTicks;
+        this.lastUpdatedCh3 = this.gb.constantRateTicks;
         this.ch3.frequencyTimer = this.ch3.frequencyPeriod;
 
         this.ch3.pos = 0;
@@ -484,7 +495,7 @@ export class APU {
     }
 
     triggerCh4() {
-        this.lastUpdatedCh4 = this.scheduler.currentTicks;
+        this.lastUpdatedCh4 = this.gb.constantRateTicks;
         this.ch4.frequencyTimer = this.ch3.frequencyPeriod;
         this.ch4.lfsr = 0x7FFF;
         if (this.ch4.dacEnabled) this.ch4.enabled = true;
@@ -510,13 +521,14 @@ export class APU {
         }
     }
 
-    fastForwardCh1() {
+    fastForwardCh1(cyclesLate: number) {
         let time = this.lastUpdatedCh1;
-        this.ch1.frequencyTimer -= this.scheduler.currentTicks - this.lastUpdatedCh1;
+        let passed = this.gb.constantRateTicks + cyclesLate - this.lastUpdatedCh1;
+        this.ch1.frequencyTimer -= passed;
         if (this.ch1.frequencyPeriod != 0) {
             while (this.ch1.frequencyTimer <= 0) {
                 this.ch1.frequencyTimer += this.ch1.frequencyPeriod;
-                time += this.ch1.frequencyPeriod << this.gb.doubleSpeed;
+                time += this.ch1.frequencyPeriod;
 
                 this.ch1.pos = (this.ch1.pos + 1) & 7;
                 this.ch1.currentVal = pulseDuty[this.ch1.duty][this.ch1.pos];
@@ -525,16 +537,16 @@ export class APU {
             }
         }
         this.lastUpdatedCh1 = time;
-        this.addChange(this.ch1, time);
     }
 
-    fastForwardCh2() {
+    fastForwardCh2(cyclesLate: number) {
         let time = this.lastUpdatedCh2;
-        this.ch2.frequencyTimer -= this.scheduler.currentTicks - this.lastUpdatedCh2;
+        let passed = this.gb.constantRateTicks + cyclesLate - this.lastUpdatedCh2;
+        this.ch2.frequencyTimer -= passed;
         if (this.ch2.frequencyPeriod != 0) {
             while (this.ch2.frequencyTimer <= 0) {
                 this.ch2.frequencyTimer += this.ch2.frequencyPeriod;
-                time += this.ch2.frequencyPeriod << this.gb.doubleSpeed;
+                time += this.ch2.frequencyPeriod;
 
                 this.ch2.pos = (this.ch2.pos + 1) & 7;
                 this.ch2.currentVal = pulseDuty[this.ch2.duty][this.ch2.pos];
@@ -543,16 +555,16 @@ export class APU {
             }
         }
         this.lastUpdatedCh2 = time;
-        this.addChange(this.ch2, time);
     }
 
-    fastForwardCh3() {
+    fastForwardCh3(cyclesLate: number) {
         let time = this.lastUpdatedCh3;
-        this.ch3.frequencyTimerSampler -= this.scheduler.currentTicks - this.lastUpdatedCh3;
+        let passed = this.gb.constantRateTicks + cyclesLate - this.lastUpdatedCh3;
+        this.ch3.frequencyTimerSampler -= passed;
         if (this.ch3.frequencyPeriod != 0) {
             while (this.ch3.frequencyTimerSampler <= 0) {
                 this.ch3.frequencyTimerSampler += this.ch3.frequencyPeriod;
-                time += this.ch3.frequencyPeriod << this.gb.doubleSpeed;
+                time += this.ch3.frequencyPeriod;
 
                 this.ch3.posSampler = (this.ch3.posSampler + 1) & 31;
                 this.ch3.currentVal = this.ch3.waveTable[this.ch3.posSampler];
@@ -561,16 +573,16 @@ export class APU {
             }
         }
         this.lastUpdatedCh3 = time;
-        this.addChange(this.ch3, time);
     }
 
-    fastForwardCh4() {
+    fastForwardCh4(cyclesLate: number) {
         let time = this.lastUpdatedCh4;
-        this.ch4.frequencyTimer -= this.scheduler.currentTicks - this.lastUpdatedCh4;
+        let passed = this.gb.constantRateTicks + cyclesLate - this.lastUpdatedCh4;
+        this.ch4.frequencyTimer -= passed;
         if (this.ch4.frequencyPeriod != 0) {
             while (this.ch4.frequencyTimer <= 0) {
                 this.ch4.frequencyTimer += this.ch4.frequencyPeriod;
-                time += this.ch4.frequencyPeriod << this.gb.doubleSpeed;
+                time += this.ch4.frequencyPeriod;
 
                 let lfsr = this.ch4.lfsr;
                 let xored = ((lfsr) ^ (lfsr >> 1)) & 1;
@@ -586,7 +598,6 @@ export class APU {
             }
         }
         this.lastUpdatedCh4 = time;
-        this.addChange(this.ch4, time);
     }
 
     sampleInterference(): number {
@@ -664,21 +675,21 @@ export class APU {
 
             switch (addr) {
                 case 0xFF10: // NR10
-                    this.fastForwardCh1();
+                    this.fastForwardCh1(0);
 
                     this.ch1.sweepShift = (val >> 0) & 0b111;
                     this.ch1.sweepIncrease = bitTest(val, 3);
                     this.ch1.sweepPeriod = (val >> 4) & 0b111;
                     break;
                 case 0xFF11: // NR11
-                    this.fastForwardCh1();
+                    this.fastForwardCh1(0);
 
                     this.ch1.lengthCounter = 64 - ((val >> 0) & 0b111111);
                     this.ch1.duty = (val >> 6) & 0b11;
                     break;
                 case 0xFF12: // NR12
                     {
-                        this.fastForwardCh1();
+                        this.fastForwardCh1(0);
 
                         const oldEnvelopeIncrease = this.ch1.envelopeIncrease;
 
@@ -705,7 +716,7 @@ export class APU {
                     }
                     break;
                 case 0xFF13: // NR13
-                    this.fastForwardCh1();
+                    this.fastForwardCh1(0);
 
                     this.ch1.frequency &= 0b11100000000;
                     this.ch1.frequency |= ((val & 0xFF) << 0);
@@ -714,7 +725,7 @@ export class APU {
                     this.ch1.frequencyHz = 131072 / (2048 - this.ch1.frequency);
                     break;
                 case 0xFF14: // NR14
-                    this.fastForwardCh1();
+                    this.fastForwardCh1(0);
 
                     this.ch1.frequency &= 0b00011111111;
                     this.ch1.frequency |= ((val & 0b111) << 8);
@@ -727,14 +738,14 @@ export class APU {
                     break;
 
                 case 0xFF16: // NR21
-                    this.fastForwardCh2();
+                    this.fastForwardCh2(0);
 
                     this.ch2.lengthCounter = 64 - ((val >> 0) & 0b111111);
                     this.ch2.duty = (val >> 6) & 0b11;
                     break;
                 case 0xFF17: // NR22 
                     {
-                        this.fastForwardCh2();
+                        this.fastForwardCh2(0);
 
                         const oldEnvelopeIncrease = this.ch2.envelopeIncrease;
 
@@ -761,7 +772,7 @@ export class APU {
                     }
                     break;
                 case 0xFF18: // NR23
-                    this.fastForwardCh2();
+                    this.fastForwardCh2(0);
 
                     this.ch2.frequency &= 0b11100000000;
                     this.ch2.frequency |= ((val & 0xFF) << 0);
@@ -770,7 +781,7 @@ export class APU {
                     this.ch2.frequencyHz = 131072 / (2048 - this.ch2.frequency);
                     break;
                 case 0xFF19: // NR24
-                    this.fastForwardCh2();
+                    this.fastForwardCh2(0);
 
                     this.ch2.frequency &= 0b00011111111;
                     this.ch2.frequency |= ((val & 0b111) << 8);
@@ -783,18 +794,18 @@ export class APU {
                     break;
 
                 case 0xFF1A: // NR30
-                    this.fastForwardCh3();
+                    this.fastForwardCh3(0);
 
                     this.ch3.dacEnabled = bitTest(val, 7);
                     if (!this.ch3.dacEnabled) this.ch3.enabled = false;
                     break;
                 case 0xFF1B: // NR31
-                    this.fastForwardCh3();
+                    this.fastForwardCh3(0);
 
                     this.ch3.lengthCounter = 256 - ((val >> 0) & 0xFF);
                     break;
                 case 0xFF1C: // NR32
-                    this.fastForwardCh3();
+                    this.fastForwardCh3(0);
 
                     this.ch3.volumeCode = (val >> 5) & 0b11;
                     this.ch3.volumeShift = waveShiftCodes[this.ch3.volumeCode];
@@ -804,10 +815,10 @@ export class APU {
                     this.ch3.frequency |= ((val & 0xFF) << 0);
 
                     this.ch3.frequencyPeriod = (2048 - this.ch3.frequency) * 2;
-                    this.fastForwardCh3();
+                    this.fastForwardCh3(0);
                     break;
                 case 0xFF1E: // NR34
-                    this.fastForwardCh3();
+                    this.fastForwardCh3(0);
 
                     this.ch3.frequency &= 0b00011111111;
                     this.ch3.frequency |= ((val & 0b111) << 8);
@@ -820,13 +831,13 @@ export class APU {
                     break;
 
                 case 0xFF20: // NR41
-                    this.fastForwardCh4();
+                    this.fastForwardCh4(0);
 
                     this.ch4.lengthCounter = 64 - ((val >> 0) & 0b111111);
                     break;
                 case 0xFF21: // NR42
                     {
-                        this.fastForwardCh4();
+                        this.fastForwardCh4(0);
 
                         let oldEnvelopeIncrease = this.ch4.envelopeIncrease;
 
@@ -853,7 +864,7 @@ export class APU {
                     }
                     break;
                 case 0xFF22: // NR43
-                    this.fastForwardCh4();
+                    this.fastForwardCh4(0);
 
                     this.ch4.frequencyShift = (val >> 4) & 0b1111;
                     this.ch4.sevenBit = bitTest(val, 3) ? (1 << 7) : 0;
@@ -862,17 +873,17 @@ export class APU {
                     this.ch4.frequencyPeriod = noiseDivisors[this.ch4.divisorCode] << this.ch4.frequencyShift;
                     break;
                 case 0xFF23: // NR44
-                    this.fastForwardCh4();
+                    this.fastForwardCh4(0);
 
                     this.ch4.useLength = bitTest(val, 6);
                     if (bitTest(val, 7)) this.triggerCh4();
                     break;
 
                 case 0xFF24: // NR50
-                    this.fastForwardCh1();
-                    this.fastForwardCh2();
-                    this.fastForwardCh3();
-                    this.fastForwardCh4();
+                    this.fastForwardCh1(0);
+                    this.fastForwardCh2(0);
+                    this.fastForwardCh3(0);
+                    this.fastForwardCh4(0);
 
                     let volMulL = ((val >> 4) & 0b111) / 7;
                     let volMulR = ((val >> 0) & 0b111) / 7;
@@ -886,10 +897,10 @@ export class APU {
                     this.ch4.volMulR = volMulR;
                     break;
                 case 0xFF25: // NR51
-                    this.fastForwardCh1();
-                    this.fastForwardCh2();
-                    this.fastForwardCh3();
-                    this.fastForwardCh4();
+                    this.fastForwardCh1(0);
+                    this.fastForwardCh2(0);
+                    this.fastForwardCh3(0);
+                    this.fastForwardCh4(0);
 
                     this.ch4.enableL = bitTest(val, 7);
                     this.ch3.enableL = bitTest(val, 6);
@@ -900,10 +911,10 @@ export class APU {
                     this.ch2.enableR = bitTest(val, 1);
                     this.ch1.enableR = bitTest(val, 0);
 
-                    this.addChange(this.ch1, this.scheduler.currentTicks);
-                    this.addChange(this.ch2, this.scheduler.currentTicks);
-                    this.addChange(this.ch3, this.scheduler.currentTicks);
-                    this.addChange(this.ch4, this.scheduler.currentTicks);
+                    this.addChange(this.ch1, this.gb.constantRateTicks);
+                    this.addChange(this.ch2, this.gb.constantRateTicks);
+                    this.addChange(this.ch3, this.gb.constantRateTicks);
+                    this.addChange(this.ch4, this.gb.constantRateTicks);
                     break;
             }
         }
@@ -935,10 +946,16 @@ export class APU {
                     // Upon turning on the APU, the frame sequencer requires an extra trigger to begin functioning.
                     this.frameSequencerStep = 255;
                 } else {
-                    this.lastUpdatedCh1 = this.scheduler.currentTicks;
-                    this.lastUpdatedCh2 = this.scheduler.currentTicks;
-                    this.lastUpdatedCh3 = this.scheduler.currentTicks;
-                    this.lastUpdatedCh4 = this.scheduler.currentTicks;
+                    this.lastUpdatedCh1 = this.gb.constantRateTicks;
+                    this.lastUpdatedCh2 = this.gb.constantRateTicks;
+                    this.lastUpdatedCh3 = this.gb.constantRateTicks;
+                    this.lastUpdatedCh4 = this.gb.constantRateTicks;
+
+                    this.ch1.frequencyTimer = 0;
+                    this.ch2.frequencyTimer = 0;
+                    this.ch3.frequencyTimer = 0;
+                    this.ch3.frequencyTimerSampler = 0;
+                    this.ch4.frequencyTimer = 0;
                 }
                 this.enabled = bitTest(val, 7);
                 break;

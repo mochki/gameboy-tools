@@ -24,6 +24,8 @@ export class GameBoy {
     provider: GameBoyProvider;
     scheduler: Scheduler;
 
+    constantRateTicks = 0;
+
     turboMode = false;
 
     skipBootrom = false;
@@ -327,6 +329,7 @@ export class GameBoy {
 
     public tick(ticks: number): void {
         this.scheduler.currentTicks += ticks;
+        this.constantRateTicks += ticks >> this.doubleSpeed;
         while (this.scheduler.currentTicks >= this.scheduler.nextEventTicks) {
             let current = this.scheduler.currentTicks;
             let next = this.scheduler.nextEventTicks;
@@ -341,6 +344,7 @@ export class GameBoy {
         for (let i = 0; i < terminateAt; i++) {
             let ticksPassed = this.scheduler.nextEventTicks - this.scheduler.currentTicks;
             this.scheduler.currentTicks = this.scheduler.nextEventTicks;
+            this.constantRateTicks += ticksPassed >> this.doubleSpeed;
             this.scheduler.popFirstEvent().callback(0);
 
             this.cpu.cycles += ticksPassed;

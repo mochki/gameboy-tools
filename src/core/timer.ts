@@ -20,7 +20,7 @@ export class Timer {
         this.scheduler = scheduler;
 
         // -4 offsets are needed, as timer starts ticking even before instruction fetch 
-        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 8192, this.gb.apu.advanceFrameSequencer);
+        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 8192, this.gb.apu.frameSequencerTimer);
         this.scheduler.addEventRelative(SchedulerId.TimerIncrement, (timerIntervals[this.bitSel] * 2), this.scheduledTimaIncrement);
     }
 
@@ -101,6 +101,7 @@ export class Timer {
     }
 
     resetDiv() {
+        console.log("div reset");
         this.div = 0;
 
         let internal = (this.scheduler.currentTicks - this.lastDivResetTicks) & 0xFFFF;
@@ -111,10 +112,10 @@ export class Timer {
 
         this.lastDivResetTicks = this.scheduler.currentTicks;
         this.lastDivLazyResetTicks = this.scheduler.currentTicks;
-        if (bitTest(this.div, 5 << this.gb.doubleSpeed)) this.gb.apu.advanceFrameSequencer(0); // Frame sequencer clock uses falling edge detector
+        if (bitTest(this.div, 5 << this.gb.doubleSpeed)) this.gb.apu.advanceFrameSequencer(); // Frame sequencer clock uses falling edge detector
 
         this.scheduler.cancelEventsById(SchedulerId.TimerAPUFrameSequencer);
-        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 8192, this.gb.apu.advanceFrameSequencer);
+        this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, 8192, this.gb.apu.frameSequencerTimer);
 
         this.scheduler.cancelEventsById(SchedulerId.TimerIncrement);
         this.scheduler.addEventRelative(SchedulerId.TimerIncrement, timerIntervals[this.bitSel], this.scheduledTimaIncrement);

@@ -96,6 +96,7 @@ export class LanzcosResampler {
 
     // Sample is in terms of out samples
     setValue(channel: number, sample: number, val: number, ratio: number) {
+        // Tracking to allow submitting value for different channels out of order 
         let realSample = sample;
         let dist = sample - this.channelRealSample[channel];
         sample = this.channelSample[channel] + dist * ratio;
@@ -124,10 +125,13 @@ export class LanzcosResampler {
     }
 
     readOutSample() {
+        // Add our difference to the current value and return the current value
         this.currentVal += this.buf[this.bufPos];
         this.buf[this.bufPos] = 0;
         this.bufPos = (this.bufPos + 1) % this.bufSize;
-        this.currentSampleOutPos++;
+        if (this.currentSampleOutPos++ >= this.currentSampleInPos) {
+            console.error("Resampler ran out of samples");
+        }
         return this.currentVal;
     }
 }
