@@ -129,9 +129,7 @@ export class LanzcosResampler {
         this.currentVal += this.buf[this.bufPos];
         this.buf[this.bufPos] = 0;
         this.bufPos = (this.bufPos + 1) % this.bufSize;
-        if (this.currentSampleOutPos++ >= this.currentSampleInPos) {
-            console.error("Resampler ran out of samples");
-        }
+        this.currentSampleOutPos++;
         return this.currentVal;
     }
 }

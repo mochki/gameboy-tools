@@ -208,8 +208,9 @@ export class APU {
         this.gb = gb;
         this.scheduler = scheduler;
 
-        this.resamplerL = new LanzcosResampler(32, 4194304, 48000, 5);
-        this.resamplerR = new LanzcosResampler(32, 4194304, 48000, 5);
+        this.resamplerL = new LanzcosResampler(32, 4194304, 48000, 4);
+        this.resamplerR = new LanzcosResampler(32, 4194304, 48000, 4);
+        this.downloader = new WavDownloader(outputSampleRate, "");
     }
 
     debugEnables = new Array(4).fill(true);
@@ -278,6 +279,10 @@ export class APU {
         // }
         // if (samples != 0) console.log(samples)
     };
+
+    download() {
+        this.downloader.download();
+    }
 
     frameSequencerStep = 0;
     advanceFrameSequencer() {
@@ -620,7 +625,7 @@ export class APU {
 
     rng = new FastRNG();
 
-    downloader = new WavDownloader(outputSampleRate);
+    downloader: WavDownloader;
 
     readHwio8(addr: number): number {
         switch (addr) {
@@ -921,7 +926,7 @@ export class APU {
 
         switch (addr) {
             case 0xFF26: // NR52
-                if (!bitTest(val, 7)) {
+                if (!bitTest(val, 7) && this.enabled) {
                     for (let i = 0xFF10; i < 0xFF26; i++) {
                         // console.log(i);
                         this.writeHwio8(i, 0);
@@ -945,7 +950,7 @@ export class APU {
 
                     // Upon turning on the APU, the frame sequencer requires an extra trigger to begin functioning.
                     this.frameSequencerStep = 255;
-                } else {
+                } else if (bitTest(val, 7) && !this.enabled) {
                     this.lastUpdatedCh1 = this.gb.constantRateTicks;
                     this.lastUpdatedCh2 = this.gb.constantRateTicks;
                     this.lastUpdatedCh3 = this.gb.constantRateTicks;

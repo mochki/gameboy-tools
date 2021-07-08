@@ -1,28 +1,34 @@
 export class WavDownloader {
     sampleRate: number;
+    name: string;
 
-    constructor(sampleRate: number) {
+    constructor(sampleRate: number, name: string) {
         this.sampleRate = sampleRate;
+        this.name = name;
     }
 
     recordBuffer = new Uint8ClampedArray(32);
     recordBufferAt = 0;
     addSamples(left: Float32Array, right: Float32Array, size: number) {
         for (let i = 0; i < size; i++) {
-            const out1_8bit = Math.floor(((left[i] + 1) / 2) * 255);
-            const out2_8bit = Math.floor(((right[i] + 1) / 2) * 255);
-
-            // This is literally a C++ vector. In freaking TypeScript.
-            // I need to reevaluate my life choices.
-            if (this.recordBufferAt + 2 > this.recordBuffer.length) {
-                const oldBuf = this.recordBuffer;
-                this.recordBuffer = new Uint8ClampedArray(this.recordBufferAt * 2);
-                this.recordBuffer.set(oldBuf);
-            }
-
-            this.recordBuffer[this.recordBufferAt++] = out1_8bit;
-            this.recordBuffer[this.recordBufferAt++] = out2_8bit;
+            this.addSample(left[i], right[i]);
         }
+    }
+
+    addSample(left: number, right: number) {
+        const out1_8bit = Math.floor(((left + 1) / 2) * 255);
+        const out2_8bit = Math.floor(((right + 1) / 2) * 255);
+
+        // This is literally a C++ vector. In freaking TypeScript.
+        // I need to reevaluate my life choices.
+        if (this.recordBufferAt + 2 > this.recordBuffer.length) {
+            const oldBuf = this.recordBuffer;
+            this.recordBuffer = new Uint8ClampedArray(this.recordBufferAt * 2);
+            this.recordBuffer.set(oldBuf);
+        }
+
+        this.recordBuffer[this.recordBufferAt++] = out1_8bit;
+        this.recordBuffer[this.recordBufferAt++] = out2_8bit;
     }
 
     download() {
@@ -111,7 +117,7 @@ export class WavDownloader {
         let blob = new Blob([wave], { type: "application/octet-stream" });
         let link = document.createElement('a');
         link.href = window.URL.createObjectURL(blob);
-        link.download = "OptimeGB-recording.wav";
+        link.download = `${this.name}.wav`;
         link.click();
     }
 }
