@@ -208,10 +208,20 @@ export class APU {
         this.gb = gb;
         this.scheduler = scheduler;
 
-        this.resamplerL = new LanzcosResampler(32, 4194304, 48000, 4);
-        this.resamplerR = new LanzcosResampler(32, 4194304, 48000, 4);
+        this.resamplerL = new LanzcosResampler(32, true, 4);
+        this.resamplerR = new LanzcosResampler(32, true, 4);
         this.downloader = new WavDownloader(outputSampleRate, "");
     }
+
+    setResamplerEnabled(enabled: boolean) {
+        this.resamplerL.setKernelSize(enabled ? 32 : 1, true);
+        this.resamplerR.setKernelSize(enabled ? 32 : 1, true);
+    }
+
+    setNightcoreMode(enabled: boolean) {
+        this.nightcoreModeShift = enabled ? 1 : 0;
+    }
+    nightcoreModeShift = 0;
 
     debugEnables = new Array(4).fill(true);
 
@@ -531,8 +541,9 @@ export class APU {
         if (this.ch1.frequencyPeriod != 0) {
             this.ch1.frequencyTimer -= this.gb.constantRateTicks + cyclesLate - this.lastUpdatedCh1;
             while (this.ch1.frequencyTimer <= 0) {
-                this.ch1.frequencyTimer += this.ch1.frequencyPeriod;
-                time += this.ch1.frequencyPeriod;
+                let period = this.ch1.frequencyPeriod >> this.nightcoreModeShift;
+                this.ch1.frequencyTimer += period;
+                time += period;
 
                 this.ch1.pos = (this.ch1.pos + 1) & 7;
                 this.ch1.currentVal = pulseDuty[this.ch1.duty][this.ch1.pos];
@@ -548,8 +559,9 @@ export class APU {
         if (this.ch2.frequencyPeriod != 0) {
             this.ch2.frequencyTimer -= this.gb.constantRateTicks + cyclesLate - this.lastUpdatedCh2;
             while (this.ch2.frequencyTimer <= 0) {
-                this.ch2.frequencyTimer += this.ch2.frequencyPeriod;
-                time += this.ch2.frequencyPeriod;
+                let period = this.ch2.frequencyPeriod >> this.nightcoreModeShift;
+                this.ch2.frequencyTimer += period;
+                time += period;
 
                 this.ch2.pos = (this.ch2.pos + 1) & 7;
                 this.ch2.currentVal = pulseDuty[this.ch2.duty][this.ch2.pos];
@@ -565,8 +577,9 @@ export class APU {
         if (this.ch3.frequencyPeriod != 0) {
             this.ch3.frequencyTimerSampler -= this.gb.constantRateTicks + cyclesLate - this.lastUpdatedCh3;
             while (this.ch3.frequencyTimerSampler <= 0) {
-                this.ch3.frequencyTimerSampler += this.ch3.frequencyPeriod;
-                time += this.ch3.frequencyPeriod;
+                let period = this.ch3.frequencyPeriod >> this.nightcoreModeShift;
+                this.ch3.frequencyTimerSampler += period;
+                time += period;
 
                 this.ch3.posSampler = (this.ch3.posSampler + 1) & 31;
                 this.ch3.currentVal = this.ch3.waveTable[this.ch3.posSampler];

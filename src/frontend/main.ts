@@ -81,6 +81,26 @@ function disableTurbo() {
     syncToAudio = true;
 }
 
+function setCheckbox(id: string, checked: boolean) {
+    (document.getElementById(id) as HTMLInputElement).checked = checked;
+}
+
+function resetGui() {
+    setCheckbox("resample-checkbox", true);
+    setCheckbox("nightcore-checkbox", false);
+}
+
+function reset() {
+    resetGui();
+    mgr.reset();
+}
+
+function loadRom(rom: Uint8Array){
+    resetGui();
+    mgr.loadRom(rom);
+}
+
+
 async function _init(): Promise<void> {
     function dropHandler(ev: Event | any) {
         if (ev.dataTransfer.files[0] instanceof Blob) {
@@ -95,7 +115,7 @@ async function _init(): Promise<void> {
                 if (arrayBuffer instanceof ArrayBuffer) {
                     let array = new Uint8Array(arrayBuffer);
 
-                    mgr.loadRom(array);
+                    loadRom(array);
                 }
             };
             reader.readAsArrayBuffer(ev.dataTransfer.files[0]);
@@ -264,7 +284,7 @@ async function _init(): Promise<void> {
     };
 
     document.getElementById("reset-btn")!.onclick = () => {
-        mgr.reset();
+        reset();
     };
 
     document.getElementById("start-btn")!.onclick = () => {
@@ -276,7 +296,7 @@ async function _init(): Promise<void> {
     };
 
     loadFileOnClick(document.getElementById("open-rom-btn")!, ".gb,.gbc", (result: ArrayBuffer) => {
-        mgr.loadRom(new Uint8Array(result));
+        loadRom(new Uint8Array(result));
     });
 
     loadFileOnClick(document.getElementById("load-save-btn")!, ".sav", (result: ArrayBuffer) => {
@@ -289,11 +309,14 @@ async function _init(): Promise<void> {
         changeVolume(ratio);
     };
 
-    document.getElementById("pitch-slider")!.oninput = e => {
-        let percentVolume = (e.target as HTMLInputElement).value as unknown as number;
-        let ratio = percentVolume / 100;
-        setPitchScaler(ratio);
+    document.getElementById("resample-checkbox")!.oninput = e => {
+        mgr.gb.apu.setResamplerEnabled((e.target as HTMLInputElement).checked);
     };
+
+    document.getElementById("nightcore-checkbox")!.oninput = e => {
+        mgr.gb.apu.setNightcoreMode((e.target as HTMLInputElement).checked);
+    };
+
 
     loadSettings();
 
@@ -636,7 +659,7 @@ function DrawDebug() {
             ImGui.Checkbox("Run Emulator", (v = runEmulator) => runEmulator = v);
             if (ImGui.Button("Unbreak")) mgr.gb.unbreak();
             if (ImGui.Button("Step")) mgr.gb.cpu.execute();
-            if (ImGui.Button("Reset")) mgr.reset();
+            if (ImGui.Button("Reset")) reset();
             if (ImGui.Button("Run Frame")) mgr.gb.frame();
             if (ImGui.Button("Run Scanline")) mgr.gb.scanline();
             ImGui.Checkbox("Skip Boot ROM", (v = mgr.skipBootrom) => mgr.skipBootrom = v);
@@ -788,7 +811,7 @@ function LoadRomFromURL(url: string, bootrom: boolean) {
                     console.log("Bootrom loaded!");
                 } else {
                     romLoaded = true;
-                    mgr.loadRom(new Uint8Array(client.response));
+                    loadRom(new Uint8Array(client.response));
                 }
             }
         }

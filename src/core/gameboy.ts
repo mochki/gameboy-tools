@@ -18,8 +18,8 @@ export class GameBoy {
     cpu: CPU;
     joypad: Joypad;
     timer: Timer;
-    apu: APU;
     serial: Serial;
+    apu: APU;
 
     provider: GameBoyProvider;
     scheduler: Scheduler;

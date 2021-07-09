@@ -5,8 +5,6 @@ export class LanzcosResampler {
     // Lanzcos kernel
     kernel: Float64Array = null!;
     kernelSize = 0;
-    inSampleRate = 0;
-    outSampleRate = 0;
 
     channelVals: Float64Array;
     channelSample: Float64Array;
@@ -22,26 +20,21 @@ export class LanzcosResampler {
     currentSampleInPos = 0;
     currentSampleOutPos = 0;
 
-    constructor(kernelSize: number, inSampleRate: number, outSampleRate: number, channels: number) {
+    constructor(kernelSize: number, normalize: boolean, channels: number) {
         this.channelVals = new Float64Array(channels);
         this.channelSample = new Float64Array(channels);
         this.channelRealSample = new Float64Array(channels);
-        this.setSampleRate(kernelSize, inSampleRate, outSampleRate, true);
-    }
-
-    setSampleRate(kernelSize: number, inSampleRate: number, outSampleRate: number, normalize: boolean) {
-        if (outSampleRate % 1 != 0) {
-            throw "outSampleRate needs to be a whole number";
-        }
-
-        this.kernel = new Float64Array(kernelSize * KERNEL_RESOLUTION);
-        this.kernelSize = kernelSize;
-        this.inSampleRate = inSampleRate;
-        this.outSampleRate = outSampleRate;
 
         this.bufSize = 65536;
         this.buf = new Float64Array(this.bufSize);
-        this.reset();
+
+        this.setKernelSize(kernelSize, normalize);
+    }
+
+    // A kernel size of 1 means effectively no resampling
+    setKernelSize(kernelSize: number, normalize: boolean) {
+        this.kernel = new Float64Array(kernelSize * KERNEL_RESOLUTION);
+        this.kernelSize = kernelSize;
 
         // Generate the normalized Lanzcos kernel
         // Derived blindly from Wikipedia https://en.wikipedia.org/wiki/Lanczos_resampling
@@ -82,13 +75,14 @@ export class LanzcosResampler {
                 }
             }
         }
+
+        // this.reset();
     }
 
     reset() {
         // Flush out the difference buffer
         this.bufPos = 0;
         this.currentVal = 0;
-        this.currentSampleOutPos = 0;
         for (let i = 0; i < this.bufSize; i++) {
             this.buf[i] = 0;
         }
