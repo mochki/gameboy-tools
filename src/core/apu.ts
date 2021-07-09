@@ -528,9 +528,8 @@ export class APU {
 
     fastForwardCh1(cyclesLate: number) {
         let time = this.lastUpdatedCh1;
-        let passed = this.gb.constantRateTicks + cyclesLate - this.lastUpdatedCh1;
-        this.ch1.frequencyTimer -= passed;
         if (this.ch1.frequencyPeriod != 0) {
+            this.ch1.frequencyTimer -= this.gb.constantRateTicks + cyclesLate - this.lastUpdatedCh1;
             while (this.ch1.frequencyTimer <= 0) {
                 this.ch1.frequencyTimer += this.ch1.frequencyPeriod;
                 time += this.ch1.frequencyPeriod;
@@ -546,9 +545,8 @@ export class APU {
 
     fastForwardCh2(cyclesLate: number) {
         let time = this.lastUpdatedCh2;
-        let passed = this.gb.constantRateTicks + cyclesLate - this.lastUpdatedCh2;
-        this.ch2.frequencyTimer -= passed;
         if (this.ch2.frequencyPeriod != 0) {
+            this.ch2.frequencyTimer -= this.gb.constantRateTicks + cyclesLate - this.lastUpdatedCh2;
             while (this.ch2.frequencyTimer <= 0) {
                 this.ch2.frequencyTimer += this.ch2.frequencyPeriod;
                 time += this.ch2.frequencyPeriod;
@@ -564,9 +562,8 @@ export class APU {
 
     fastForwardCh3(cyclesLate: number) {
         let time = this.lastUpdatedCh3;
-        let passed = this.gb.constantRateTicks + cyclesLate - this.lastUpdatedCh3;
-        this.ch3.frequencyTimerSampler -= passed;
         if (this.ch3.frequencyPeriod != 0) {
+            this.ch3.frequencyTimerSampler -= this.gb.constantRateTicks + cyclesLate - this.lastUpdatedCh3;
             while (this.ch3.frequencyTimerSampler <= 0) {
                 this.ch3.frequencyTimerSampler += this.ch3.frequencyPeriod;
                 time += this.ch3.frequencyPeriod;
@@ -582,9 +579,8 @@ export class APU {
 
     fastForwardCh4(cyclesLate: number) {
         let time = this.lastUpdatedCh4;
-        let passed = this.gb.constantRateTicks + cyclesLate - this.lastUpdatedCh4;
-        this.ch4.frequencyTimer -= passed;
         if (this.ch4.frequencyPeriod != 0) {
+            this.ch4.frequencyTimer -= this.gb.constantRateTicks + cyclesLate - this.lastUpdatedCh4;
             while (this.ch4.frequencyTimer <= 0) {
                 this.ch4.frequencyTimer += this.ch4.frequencyPeriod;
                 time += this.ch4.frequencyPeriod;
