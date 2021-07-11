@@ -1,7 +1,7 @@
 import { pulseDuty, pulseDutyArray, waveShiftCodes, noise7Array, noiseDivisors, noise15Array, setPitchScaler } from './../core/apu';
 
 import { GameBoyManager } from './manager';
-import * as ImGui from "../lib/imgui-js/imgui";
+import imgui, * as ImGui from "../lib/imgui-js/imgui";
 import * as ImGui_Impl from "./imgui_impl";
 
 import { ImVec2, ImGuiCol } from "../lib/imgui-js/imgui";
@@ -95,7 +95,7 @@ function reset() {
     mgr.reset();
 }
 
-function loadRom(rom: Uint8Array){
+function loadRom(rom: Uint8Array) {
     resetGui();
     mgr.loadRom(rom);
 }
@@ -702,6 +702,17 @@ function DrawDebug() {
             ImGui.Text(`DIV: ${mgr.gb.timer.getDiv()}`);
             ImGui.Text(`TIMA: ${mgr.gb.timer.counter}`);
             ImGui.Text(`TMA: ${mgr.gb.timer.modulo}`);
+
+            ImGuiColumnSeparator();
+            ImGui.Text(`Time: ${mgr.gb.constantRateTicks}`);
+            let luch1 = mgr.gb.constantRateTicks - mgr.gb.apu.ch1.time;
+            ImGui.Text(`LUCH1: ${luch1} ${luch1 < 0 ? "[NEGATIVE]" : ""}`);
+            let luch2 = mgr.gb.constantRateTicks - mgr.gb.apu.ch2.time;
+            ImGui.Text(`LUCH2: ${luch2} ${luch2 < 0 ? "[NEGATIVE]" : ""}`);
+            let luch3 = mgr.gb.constantRateTicks - mgr.gb.apu.ch3.time;
+            ImGui.Text(`LUCH3: ${luch3} ${luch3 < 0 ? "[NEGATIVE]" : ""}`);
+            let luch4 = mgr.gb.constantRateTicks - mgr.gb.apu.ch4.time;
+            ImGui.Text(`LUCH4: ${luch4} ${luch4 < 0 ? "[NEGATIVE]" : ""}`);
 
             ImGui.Columns(1);
 
