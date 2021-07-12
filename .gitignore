@@ -1,8 +1,4 @@
 src/frontend/**/*.js
 src/core/**/*.js
-src/frontend/**/*.d.ts
-src/core/**/*.d.ts
-src/frontend/**/*.ts.map
-src/core/**/*.ts.map
 roms/
 dist/
