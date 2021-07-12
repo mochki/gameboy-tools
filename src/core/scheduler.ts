@@ -29,6 +29,7 @@ export enum SchedulerId {
     TimerReload = 10,
     OAMDMA = 11,
     SerialClock = 12,
+    SpeedSwitch = 13,
 }
 
 export const SchedulerSpeedSwitchAffected: SchedulerId[] = [
@@ -90,7 +91,6 @@ export class Scheduler {
     }
 
     addEventRelative(id: SchedulerId, ticks: number, callback: SchedulerCallback) {
-        let origTicks = ticks;
         ticks += this.currentTicks;
 
         let newEvt = this.popStack();
@@ -120,14 +120,19 @@ export class Scheduler {
     }
 
     cancelEventsById(id: SchedulerId) {
+        let events: SchedulerEvent[] = [];
+
         let evt = this.rootEvent.nextEvent;
-        while (evt != null)
-        {
-            if (evt.id == id)
-            {
-                this.removeEvent(evt);
+        while (evt != null) {
+            if (evt.id == id) {
+                events.push(evt);
             }
             evt = evt.nextEvent;
+        }
+
+        for (let evt of events)
+        {
+            this.removeEvent(evt);
         }
     }
 
@@ -149,15 +154,13 @@ export class Scheduler {
         return evt;
     }
 
-    removeEvent(schedulerEvent: SchedulerEvent)
-    {
+    removeEvent(schedulerEvent: SchedulerEvent) {
         if (schedulerEvent == this.rootEvent) {
             throw "Cannot remove root event!";
         }
         var prev = schedulerEvent.prevEvent!;
         var next = schedulerEvent.nextEvent!;
-        if (schedulerEvent.nextEvent != null)
-        {
+        if (schedulerEvent.nextEvent != null) {
             next.prevEvent = prev;
         }
         prev.nextEvent = next;

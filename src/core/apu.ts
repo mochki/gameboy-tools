@@ -287,6 +287,7 @@ export class APU {
     resamplerL: LanzcosResampler;
     resamplerR: LanzcosResampler;
     sampleTimer = 0;
+    lastSampleTime = 0;
 
     record = false;
 
@@ -299,7 +300,9 @@ export class APU {
         this.fastForward(this.ch3, cyclesLate >> this.gb.doubleSpeed);
         this.fastForward(this.ch4, cyclesLate >> this.gb.doubleSpeed);
 
-        this.sampleTimer += SAMPLE_RATE * (4194304 / 512);
+        let correctedTime = this.gb.constantRateTicks + (cyclesLate >> this.gb.doubleSpeed);
+
+        this.sampleTimer += SAMPLE_RATE * (correctedTime - this.lastSampleTime);
         while (this.sampleTimer >= 4194304) {
             this.sampleTimer -= 4194304;
 
@@ -327,21 +330,12 @@ export class APU {
                     this.player.queueAudio(this.sampleBufL, this.sampleBufR);
                 } else if (this.player.sourcesPlaying < 12) {
                     this.player.queueAudio(this.sampleBufL, this.sampleBufR);
-                } else {
-                    this.rejected += sampleBufMax;
-                    console.log("rejected " + this.rejected + " samples");
                 }
             }
         }
 
-        // Keep reading samples as long as we have some
-        // while (this.resamplerL.currentSampleOutPos + 512 < this.resamplerL.currentSampleInPos) {
-
-        // }
-        // if (samples != 0) console.log(samples)
+        this.lastSampleTime = correctedTime;
     };
-
-    rejected = 0;
 
     download() {
         this.downloader.download();
@@ -447,7 +441,7 @@ export class APU {
 
         this.ch3.pos = 0;
         this.ch3.posSampler = 0;
-        this.ch3.lastUpdateTicks = this.gb.scheduler.currentTicks;
+        this.ch3.lastUpdateTicks = this.gb.constantRateTicks;
         this.ch3.frequencyTimerAccess = this.ch3.frequencyPeriod;
         if (this.ch3.dacEnabled) this.ch3.enabled = true;
         if (this.ch3.lengthCounter == 0) this.ch3.lengthCounter = 256;
@@ -468,8 +462,8 @@ export class APU {
     capacitorR = 0;
 
     catchupCh3(cyclesLate: number) {
-        let diff = this.gb.scheduler.currentTicks - this.ch3.lastUpdateTicks - cyclesLate;
-        this.ch3.lastUpdateTicks = this.gb.scheduler.currentTicks - cyclesLate;
+        let diff = this.gb.constantRateTicks - this.ch3.lastUpdateTicks - cyclesLate;
+        this.ch3.lastUpdateTicks = this.gb.constantRateTicks - cyclesLate;
         this.ch3.frequencyTimerAccess -= diff;
         if (this.ch3.frequencyPeriod != 0) {
             while (this.ch3.frequencyTimerAccess <= 0) {
@@ -493,7 +487,6 @@ export class APU {
                 time += period;
                 ch.next();
                 this.addChange(ch, time);
-
             }
         }
         ch.time = correctedTime;
@@ -576,23 +569,6 @@ export class APU {
                 let index = addr - 0xFF10;
                 this.registers[index] = val;
             }
-
-            this.ffCh1();
-            this.ffCh2();
-            this.ffCh3();
-            this.ffCh4();
-            this.ffCh1();
-            this.ffCh2();
-            this.ffCh3();
-            this.ffCh4();
-            this.ffCh1();
-            this.ffCh2();
-            this.ffCh3();
-            this.ffCh4();
-            this.ffCh1();
-            this.ffCh2();
-            this.ffCh3();
-            this.ffCh4();
 
             switch (addr) {
                 case 0xFF10: // NR10

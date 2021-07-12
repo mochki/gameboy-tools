@@ -1,4 +1,4 @@
-import { Scheduler, SchedulerId, SchedulerSpeedSwitchAffected } from './scheduler';
+import { resolveSchedulerId, Scheduler, SchedulerEvent, SchedulerId, SchedulerSpeedSwitchAffected } from './scheduler';
 import { GameBoyProvider } from './provider';
 import { Bus } from "./bus";
 import { CPU } from "./cpu/cpu";
@@ -59,41 +59,38 @@ export class GameBoy {
         this.skipBootrom = skipBootrom;
     }
 
-    speedSwitch() {
-        if (this.doubleSpeed) {
-            this.doubleSpeed = 0;
-        } else {
-            this.doubleSpeed = 1;
+    speedSwitch = (cyclesLate: number) => {
+        this.doubleSpeed ^= 1;
+
+        let eventsAffected: SchedulerEvent[] = [];
+
+        // Walk the linked list
+        let event = this.scheduler.rootEvent;
+        while (event.nextEvent != null) {
+            event = event.nextEvent;
+
+            if (SchedulerSpeedSwitchAffected.includes(event.id))
+                eventsAffected.push(event);
         }
 
-        for (let i = 0; i < this.scheduler.freeEventStack.length; i++) {
-            let event = this.scheduler.freeEventStack[i];
-            let affected = false;
-            for (let j = 0; j < SchedulerSpeedSwitchAffected.length; j++) {
-                if (event.id = SchedulerSpeedSwitchAffected[i]) {
-                    affected = true;
-                }
-            }
-
+        for (let event of eventsAffected) {
             let callback = event.callback;
             let id = event.id;
-            let ticks = event.ticks;
+            let ticksIn = event.ticks - this.scheduler.currentTicks - cyclesLate;
 
-            if (affected) {
-                this.scheduler.removeEvent(event);
-                // console.log(`Canceling: ${id}, ${ticks}`);
-                if (this.doubleSpeed) {
-                    // Switching to double speed
-                    // console.log(`Re-adding: ${id}, ${ticks >> 1}`);
-                    this.scheduler.addEventRelative(id, ticks >> 1, callback);
-                } else {
-                    // Switching to normal speed
-                    // console.log(`Re-adding: ${id}, ${ticks << 1}`);
-                    this.scheduler.addEventRelative(id, ticks << 1, callback);
-                }
+            this.scheduler.removeEvent(event);
+            // console.log(`Canceling: ${resolveSchedulerId(id)}, ${ticksIn}`);
+            if (this.doubleSpeed) {
+                // Switching to double speed
+                // console.log(`Re-adding: ${resolveSchedulerId(id)}, ${ticksIn << 1}`);
+                this.scheduler.addEventRelative(id, ticksIn << 1, callback);
+            } else {
+                // Switching to normal speed
+                // console.log(`Re-adding: ${resolveSchedulerId(id)}, ${ticksIn >> 1}`);
+                this.scheduler.addEventRelative(id, ticksIn >> 1, callback);
             }
         }
-    }
+    };
 
     dmgBootrom() {
         this.cpu.pc = 0x100;
