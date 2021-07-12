@@ -2,7 +2,7 @@ import { bitTest, bitSet, BIT_6, BIT_7 } from "./util/bits";
 import { GameBoy } from "./gameboy";
 import { SchedulerId, Scheduler } from "./scheduler";
 import { AudioPlayer, SAMPLE_RATE } from "./audioplayer";
-import { GetTextLineHeightWithSpacing } from "../lib/imgui-js/imgui";
+import { GetTextLineHeightWithSpacing, NextColumn } from "../lib/imgui-js/imgui";
 import { hex } from "./util/misc";
 import { WavDownloader } from "./util/wavdownloader";
 import { PPUMode } from "./ppu";
@@ -66,7 +66,7 @@ export function setPitchScaler(scaler: number) {
 const dmgChargeFactorBase = 0.999958;
 const cgbChargeFactorBase = 0.998943;
 const powerlatedThinksBestChargeFactorBase = 0.999777;
-const capacitorChargeFactor = Math.pow(powerlatedThinksBestChargeFactorBase, 4194304 / outputSampleRate);
+const capacitorChargeFactor = Math.pow(dmgChargeFactorBase, 4194304 / outputSampleRate);
 
 export const noise7Array: Uint8Array = genNoiseArray(true);
 export const noise15Array: Uint8Array = genNoiseArray(false);
@@ -106,8 +106,6 @@ abstract class Channel {
     frequency = 0;
 
     volume = 0;
-    volMulL = 0;
-    volMulR = 0;
     enableL = false;
     enableR = false;
 
@@ -117,12 +115,47 @@ abstract class Channel {
     useLength = false;
 
     time = 0;
+
+    // NR{1,2,4}2
+    envelopeInitial = 0;
+    envelopeIncrease = false;
+    envelopePeriod = 0;
+    envelopeTimer = 0;
+
+    clockLength() {
+        if (this.useLength) {
+            if (this.lengthCounter <= 0) {
+                this.enabled = false;
+            } else {
+                this.lengthCounter--;
+            }
+        }
+    }
+
+    clockEnvelope() {
+        if (this.envelopeTimer <= 0) {
+            this.envelopeTimer = this.envelopePeriod;
+            if (this.envelopePeriod != 0) {
+                let volume = this.volume;
+                if (this.envelopeIncrease) {
+                    volume++;
+                } else {
+                    volume--;
+                }
+
+                if (volume >= 0 && volume <= 15) {
+                    this.volume = volume;
+                }
+            }
+        }
+        this.envelopeTimer--;
+    }
+
+    abstract next(): void;
 };
 
 class PulseChannel extends Channel {
     pos = 0;
-
-    envelopeTimer = 0;
 
     sweepEnable = false;
     sweepTimer = 0;
@@ -130,7 +163,7 @@ class PulseChannel extends Channel {
 
     // -------
 
-    // NR{1,2}0
+    // NR10
     sweepPeriod = 0;
     sweepIncrease = false;
     sweepShift = 0;
@@ -139,14 +172,35 @@ class PulseChannel extends Channel {
     duty = 2;
     // length: 0,
 
-    // NR{1,2}2
-    envelopeInitial = 0;
-    envelopeIncrease = false;
-    envelopePeriod = 0;
-
     // NR{1,2}3
     // NR{1,2}4
     frequencyHz = 0;
+
+    next() {
+        this.pos = (this.pos + 1) & 7;
+        this.currentVal = pulseDuty[this.duty][this.pos];
+    }
+
+    clockSweep() {
+        if (this.sweepPeriod != 0 && this.sweepEnable) {
+            if (this.sweepTimer <= 0) {
+                this.sweepTimer = this.sweepPeriod;
+
+                let diff = this.sweepShadowFrequency >> this.sweepShift;
+                if (this.sweepIncrease) diff *= -1;
+                this.sweepShadowFrequency += diff;
+
+                if (this.sweepShadowFrequency > 2047) {
+                    this.enabled = false;
+                } else {
+                    this.frequency = this.sweepShadowFrequency;
+                    this.frequencyPeriod = (2048 - this.frequency) * 4;
+                    this.frequencyHz = 131072 / (2048 - this.frequency);
+                }
+            }
+            this.sweepTimer--;
+        }
+    }
 }
 
 class WaveChannel extends Channel {
@@ -172,9 +226,10 @@ class WaveChannel extends Channel {
     // NR32
     volumeCode = 0;
 
-    // NR33
-    // NR34
-    useLength = false;
+    next() {
+        this.posSampler = (this.posSampler + 1) & 31;
+        this.currentVal = this.waveTable[this.posSampler];
+    }
 }
 
 class NoiseChannel extends Channel {
@@ -186,23 +241,25 @@ class NoiseChannel extends Channel {
     lfsr = 0;
     // -------
 
-    // NR42
-    envelopeInitial = 0;
-    envelopeIncrease = false;
-    envelopePeriod = 0;
-
     // NR43
     frequencyShift = 0;
     sevenBit = 0;
     divisorCode = 0;
 
-    // NR44
-    useLength = false;
+    next() {
+        let lfsr = this.lfsr;
+        let xored = ((lfsr) ^ (lfsr >> 1)) & 1;
+        lfsr >>= 1;
+        lfsr |= (xored << 14);
+        lfsr &= ~this.sevenBit;
+        lfsr |= ((xored << 6) & (this.sevenBit >> 1));
+        this.lfsr = lfsr;
+        this.currentVal = xored ^ 1;
+    }
 }
 
 
 export class APU {
-
     gb: GameBoy;
     scheduler: Scheduler;
 
@@ -237,13 +294,10 @@ export class APU {
         this.advanceFrameSequencer();
         this.scheduler.addEventRelative(SchedulerId.TimerAPUFrameSequencer, (8192 - cyclesLate) << this.gb.doubleSpeed, this.frameSequencerTimer);
 
-        this.fastForwardCh1(cyclesLate >> this.gb.doubleSpeed);
-        this.fastForwardCh2(cyclesLate >> this.gb.doubleSpeed);
-        this.fastForwardCh3(cyclesLate >> this.gb.doubleSpeed);
-        this.fastForwardCh4(cyclesLate >> this.gb.doubleSpeed);
-
-        // this.resamplerL.setValue(4, (this.gb.constantRateTicks) / (SAMPLE_RATE / 4194304), 0);
-        // this.resamplerR.setValue(4, (this.gb.constantRateTicks) / (SAMPLE_RATE / 4194304), 0);
+        this.fastForward(this.ch1, cyclesLate >> this.gb.doubleSpeed);
+        this.fastForward(this.ch2, cyclesLate >> this.gb.doubleSpeed);
+        this.fastForward(this.ch3, cyclesLate >> this.gb.doubleSpeed);
+        this.fastForward(this.ch4, cyclesLate >> this.gb.doubleSpeed);
 
         this.sampleTimer += SAMPLE_RATE * (4194304 / 512);
         while (this.sampleTimer >= 4194304) {
@@ -271,8 +325,11 @@ export class APU {
                 if (!this.gb.turboMode) {
                     // console.log(sampleBufMax);
                     this.player.queueAudio(this.sampleBufL, this.sampleBufR);
-                } else if (this.player.sourcesPlaying < 24) {
+                } else if (this.player.sourcesPlaying < 12) {
                     this.player.queueAudio(this.sampleBufL, this.sampleBufR);
+                } else {
+                    this.rejected += sampleBufMax;
+                    console.log("rejected " + this.rejected + " samples");
                 }
             }
         }
@@ -283,6 +340,8 @@ export class APU {
         // }
         // if (samples != 0) console.log(samples)
     };
+
+    rejected = 0;
 
     download() {
         this.downloader.download();
@@ -309,13 +368,12 @@ export class APU {
     }
 
     addChange(ch: Channel, time: number) {
-        // TODO: I'm too tired to deal with this crap
         let temp = ch.id != 2 ? ch.currentVal * ch.volume : ch.currentVal >> (ch as WaveChannel).volumeShift;
 
         if (!ch.enabled) temp = 0;
         if (ch.dacEnabled) {
-            if (ch.enableL) { ch.outL = (((temp / 15) * 2) - 1) * ch.volMulL; } else { ch.outL = 0; };
-            if (ch.enableR) { ch.outR = (((temp / 15) * 2) - 1) * ch.volMulR; } else { ch.outR = 0; };
+            if (ch.enableL) { ch.outL = (((temp / 15) * 2) - 1) * this.volMulL; } else { ch.outL = 0; };
+            if (ch.enableR) { ch.outR = (((temp / 15) * 2) - 1) * this.volMulR; } else { ch.outR = 0; };
         }
 
         if (this.debugEnables[ch.id]) {
@@ -332,106 +390,18 @@ export class APU {
     sampleBufPos = 0;
 
     clockLength() {
-        if (this.ch1.useLength) {
-            if (this.ch1.lengthCounter <= 0) {
-                this.ch1.enabled = false;
-            } else {
-                this.ch1.lengthCounter--;
-            }
-        }
-        if (this.ch2.useLength) {
-            if (this.ch2.lengthCounter <= 0) {
-                this.ch2.enabled = false;
-            } else {
-                this.ch2.lengthCounter--;
-            }
-        }
-        if (this.ch3.useLength) {
-            if (this.ch3.lengthCounter <= 0) {
-                this.ch3.enabled = false;
-            } else {
-                this.ch3.lengthCounter--;
-            }
-        }
-        if (this.ch4.useLength) {
-            if (this.ch4.lengthCounter <= 0) {
-                this.ch4.enabled = false;
-            } else {
-                this.ch4.lengthCounter--;
-            }
-        }
+        this.ch1.clockLength();
+        this.ch2.clockLength();
+        this.ch3.clockLength();
+        this.ch4.clockLength();
     }
     clockSweep() {
-        if (this.ch1.sweepPeriod != 0 && this.ch1.sweepEnable) {
-            if (this.ch1.sweepTimer <= 0) {
-                this.ch1.sweepTimer = this.ch1.sweepPeriod;
-
-                let diff = this.ch1.sweepShadowFrequency >> this.ch1.sweepShift;
-                if (this.ch1.sweepIncrease) diff *= -1;
-                this.ch1.sweepShadowFrequency += diff;
-
-                if (this.ch1.sweepShadowFrequency > 2047) {
-                    this.ch1.enabled = false;
-                } else {
-                    this.ch1.frequency = this.ch1.sweepShadowFrequency;
-                    this.ch1.frequencyPeriod = (2048 - this.ch1.frequency) * 4;
-                    this.ch1.frequencyHz = 131072 / (2048 - this.ch1.frequency);
-                }
-            }
-            this.ch1.sweepTimer--;
-        }
+        this.ch1.clockSweep();
     }
     clockEnvelope() {
-        if (this.ch1.envelopeTimer <= 0) {
-            this.ch1.envelopeTimer = this.ch1.envelopePeriod;
-            if (this.ch1.envelopePeriod != 0) {
-                let volume = this.ch1.volume;
-                if (this.ch1.envelopeIncrease) {
-                    volume++;
-                } else {
-                    volume--;
-                }
-
-                if (volume >= 0 && volume <= 15) {
-                    this.ch1.volume = volume;
-                }
-            }
-        }
-        this.ch1.envelopeTimer--;
-
-        if (this.ch2.envelopeTimer <= 0) {
-            this.ch2.envelopeTimer = this.ch2.envelopePeriod;
-            if (this.ch2.envelopePeriod != 0) {
-                let volume = this.ch2.volume;
-                if (this.ch2.envelopeIncrease) {
-                    volume++;
-                } else {
-                    volume--;
-                }
-
-                if (volume >= 0 && volume <= 15) {
-                    this.ch2.volume = volume;
-                }
-            }
-        }
-        this.ch2.envelopeTimer--;
-
-        if (this.ch4.envelopeTimer <= 0) {
-            this.ch4.envelopeTimer = this.ch4.envelopePeriod;
-            if (this.ch4.envelopePeriod != 0) {
-                let volume = this.ch4.volume;
-                if (this.ch4.envelopeIncrease) {
-                    volume++;
-                } else {
-                    volume--;
-                }
-
-                if (volume >= 0 && volume <= 15) {
-                    this.ch4.volume = volume;
-                }
-            }
-        }
-        this.ch4.envelopeTimer--;
+        this.ch1.clockEnvelope();
+        this.ch2.clockEnvelope();
+        this.ch4.clockEnvelope();
     }
 
     ch1 = new PulseChannel(0);
@@ -444,16 +414,6 @@ export class APU {
     emulateInterference = false;
 
     registers = new Uint8Array(23);
-
-    enableL1 = false;
-    enableL2 = false;
-    enableL3 = false;
-    enableL4 = false;
-
-    enableR1 = false;
-    enableR2 = false;
-    enableR3 = false;
-    enableR4 = false;
 
     volMulL = 0;
     volMulR = 0;
@@ -473,8 +433,8 @@ export class APU {
     }
 
     triggerCh2() {
-        // this.ch2.time = this.gb.constantRateTicks;
-        // this.ch2.frequencyTimer = this.ch2.frequencyPeriod;
+        this.ch2.time = this.gb.constantRateTicks;
+        this.ch2.frequencyTimer = this.ch2.frequencyPeriod;
 
         if (this.ch2.dacEnabled) this.ch2.enabled = true;
         this.ch2.volume = this.ch2.envelopeInitial;
@@ -520,103 +480,29 @@ export class APU {
         }
     }
 
-    fastForwardCh1(cyclesLate: number) {
+    // For some reason it took me an entire week to figure out how implement proper fast forwarding
+    // BUT I FINALLY DID IT :D 
+    fastForward(ch: Channel, cyclesLate: number) {
         let correctedTime = this.gb.constantRateTicks - cyclesLate;
-        if (this.ch1.frequencyPeriod != 0) {
-            let time = correctedTime + this.ch1.frequencyTimer;
-            this.ch1.frequencyTimer -= correctedTime + cyclesLate - this.ch1.time;
-            let period = this.ch1.frequencyPeriod >> this.nightcoreModeShift;
-            while (this.ch1.frequencyTimer <= 0) {
-                this.ch1.frequencyTimer += period;
+        if (ch.frequencyPeriod != 0) {
+            let time = ch.time + ch.frequencyTimer;
+            ch.frequencyTimer -= correctedTime + cyclesLate - ch.time;
+            let period = ch.frequencyPeriod >> this.nightcoreModeShift;
+            while (ch.frequencyTimer <= 0) {
+                ch.frequencyTimer += period;
                 time += period;
+                ch.next();
+                this.addChange(ch, time);
 
-                this.ch1.pos = (this.ch1.pos + 1) & 7;
-                this.ch1.currentVal = pulseDuty[this.ch1.duty][this.ch1.pos];
-
-                this.addChange(this.ch1, time);
             }
         }
-        this.ch1.time = correctedTime;
+        ch.time = correctedTime;
     }
 
-    lastTime = 0;
-    fastForwardCh2(cyclesLate: number) {
-        // this.debugEnables[0] = false;
-        // this.debugEnables[2] = false;
-        // this.debugEnables[3] = false;
-        let correctedTime = this.gb.constantRateTicks - cyclesLate;
-        if (this.ch2.frequencyPeriod != 0) {
-            let time = correctedTime + this.ch2.frequencyTimer;
-            this.ch2.frequencyTimer -= correctedTime - this.ch2.time;
-            let period = this.ch2.frequencyPeriod >> this.nightcoreModeShift;
-            // period = 4008;
-            while (this.ch2.frequencyTimer <= 0) {
-                this.ch2.frequencyTimer += period;
-                time += period;
-
-                this.ch2.pos = (this.ch2.pos + 1) & 7;
-                this.ch2.currentVal = pulseDuty[this.ch2.duty][this.ch2.pos];
-
-                this.addChange(this.ch2, time);
-                // if (time - this.lastTime != period)
-                // console.log(time - this.lastTime);
-                
-                this.lastTime = time;
-            }
-        }
-        this.ch2.time = correctedTime;
-    }
-
-    fastForwardCh3(cyclesLate: number) {
-        let correctedTime = this.gb.constantRateTicks - cyclesLate;
-        if (this.ch3.frequencyPeriod != 0) {
-            let time = correctedTime + this.ch3.frequencyTimer;
-            this.ch3.frequencyTimer -= correctedTime + cyclesLate - this.ch3.time;
-            let period = this.ch3.frequencyPeriod >> this.nightcoreModeShift;
-            while (this.ch3.frequencyTimer <= 0) {
-                this.ch3.frequencyTimer += period;
-                time += period;
-
-                this.ch3.posSampler = (this.ch3.posSampler + 1) & 31;
-                this.ch3.currentVal = this.ch3.waveTable[this.ch3.posSampler];
-
-                this.addChange(this.ch3, time);
-            }
-        }
-        this.ch3.time = correctedTime;
-    }
-
-    fastForwardCh4(cyclesLate: number) {
-        let correctedTime = this.gb.constantRateTicks - cyclesLate;
-        if (this.ch4.frequencyPeriod != 0) {
-            let time = correctedTime + this.ch4.frequencyTimer;
-            this.ch4.frequencyTimer -= correctedTime + cyclesLate - this.ch4.time;
-            while (this.ch4.frequencyTimer <= 0) {
-                this.ch4.frequencyTimer += this.ch4.frequencyPeriod;
-                time += this.ch4.frequencyPeriod;
-
-                let lfsr = this.ch4.lfsr;
-                let xored = ((lfsr) ^ (lfsr >> 1)) & 1;
-                lfsr >>= 1;
-                lfsr |= (xored << 14);
-                lfsr &= ~this.ch4.sevenBit;
-                lfsr |= ((xored << 6) & (this.ch4.sevenBit >> 1));
-                this.ch4.lfsr = lfsr;
-
-                this.ch4.currentVal = xored ^ 1;
-
-                this.addChange(this.ch4, time);
-            }
-        }
-        this.ch4.time = correctedTime;
-    }
-
-    properFf = false;
-
-    ffCh1() { if (this.properFf) this.fastForwardCh1(0); }
-    ffCh2() { if (this.properFf) this.fastForwardCh2(0); }
-    ffCh3() { if (this.properFf) this.fastForwardCh3(0); }
-    ffCh4() { if (this.properFf) this.fastForwardCh4(0); }
+    ffCh1() { this.fastForward(this.ch1, 0); }
+    ffCh2() { this.fastForward(this.ch2, 0); }
+    ffCh3() { this.fastForward(this.ch3, 0); }
+    ffCh4() { this.fastForward(this.ch4, 0); }
 
     sampleInterference(): number {
         let val = 0;
@@ -686,12 +572,10 @@ export class APU {
     }
     writeHwio8(addr: number, val: number): void {
         if (this.enabled) {
-
             if (addr >= 0xFF10 && addr <= 0xFF26) {
                 let index = addr - 0xFF10;
                 this.registers[index] = val;
             }
-
 
             this.ffCh1();
             this.ffCh2();
@@ -924,14 +808,8 @@ export class APU {
 
                     let volMulL = ((val >> 4) & 0b111) / 7;
                     let volMulR = ((val >> 0) & 0b111) / 7;
-                    this.ch1.volMulL = volMulL;
-                    this.ch1.volMulR = volMulR;
-                    this.ch2.volMulL = volMulL;
-                    this.ch2.volMulR = volMulR;
-                    this.ch3.volMulL = volMulL;
-                    this.ch3.volMulR = volMulR;
-                    this.ch4.volMulL = volMulL;
-                    this.ch4.volMulR = volMulR;
+                    this.volMulL = volMulL;
+                    this.volMulR = volMulR;
                     break;
                 case 0xFF25: // NR51
                     this.ffCh1();

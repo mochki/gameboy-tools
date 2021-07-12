@@ -4,7 +4,6 @@
         "module": "System",
         "target": "ES2020",
         "noFallthroughCasesInSwitch": true,
-        
     },
     "include": ["src/"],
     "exclude": ["src/lib", "dist/"],

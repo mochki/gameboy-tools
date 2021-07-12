@@ -703,16 +703,16 @@ function DrawDebug() {
             ImGui.Text(`TIMA: ${mgr.gb.timer.counter}`);
             ImGui.Text(`TMA: ${mgr.gb.timer.modulo}`);
 
-            ImGuiColumnSeparator();
-            ImGui.Text(`Time: ${mgr.gb.constantRateTicks}`);
-            let luch1 = mgr.gb.constantRateTicks - mgr.gb.apu.ch1.time;
-            ImGui.Text(`LUCH1: ${luch1} ${luch1 < 0 ? "[NEGATIVE]" : ""}`);
-            let luch2 = mgr.gb.constantRateTicks - mgr.gb.apu.ch2.time;
-            ImGui.Text(`LUCH2: ${luch2} ${luch2 < 0 ? "[NEGATIVE]" : ""}`);
-            let luch3 = mgr.gb.constantRateTicks - mgr.gb.apu.ch3.time;
-            ImGui.Text(`LUCH3: ${luch3} ${luch3 < 0 ? "[NEGATIVE]" : ""}`);
-            let luch4 = mgr.gb.constantRateTicks - mgr.gb.apu.ch4.time;
-            ImGui.Text(`LUCH4: ${luch4} ${luch4 < 0 ? "[NEGATIVE]" : ""}`);
+            // ImGuiColumnSeparator();
+            // ImGui.Text(`Time: ${mgr.gb.constantRateTicks}`);
+            // let luch1 = mgr.gb.constantRateTicks - mgr.gb.apu.ch1.time;
+            // ImGui.Text(`LUCH1: ${luch1} ${luch1 < 0 ? "[NEGATIVE]" : ""}`);
+            // let luch2 = mgr.gb.constantRateTicks - mgr.gb.apu.ch2.time;
+            // ImGui.Text(`LUCH2: ${luch2} ${luch2 < 0 ? "[NEGATIVE]" : ""}`);
+            // let luch3 = mgr.gb.constantRateTicks - mgr.gb.apu.ch3.time;
+            // ImGui.Text(`LUCH3: ${luch3} ${luch3 < 0 ? "[NEGATIVE]" : ""}`);
+            // let luch4 = mgr.gb.constantRateTicks - mgr.gb.apu.ch4.time;
+            // ImGui.Text(`LUCH4: ${luch4} ${luch4 < 0 ? "[NEGATIVE]" : ""}`);
 
             ImGui.Columns(1);
 
@@ -1118,8 +1118,7 @@ function drawWaveBox(waveTable: Uint8Array, widthMul: number, waveShift: number)
     }
 }
 
-let noisePos = 0;
-function drawNoiseBox(noiseArray: Uint8Array, widthMul: number, heightMul: number) {
+function drawNoiseBox(noiseArray: Uint8Array, widthMul: number, heightMul: number, noisePos: number) {
     let dl = ImGui.GetWindowDrawList();
     let pos: ImVec2 = ImGui.GetCursorScreenPos();
     let width: number = ImGui.GetWindowContentRegionWidth();
@@ -1216,7 +1215,7 @@ function DrawSoundVisualizer() {
 
         let noiseHz = 524288 / noiseDivisors[gb.apu.ch4.divisorCode] / 2 ^ (gb.apu.ch4.frequencyShift + 1);
         let noiseActive = gb.apu.ch4.enabled && gb.apu.ch4.dacEnabled && (gb.apu.ch4.enableL || gb.apu.ch4.enableR);
-        drawNoiseBox(gb.apu.ch4.sevenBit ? noise7Array : noise15Array, 0.025, noiseActive ? gb.apu.ch4.volume / 15 : 0);
+        drawNoiseBox(gb.apu.ch4.sevenBit ? noise7Array : noise15Array, 0.025, noiseActive ? gb.apu.ch4.volume / 15 : 0, gb.apu.ch4.lfsr);
         ImGui.Text(`Value: ${gb.apu.ch4.currentVal * gb.apu.ch4.volume}`);
         ImGui.End();
     }
