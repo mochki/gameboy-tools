@@ -15,6 +15,7 @@ import { hexN } from '../core/util/misc';
 import { resolveSchedulerId, SchedulerId } from '../core/scheduler';
 import { disassemble } from '../core/disassembler';
 import { ExpoRender } from './exporender';
+import { Bus } from '../core/bus';
 
 const clearColor: ImVec4 = new ImVec4(0.114, 0.114, 0.114, 1.00);
 
@@ -301,7 +302,16 @@ async function _init(): Promise<void> {
 
     loadFileOnClick(document.getElementById("load-save-btn")!, ".sav", (result: ArrayBuffer) => {
         mgr.loadSave(new Uint8Array(result));
+        mgr.reset();
     });
+
+    document.getElementById("download-save-btn")!.onclick = e => {
+        let localforage = (window as any).localforage;
+        let title = Bus.getTitle(mgr.gb.bus.rom);
+        localforage.getItem(`${title}.sav`).then((arr: Uint8Array) => {
+            download(`${title}.sav`, arr);
+        });
+    };
 
     document.getElementById("volume-slider")!.oninput = e => {
         let percentVolume = (e.target as HTMLInputElement).value as unknown as number;

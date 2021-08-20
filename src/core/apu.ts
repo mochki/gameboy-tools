@@ -41,7 +41,7 @@ export const pulseDutyArray = [
     [0, 1, 1, 1, 1, 1, 1, 0],
 ];
 
-const sampleBufMax = 512 * (SAMPLE_RATE / 65536);
+const sampleBufMax = Math.floor(512 * (SAMPLE_RATE / 65536));
 
 export function dac(inVal: number) {
     return inVal / (15 / 2) - 1;
@@ -63,6 +63,7 @@ export function setPitchScaler(scaler: number) {
     channelCyclesPerSample = scaler * cyclesPerSample;
 }
 
+const evenMoreBassChargeFactorBase = 0.99999;
 const dmgChargeFactorBase = 0.999958;
 const cgbChargeFactorBase = 0.998943;
 const powerlatedThinksBestChargeFactorBase = 0.999777;
@@ -93,9 +94,6 @@ abstract class Channel {
     constructor(id: number) {
         this.id = id;
     }
-
-    outL = 0;
-    outR = 0;
 
     currentVal: number = 0;
     lastVal = 0;
@@ -267,14 +265,14 @@ export class APU {
         this.gb = gb;
         this.scheduler = scheduler;
 
-        this.resamplerL = new LanzcosResampler(32, true, 4);
-        this.resamplerR = new LanzcosResampler(32, true, 4);
+        this.resamplerL = new LanzcosResampler(4, true, 4);
+        this.resamplerR = new LanzcosResampler(4, true, 4);
         this.downloader = new WavDownloader(outputSampleRate, "");
     }
 
     setResamplerEnabled(enabled: boolean) {
-        this.resamplerL.setKernelSize(32, true, enabled);
-        this.resamplerR.setKernelSize(32, true, enabled);
+        this.resamplerL.setKernelSize(4, true, enabled);
+        this.resamplerR.setKernelSize(4, true, enabled);
     }
 
     setNightcoreMode(enabled: boolean) {
@@ -306,17 +304,17 @@ export class APU {
         while (this.sampleTimer >= 4194304) {
             this.sampleTimer -= 4194304;
 
-            let finalL = this.resamplerL.readOutSample();
-            let finalR = this.resamplerR.readOutSample();
+            let outL = this.resamplerL.readOutSample();
+            let outR = this.resamplerR.readOutSample();
 
-            let outL = finalL - this.capacitorL;
-            let outR = finalR - this.capacitorR;
+            let finalL = outL - this.capacitorL;
+            let finalR = outR - this.capacitorR;
 
-            this.capacitorL = finalL - outL * capacitorChargeFactor;
-            this.capacitorR = finalR - outR * capacitorChargeFactor;
+            this.capacitorL = outL - finalL * capacitorChargeFactor;
+            this.capacitorR = outR - finalR * capacitorChargeFactor;
 
-            this.sampleBufL[this.sampleBufPos] = outL;
-            this.sampleBufR[this.sampleBufPos] = outR;
+            this.sampleBufL[this.sampleBufPos] = finalL;
+            this.sampleBufR[this.sampleBufPos] = finalR;
             this.sampleBufPos++;
 
             if (this.sampleBufPos >= sampleBufMax) {
@@ -364,15 +362,18 @@ export class APU {
     addChange(ch: Channel, time: number) {
         let temp = ch.id != 2 ? ch.currentVal * ch.volume : ch.currentVal >> (ch as WaveChannel).volumeShift;
 
+        let outL = 0;
+        let outR = 0;
+
         if (!ch.enabled) temp = 0;
         if (ch.dacEnabled) {
-            if (ch.enableL) { ch.outL = (((temp / 15) * 2) - 1) * this.volMulL; } else { ch.outL = 0; };
-            if (ch.enableR) { ch.outR = (((temp / 15) * 2) - 1) * this.volMulR; } else { ch.outR = 0; };
+            if (ch.enableL) outL = (((temp / 15) * 2) - 1) * this.volMulL;
+            if (ch.enableR) outR = (((temp / 15) * 2) - 1) * this.volMulR;
         }
 
         if (this.debugEnables[ch.id]) {
-            this.resamplerL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), ch.outL / 4, 1);
-            this.resamplerR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), ch.outR / 4, 1);
+            this.resamplerL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), outL / 4, 1);
+            this.resamplerR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), outR / 4, 1);
         } else {
             this.resamplerL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, 1);
             this.resamplerR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, 1);
