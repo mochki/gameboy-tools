@@ -265,14 +265,14 @@ export class APU {
         this.gb = gb;
         this.scheduler = scheduler;
 
-        this.resamplerL = new LanzcosResampler(4, true, 4);
-        this.resamplerR = new LanzcosResampler(4, true, 4);
+        this.resamplerL = new LanzcosResampler(16, true, 4);
+        this.resamplerR = new LanzcosResampler(16, true, 4);
         this.downloader = new WavDownloader(outputSampleRate, "");
     }
 
     setResamplerEnabled(enabled: boolean) {
-        this.resamplerL.setKernelSize(4, true, enabled);
-        this.resamplerR.setKernelSize(4, true, enabled);
+        this.resamplerL.setKernelSize(16, true, enabled);
+        this.resamplerR.setKernelSize(16, true, enabled);
     }
 
     setNightcoreMode(enabled: boolean) {
