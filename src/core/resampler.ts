@@ -49,7 +49,7 @@ export class LanzcosResampler {
                     // Shift X coordinate right for subsample accuracy
                     // We now have the X coordinates for an impulse bandlimited at the sample rate
                     x += (KERNEL_RESOLUTION - i - 1) / KERNEL_RESOLUTION;
-                    // Horizontally stretch by two, so that our impulse is bandlimited at the Nyquist limit, half of the sample rate
+                    // Horizontally compress by two, so that our impulse is bandlimited at the Nyquist limit, half of the sample rate
                     x *= 2;
 
                     // Get the sinc, which represents a bandlimited impulse
