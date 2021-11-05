@@ -14,14 +14,16 @@ export class FeedbackCombFilter {
     }
 
     process(val: number): number {
-        let delayLineOut = this.buffer[(this.bufferPos + 1) % this.buffer.length];
+        let nextBufferPos = this.bufferPos;
+        if (++nextBufferPos >= this.buffer.length) nextBufferPos = 0;
+        let delayLineOut = this.buffer[nextBufferPos];
 
         // lowpass
         // this.lowpassBuf = (1 - this.lowpassBuf) / (1 - this.lowpassBuf / this.lowpass);
         this.lowpassBuf = delayLineOut; // TODO: maybe lowpass makes it sound better?
 
         this.buffer[this.bufferPos] = val + this.lowpassBuf * this.decay;
-        this.bufferPos = (this.bufferPos + 1) % this.buffer.length;
+        this.bufferPos = nextBufferPos;
         return delayLineOut;
     }
 }

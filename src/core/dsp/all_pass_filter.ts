@@ -16,8 +16,7 @@ export class AllPassFilter {
         let bufferOut = this.buffer[this.bufferPos];
         let output = -val + bufferOut;
         this.buffer[this.bufferPos] = val + bufferOut * this.feedback;
-        this.bufferPos = (this.bufferPos + 1) % this.buffer.length;
-
+        if (++this.bufferPos >= this.buffer.length) this.bufferPos = 0;
         return output;
     }
 }

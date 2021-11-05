@@ -124,7 +124,7 @@ export class BlipBufLanzcos {
             let kBufPos = (this.bufPos + (Math.floor(sample) - this.currentSampleOutPos)) % this.bufSize;
             for (let i = 0; i < this.kernelSize; i++) {
                 this.buf[kBufPos] += this.kernel[this.kernelSize * subsamplePos + i] * diff;
-                kBufPos = (kBufPos + 1) % this.bufSize;
+                if (++kBufPos >= this.bufSize) kBufPos = 0;
             }
         }
 
@@ -135,7 +135,7 @@ export class BlipBufLanzcos {
         // Add our difference to the current value and return the current value
         this.currentVal += this.buf[this.bufPos];
         this.buf[this.bufPos] = 0;
-        this.bufPos = (this.bufPos + 1) % this.bufSize;
+        if (++this.bufPos >= this.bufSize) this.bufPos = 0;
         this.currentSampleOutPos++;
         return this.currentVal;
     }
