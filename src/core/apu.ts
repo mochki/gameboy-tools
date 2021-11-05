@@ -7,7 +7,8 @@ import { hex } from "./util/misc";
 import { WavDownloader } from "./util/wavdownloader";
 import { PPUMode } from "./ppu";
 import { FastRNG } from "../frontend/FastRNG";
-import { LanzcosResampler } from "./resampler";
+import { BlipBufLanzcos } from "./dsp/blip_buf_lanzcos";
+import { Freeverb } from "./dsp/freeverb";
 
 // Starts from NR10 / 0xFF10
 const regMask = Uint8Array.from([
@@ -58,6 +59,7 @@ const channelSampleRate = SAMPLE_RATE / 1;
 const cyclesPerSample = 4194304 / channelSampleRate;
 let channelCyclesPerSample = 4194304 / channelSampleRate;
 const outputSampleRate = SAMPLE_RATE;
+export const REVERB_WET = 0.20;
 
 export function setPitchScaler(scaler: number) {
     channelCyclesPerSample = scaler * cyclesPerSample;
@@ -265,14 +267,16 @@ export class APU {
         this.gb = gb;
         this.scheduler = scheduler;
 
-        this.resamplerL = new LanzcosResampler(16, true, 4);
-        this.resamplerR = new LanzcosResampler(16, true, 4);
+        this.blipBufL = new BlipBufLanzcos(16, true, 4);
+        this.blipBufR = new BlipBufLanzcos(16, true, 4);
+        this.reverbL = new Freeverb(outputSampleRate, REVERB_WET, 0.5, 0);
+        this.reverbR = new Freeverb(outputSampleRate, REVERB_WET, 0.5, 1);
         this.downloader = new WavDownloader(outputSampleRate, "");
     }
 
     setResamplerEnabled(enabled: boolean) {
-        this.resamplerL.setKernelSize(16, true, enabled);
-        this.resamplerR.setKernelSize(16, true, enabled);
+        this.blipBufL.setKernelSize(16, true, enabled);
+        this.blipBufR.setKernelSize(16, true, enabled);
     }
 
     setNightcoreMode(enabled: boolean) {
@@ -282,8 +286,12 @@ export class APU {
 
     debugEnables = new Array(4).fill(true);
 
-    resamplerL: LanzcosResampler;
-    resamplerR: LanzcosResampler;
+    blipBufL: BlipBufLanzcos;
+    blipBufR: BlipBufLanzcos;
+    reverbL: Freeverb;
+    reverbR: Freeverb;
+    reverbCrossMix = 0.1;
+    enableReverb = true;
     sampleTimer = 0;
     lastSampleTime = 0;
 
@@ -304,8 +312,8 @@ export class APU {
         while (this.sampleTimer >= 4194304) {
             this.sampleTimer -= 4194304;
 
-            let outL = this.resamplerL.readOutSample();
-            let outR = this.resamplerR.readOutSample();
+            let outL = this.blipBufL.readOutSample();
+            let outR = this.blipBufR.readOutSample();
 
             let finalL = outL - this.capacitorL;
             let finalR = outR - this.capacitorR;
@@ -313,8 +321,15 @@ export class APU {
             this.capacitorL = outL - finalL * capacitorChargeFactor;
             this.capacitorR = outR - finalR * capacitorChargeFactor;
 
-            this.sampleBufL[this.sampleBufPos] = finalL;
-            this.sampleBufR[this.sampleBufPos] = finalR;
+            if (this.enableReverb) {
+                let reverbedL = this.reverbL.process(finalL);
+                let reverbedR = this.reverbR.process(finalR);
+                this.sampleBufL[this.sampleBufPos] = reverbedL * (1 - this.reverbCrossMix) + reverbedR * this.reverbCrossMix;  
+                this.sampleBufR[this.sampleBufPos] = reverbedR * (1 - this.reverbCrossMix) + reverbedL * this.reverbCrossMix;  
+            } else {
+                this.sampleBufL[this.sampleBufPos] = finalL;
+                this.sampleBufR[this.sampleBufPos] = finalR;
+            }
             this.sampleBufPos++;
 
             if (this.sampleBufPos >= sampleBufMax) {
@@ -372,11 +387,11 @@ export class APU {
         }
 
         if (this.debugEnables[ch.id]) {
-            this.resamplerL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), outL / 4, 1);
-            this.resamplerR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), outR / 4, 1);
+            this.blipBufL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), outL / 4, 1);
+            this.blipBufR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), outR / 4, 1);
         } else {
-            this.resamplerL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, 1);
-            this.resamplerR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, 1);
+            this.blipBufL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, 1);
+            this.blipBufR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, 1);
         }
     }
 

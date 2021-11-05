@@ -1,4 +1,4 @@
-import { pulseDuty, pulseDutyArray, waveShiftCodes, noise7Array, noiseDivisors, noise15Array, setPitchScaler } from './../core/apu';
+import { pulseDuty, pulseDutyArray, waveShiftCodes, noise7Array, noiseDivisors, noise15Array, setPitchScaler, REVERB_WET } from './../core/apu';
 
 import { GameBoyManager } from './manager';
 import imgui, * as ImGui from "../lib/imgui-js/imgui";
@@ -82,13 +82,13 @@ function disableTurbo() {
     syncToAudio = true;
 }
 
-function setCheckbox(id: string, checked: boolean) {
-    (document.getElementById(id) as HTMLInputElement).checked = checked;
-}
-
 function resetGui() {
     setCheckbox("resample-checkbox", true);
+    setCheckbox("allpass-checkbox", mgr.gb.apu.reverbL.useAllPass);
+    setCheckbox("reverb-checkbox", true);
     setCheckbox("nightcore-checkbox", false);
+    setSlider("wet-slider", mgr.gb.apu.reverbL.wet * 100);
+    setSlider("decay-slider", mgr.gb.apu.reverbL.feedbackCombFilters[0].decay * 100);
 }
 
 function reset() {
@@ -313,25 +313,62 @@ async function _init(): Promise<void> {
         });
     };
 
-    document.getElementById("volume-slider")!.oninput = e => {
-        let percentVolume = (e.target as HTMLInputElement).value as unknown as number;
-        let ratio = percentVolume / 100;
+    onSliderInput("volume-slider", val => {
+        let ratio = val / 100;
         changeVolume(ratio);
-    };
+    });
 
-    document.getElementById("resample-checkbox")!.oninput = e => {
-        mgr.gb.apu.setResamplerEnabled((e.target as HTMLInputElement).checked);
-    };
+    onSliderInput("wet-slider", val => {
+        let ratio = val / 100;
+        mgr.gb.apu.reverbL.wet = ratio;
+        mgr.gb.apu.reverbR.wet = ratio;
+    });
 
-    document.getElementById("nightcore-checkbox")!.oninput = e => {
-        mgr.gb.apu.setNightcoreMode((e.target as HTMLInputElement).checked);
-    };
+    onSliderInput("decay-slider", val => {
+        let ratio = val / 100;
+        mgr.gb.apu.reverbL.setDecay(ratio);
+        mgr.gb.apu.reverbR.setDecay(ratio);
+    });
+
+    onCheckboxInput("resample-checkbox", checked => {
+        mgr.gb.apu.setResamplerEnabled(checked);
+    });
+
+    onCheckboxInput("allpass-checkbox", checked => {
+        mgr.gb.apu.reverbL.useAllPass = checked;
+        mgr.gb.apu.reverbR.useAllPass = checked;
+    });
+
+    onCheckboxInput("reverb-checkbox", checked => {
+        mgr.gb.apu.enableReverb = checked;
+    });
+
+    onCheckboxInput("nightcore-checkbox", checked => {
+        mgr.gb.apu.setNightcoreMode(checked);
+    });
 
 
     loadSettings();
 
     setupOutputWebGl();
 }
+
+function setCheckbox(id: string, checked: boolean) {
+    (document.getElementById(id) as HTMLInputElement).checked = checked;
+}
+
+function setSlider(id: string, val: number) {
+    (document.getElementById(id) as HTMLInputElement).value = val.toString();
+}
+
+function onCheckboxInput(id: string, callback: (checked: boolean) => void) {
+    document.getElementById(id)!.oninput = e => callback((e.target as HTMLInputElement).checked);
+}
+
+function onSliderInput(id: string, callback: (val: number) => void) {
+    document.getElementById(id)!.oninput = e => callback((e.target as HTMLInputElement).value as unknown as number);
+}
+
 
 async function loadSettings() {
     let localforage = (window as any).localforage;

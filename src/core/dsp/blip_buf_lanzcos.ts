@@ -1,7 +1,7 @@
 // The entire point of using a filter to downsample is to antialias with subsample resolution in the output signal
 // We need to decide how precise our filter is
 const KERNEL_RESOLUTION = 1024;
-export class LanzcosResampler {
+export class BlipBufLanzcos {
     // Lanzcos kernel
     kernel: Float64Array = null!;
     kernelSize = 0;
