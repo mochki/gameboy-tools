@@ -84,7 +84,6 @@ function disableTurbo() {
 
 function resetGui() {
     setCheckbox("resample-checkbox", true);
-    setCheckbox("allpass-checkbox", mgr.gb.apu.reverbL.useAllPass);
     setCheckbox("reverb-checkbox", true);
     setCheckbox("nightcore-checkbox", false);
     setSlider("wet-slider", mgr.gb.apu.reverbL.wet * 100);
@@ -332,11 +331,6 @@ async function _init(): Promise<void> {
 
     onCheckboxInput("resample-checkbox", checked => {
         mgr.gb.apu.setResamplerEnabled(checked);
-    });
-
-    onCheckboxInput("allpass-checkbox", checked => {
-        mgr.gb.apu.reverbL.useAllPass = checked;
-        mgr.gb.apu.reverbR.useAllPass = checked;
     });
 
     onCheckboxInput("reverb-checkbox", checked => {
