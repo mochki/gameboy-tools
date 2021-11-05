@@ -91,17 +91,19 @@ function resetGui() {
 }
 
 function reset() {
-    resetGui();
     mgr.reset();
+    resetGui();
 }
 
 function loadRom(rom: Uint8Array) {
-    resetGui();
     mgr.loadRom(rom);
+    resetGui();
 }
 
 
 async function _init(): Promise<void> {
+    resetGui();
+    
     function dropHandler(ev: Event | any) {
         if (ev.dataTransfer.files[0] instanceof Blob) {
             console.log('File(s) dropped');
