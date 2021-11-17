@@ -83,11 +83,11 @@ function disableTurbo() {
 }
 
 function resetGui() {
+    setCheckbox("portamento-checkbox", false);
     setCheckbox("resample-checkbox", true);
     setCheckbox("reverb-checkbox", true);
-    setCheckbox("nightcore-checkbox", false);
     setSlider("wet-slider", mgr.gb.apu.reverbL.wet * 100);
-    setSlider("decay-slider", mgr.gb.apu.reverbL.feedbackCombFilters[0].decay * 100);
+    setSlider("decay-slider", mgr.gb.apu.reverbL.getDecay() * 100);
 }
 
 function reset() {
@@ -103,7 +103,7 @@ function loadRom(rom: Uint8Array) {
 
 async function _init(): Promise<void> {
     resetGui();
-    
+
     function dropHandler(ev: Event | any) {
         if (ev.dataTransfer.files[0] instanceof Blob) {
             console.log('File(s) dropped');
@@ -331,6 +331,10 @@ async function _init(): Promise<void> {
         mgr.gb.apu.reverbR.setDecay(ratio);
     });
 
+    onCheckboxInput("portamento-checkbox", checked => {
+        mgr.gb.apu.portamento = checked;
+    });
+
     onCheckboxInput("resample-checkbox", checked => {
         mgr.gb.apu.setResamplerEnabled(checked);
     });
@@ -339,10 +343,12 @@ async function _init(): Promise<void> {
         mgr.gb.apu.enableReverb = checked;
     });
 
-    onCheckboxInput("nightcore-checkbox", checked => {
-        mgr.gb.apu.setNightcoreMode(checked);
-    });
-
+    document.getElementById("transpose-plus")!.onclick = () => {
+        mgr.gb.apu.transposeSemitones++;
+    };
+    document.getElementById("transpose-minus")!.onclick = () => {
+        mgr.gb.apu.transposeSemitones--;
+    };
 
     loadSettings();
 

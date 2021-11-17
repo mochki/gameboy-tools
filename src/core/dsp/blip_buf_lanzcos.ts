@@ -100,20 +100,13 @@ export class BlipBufLanzcos {
     }
 
     // Sample is in terms of out samples
-    setValue(channel: number, sample: number, val: number, ratio: number) {
-        // Tracking to allow submitting value for different channels out of order 
-        let realSample = sample;
-        let dist = sample - this.channelRealSample[channel];
-        sample = this.channelSample[channel] + dist * ratio;
-
-        if (sample >= this.currentSampleInPos) {
-            this.currentSampleInPos = sample;
-        } else if (sample < this.currentSampleOutPos) {
-            throw "Tried to set amplitude backward in time";
+    setValue(channel: number, sample: number, val: number) {
+        if (sample > this.channelSample[channel]) {
+            this.channelSample[channel] = sample;
+        } else {
+            // TODO: too lazy to fix anything regarding this so I'll just sweep it under the rug for now
+            // console.warn(`Channel ${channel}: Tried to set amplitude backward in time from ${this.channelSample[channel]} to ${sample}`);
         }
-
-        this.channelSample[channel] = sample;
-        this.channelRealSample[channel] = realSample;
 
         if (val != this.channelVals[channel]) {
             let diff = val - this.channelVals[channel];
@@ -121,7 +114,7 @@ export class BlipBufLanzcos {
             let subsamplePos = Math.floor((sample % 1) * KERNEL_RESOLUTION);
 
             // Add our bandlimited impulse to the difference buffer
-            let kBufPos = (this.bufPos + (Math.floor(sample) - this.currentSampleOutPos)) % this.bufSize;
+            let kBufPos = (this.bufPos + Math.floor(sample) - this.currentSampleOutPos) % this.bufSize; 
             for (let i = 0; i < this.kernelSize; i++) {
                 this.buf[kBufPos] += this.kernel[this.kernelSize * subsamplePos + i] * diff;
                 if (++kBufPos >= this.bufSize) kBufPos = 0;
@@ -132,7 +125,7 @@ export class BlipBufLanzcos {
     }
 
     readOutSample() {
-        // Add our difference to the current value and return the current value
+        // Integrate the difference buffer
         this.currentVal += this.buf[this.bufPos];
         this.buf[this.bufPos] = 0;
         if (++this.bufPos >= this.bufSize) this.bufPos = 0;

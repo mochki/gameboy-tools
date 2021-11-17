@@ -105,6 +105,9 @@ abstract class Channel {
     frequencyPeriod = 256;
     frequency = 0;
 
+    frequencyPeriodLastChanged = 0;
+    lastFrequencyPeriod = 0;
+
     volume = 0;
     enableL = false;
     enableR = false;
@@ -279,11 +282,6 @@ export class APU {
         this.blipBufR.setKernelSize(16, true, enabled);
     }
 
-    setNightcoreMode(enabled: boolean) {
-        this.nightcoreModeShift = enabled ? 1 : 0;
-    }
-    nightcoreModeShift = 0;
-
     debugEnables = new Array(4).fill(true);
 
     blipBufL: BlipBufLanzcos;
@@ -296,6 +294,18 @@ export class APU {
     lastSampleTime = 0;
 
     record = false;
+
+    transposeSemitones = 0;
+    portamento = false;
+
+    updateFrequencyPeriod(ch: Channel, newFrequencyPeriod: number) {
+        if (ch.frequencyPeriod != newFrequencyPeriod ) {
+            // if (ch.id == 0) console.log(`ch:${ch.id} old:${ch.frequencyPeriod} new:${newFrequencyPeriod}`)
+            ch.frequencyPeriodLastChanged = this.gb.constantRateTicks;
+            ch.lastFrequencyPeriod = ch.frequencyPeriod;
+            ch.frequencyPeriod = newFrequencyPeriod;
+        }
+    }
 
     frameSequencerTimer = (cyclesLate: number) => {
         this.advanceFrameSequencer();
@@ -324,8 +334,8 @@ export class APU {
             if (this.enableReverb) {
                 let reverbedL = this.reverbL.process(finalL);
                 let reverbedR = this.reverbR.process(finalR);
-                this.sampleBufL[this.sampleBufPos] = reverbedL * (1 - this.reverbCrossMix) + reverbedR * this.reverbCrossMix;  
-                this.sampleBufR[this.sampleBufPos] = reverbedR * (1 - this.reverbCrossMix) + reverbedL * this.reverbCrossMix;  
+                this.sampleBufL[this.sampleBufPos] = reverbedL * (1 - this.reverbCrossMix) + reverbedR * this.reverbCrossMix;
+                this.sampleBufR[this.sampleBufPos] = reverbedR * (1 - this.reverbCrossMix) + reverbedL * this.reverbCrossMix;
             } else {
                 this.sampleBufL[this.sampleBufPos] = finalL;
                 this.sampleBufR[this.sampleBufPos] = finalR;
@@ -387,11 +397,11 @@ export class APU {
         }
 
         if (this.debugEnables[ch.id]) {
-            this.blipBufL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), outL / 4, 1);
-            this.blipBufR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), outR / 4, 1);
+            this.blipBufL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), outL / 4);
+            this.blipBufR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), outR / 4);
         } else {
-            this.blipBufL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, 1);
-            this.blipBufR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, 1);
+            this.blipBufL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0);
+            this.blipBufR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0);
         }
     }
 
@@ -495,9 +505,22 @@ export class APU {
     fastForward(ch: Channel, cyclesLate: number) {
         let correctedTime = this.gb.constantRateTicks - cyclesLate;
         if (ch.frequencyPeriod != 0) {
+            let period = ch.frequencyPeriod;
+            if (this.portamento) {
+                let ticksSinceChange = this.gb.constantRateTicks - ch.frequencyPeriodLastChanged;
+                let slideTime = 4194304 * 0.05;
+                if (ticksSinceChange < slideTime) {
+                    period = Math.round(ch.lastFrequencyPeriod + (ticksSinceChange / slideTime) * (ch.frequencyPeriod - ch.lastFrequencyPeriod));
+                    if (period == 0) return;
+                }
+            }
+
+            if (this.transposeSemitones != 0) {
+                period = Math.round(period * (2 ** (-this.transposeSemitones / 12)));
+            }
+
             let time = ch.time + ch.frequencyTimer;
             ch.frequencyTimer -= correctedTime + cyclesLate - ch.time;
-            let period = ch.frequencyPeriod >> this.nightcoreModeShift;
             while (ch.frequencyTimer <= 0) {
                 ch.frequencyTimer += period;
                 time += period;
@@ -634,7 +657,7 @@ export class APU {
                     this.ch1.frequency &= 0b11100000000;
                     this.ch1.frequency |= ((val & 0xFF) << 0);
 
-                    this.ch1.frequencyPeriod = (2048 - this.ch1.frequency) * 4;
+                    this.updateFrequencyPeriod(this.ch1, (2048 - this.ch1.frequency) * 4);
                     this.ch1.frequencyHz = 131072 / (2048 - this.ch1.frequency);
                     break;
                 case 0xFF14: // NR14
@@ -644,7 +667,7 @@ export class APU {
                     this.ch1.frequency |= ((val & 0b111) << 8);
                     this.ch1.useLength = bitTest(val, 6);
 
-                    this.ch1.frequencyPeriod = (2048 - this.ch1.frequency) * 4;
+                    this.updateFrequencyPeriod(this.ch1, (2048 - this.ch1.frequency) * 4);
                     this.ch1.frequencyHz = 131072 / (2048 - this.ch1.frequency);
 
                     if (bitTest(val, 7)) this.triggerCh1();
@@ -690,7 +713,7 @@ export class APU {
                     this.ch2.frequency &= 0b11100000000;
                     this.ch2.frequency |= ((val & 0xFF) << 0);
 
-                    this.ch2.frequencyPeriod = (2048 - this.ch2.frequency) * 4;
+                    this.updateFrequencyPeriod(this.ch2, (2048 - this.ch2.frequency) * 4);
                     this.ch2.frequencyHz = 131072 / (2048 - this.ch2.frequency);
                     break;
                 case 0xFF19: // NR24
@@ -700,7 +723,7 @@ export class APU {
                     this.ch2.frequency |= ((val & 0b111) << 8);
                     this.ch2.useLength = bitTest(val, 6);
 
-                    this.ch2.frequencyPeriod = (2048 - this.ch2.frequency) * 4;
+                    this.updateFrequencyPeriod(this.ch2, (2048 - this.ch2.frequency) * 4);
                     this.ch2.frequencyHz = 131072 / (2048 - this.ch2.frequency);
 
                     if (bitTest(val, 7)) this.triggerCh2();
@@ -727,7 +750,7 @@ export class APU {
                     this.ch3.frequency &= 0b11100000000;
                     this.ch3.frequency |= ((val & 0xFF) << 0);
 
-                    this.ch3.frequencyPeriod = (2048 - this.ch3.frequency) * 2;
+                    this.updateFrequencyPeriod(this.ch3, (2048 - this.ch3.frequency) * 2);
                     this.ffCh3();
                     break;
                 case 0xFF1E: // NR34
@@ -737,7 +760,7 @@ export class APU {
                     this.ch3.frequency |= ((val & 0b111) << 8);
                     this.ch3.useLength = bitTest(val, 6);
 
-                    this.ch3.frequencyPeriod = (2048 - this.ch3.frequency) * 2;
+                    this.updateFrequencyPeriod(this.ch3, (2048 - this.ch3.frequency) * 2);
 
                     // Trigger after frequency period is written, so frequency timer is reloaded with correct value!
                     if (bitTest(val, 7)) this.triggerCh3();
@@ -783,7 +806,7 @@ export class APU {
                     this.ch4.sevenBit = bitTest(val, 3) ? (1 << 7) : 0;
                     this.ch4.divisorCode = (val >> 0) & 0b111;
 
-                    this.ch4.frequencyPeriod = noiseDivisors[this.ch4.divisorCode] << this.ch4.frequencyShift;
+                    this.updateFrequencyPeriod(this.ch4, noiseDivisors[this.ch4.divisorCode] << this.ch4.frequencyShift);
                     break;
                 case 0xFF23: // NR44
                     this.ffCh4();
@@ -850,8 +873,8 @@ export class APU {
                     this.ch3.frequencyTimerAccess = 0;
                     this.ch4.frequencyTimer = 0;
 
-                    // Upon turning on the APU, the frame sequencer requires an extra trigger to begin functioning.
                     this.frameSequencerStep = 255;
+                    // Upon turning on the APU, the frame sequencer requires an extra trigger to begin functioning.
                 } else if (bitTest(val, 7) && !this.enabled) {
                     this.ch1.time = this.gb.constantRateTicks;
                     this.ch2.time = this.gb.constantRateTicks;
