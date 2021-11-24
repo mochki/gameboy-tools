@@ -2,13 +2,34 @@ import { bitTest, bitSet, BIT_6, BIT_7 } from "./util/bits";
 import { GameBoy } from "./gameboy";
 import { SchedulerId, Scheduler } from "./scheduler";
 import { AudioPlayer, SAMPLE_RATE } from "./audioplayer";
-import { GetTextLineHeightWithSpacing, NextColumn } from "../lib/imgui-js/imgui";
-import { hex } from "./util/misc";
 import { WavDownloader } from "./util/wavdownloader";
-import { PPUMode } from "./ppu";
-import { FastRNG } from "../frontend/FastRNG";
 import { BlipBufLanzcos } from "./dsp/blip_buf_lanzcos";
 import { Freeverb } from "./dsp/freeverb";
+
+/* Optime GB SoundStream format
+
+File extension: .ogbs
+
+-- File Format --
+offset length description
+0x00   4 LE   Version
+0x04   4 LE   Pointer to Register Data Block
+0x08   4 LE   Pointer to Saved APU State
+0x10   8 LE   Scheduler timestamp, in 4 MHz T-cycles
+
+-- Register Data Block --
+offset length description
+0x00   4 LE   Block length
+0x04          Entries
+
+-- Register Data Block Entry (12 bytes) -- 
+offset length description
+0x00   8 LE   Scheduler timestamp, in 4 MHz T-cycles
+0x08   2 LE   Register Address
+0x0A   1 LE   Register Value
+0x0B   1 LE   Padding / Metadata (for internal use) 
+
+*/
 
 // Starts from NR10 / 0xFF10
 const regMask = Uint8Array.from([
@@ -431,8 +452,6 @@ export class APU {
 
     enabled = false;
 
-    emulateInterference = false;
-
     registers = new Uint8Array(23);
 
     volMulL = 0;
@@ -515,7 +534,7 @@ export class APU {
                 }
             }
 
-            if (this.transposeSemitones != 0) {
+            if (this.transposeSemitones != 0 && ch.id != 3) {
                 period = Math.round(period * (2 ** (-this.transposeSemitones / 12)));
             }
 
@@ -535,26 +554,6 @@ export class APU {
     ffCh2() { this.fastForward(this.ch2, 0); }
     ffCh3() { this.fastForward(this.ch3, 0); }
     ffCh4() { this.fastForward(this.ch4, 0); }
-
-    sampleInterference(): number {
-        let val = 0;
-        if (this.gb.ppu.lcdDisplayEnable && this.gb.ppu.mode == PPUMode.Drawing) {
-            if (this.gb.ppu.ly < 144) {
-                val += 0.1;
-            } else {
-                val += 0.5;
-            }
-        }
-        if (this.gb.halted) {
-            val -= 0.5;
-        }
-
-        val += this.rng.next() % 0.5;
-
-        return val;
-    }
-
-    rng = new FastRNG();
 
     downloader: WavDownloader;
 
