@@ -7,6 +7,8 @@ const FEEDBACK_COMB_FILTER_COUNT = 16;
 
 export class Freeverb {
     allPassFilters: AllPassFilter[];
+    allPassFiltersIntermediate: AllPassFilter[];
+    allPassFiltersIntermediate2: AllPassFilter[];
 
     wet = 0.5;
 
@@ -32,11 +34,17 @@ export class Freeverb {
         this.feedbackBufferPos = new Float64Array(FEEDBACK_COMB_FILTER_COUNT);
         this.feedbackLength = new Float64Array(FEEDBACK_COMB_FILTER_COUNT);
         this.feedbackBuffer = new Array(FEEDBACK_COMB_FILTER_COUNT);
+        this.allPassFiltersIntermediate = new Array(8);
+        this.allPassFiltersIntermediate2 = new Array(8);
         for (let i = 0; i < FEEDBACK_COMB_FILTER_COUNT; i++) {
             // https://www.desmos.com/calculator/jmjsblwacr
             this.feedbackLength[i] = Math.floor((96 * ((i / FEEDBACK_COMB_FILTER_COUNT) ** 2) + 1116) * (sampleRate / 44100) + sampleOffset);
+            this.allPassFiltersIntermediate[i] = new AllPassFilter(Math.floor(224 * (sampleRate / 44100)), 0.5); 
+            this.allPassFiltersIntermediate2[i] = new AllPassFilter(Math.floor(443 * (sampleRate / 44100)), 0.5); 
             this.feedbackBuffer[i] = new Float64Array(this.feedbackLength[i]);
         }
+
+        
         // original Freeverb delays
         // this.feedbackLength[0] = Math.floor(1157 * (sampleRate / 44100));
         // this.feedbackLength[1] = Math.floor(1617 * (sampleRate / 44100));
@@ -47,6 +55,9 @@ export class Freeverb {
         // this.feedbackLength[6] = Math.floor(1188 * (sampleRate / 44100));
         // this.feedbackLength[7] = Math.floor(1116 * (sampleRate / 44100));
 
+        // Stanford CCRMA: https://ccrma.stanford.edu/~jos/pasp/Freeverb_Allpass_Approximation.html
+        // "A true allpass is obtained only for $ g=(\sqrt{5}-1)/2\approx 0.618$ (reciprocal of the ``golden ratio'')" what the fuck?
+        // Default freeverb g = 0.5;
         this.allPassFilters = new Array(8);
         this.allPassFilters[0] = new AllPassFilter(Math.floor(225 * (sampleRate / 44100)), 0.5);
         this.allPassFilters[1] = new AllPassFilter(Math.floor(556 * (sampleRate / 44100)), 0.5);
@@ -76,7 +87,8 @@ export class Freeverb {
             // TODO: maybe lowpass makes it sound better?
             this.feedbackLowpassBuffer[i] = delayLineOut;
 
-            outWet += delayLineOut;
+            delayLineOut = this.allPassFiltersIntermediate[i].process(delayLineOut);
+            outWet += this.allPassFiltersIntermediate2[i].process(delayLineOut);
         }
 
         outWet /= FEEDBACK_COMB_FILTER_COUNT;
