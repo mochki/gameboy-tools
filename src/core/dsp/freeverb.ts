@@ -10,11 +10,6 @@ export class Freeverb {
 
     wet = 0.5;
 
-    highpass = 0;
-    highpassBuf = 0;
-
-    useAllPass = true;
-
     // Feedback comb filter
     feedbackBuffer: Float64Array[];
     feedbackLowpassBuffer: Float64Array;
@@ -31,8 +26,8 @@ export class Freeverb {
         this.wet = wet;
         // Values found in https://ccrma.stanford.edu/~jos/pasp/Freeverb.html
         // I assume I have to scale them from 44100 hz?
-        
-        this.feedbackLowpass = Math.pow(0.8, sampleRate / 44100); 
+
+        this.feedbackLowpass = Math.pow(0.8, sampleRate / 44100);
         this.feedbackLowpassBuffer = new Float64Array(FEEDBACK_COMB_FILTER_COUNT);
         this.feedbackBufferPos = new Float64Array(FEEDBACK_COMB_FILTER_COUNT);
         this.feedbackLength = new Float64Array(FEEDBACK_COMB_FILTER_COUNT);
@@ -77,22 +72,20 @@ export class Freeverb {
 
             if (++this.feedbackBufferPos[i] >= this.feedbackLength[i]) this.feedbackBufferPos[i] = 0;
             let delayLineOut = this.feedbackBuffer[i][this.feedbackBufferPos[i]];
-    
+
             // TODO: maybe lowpass makes it sound better?
             this.feedbackLowpassBuffer[i] = delayLineOut;
-    
+
             outWet += delayLineOut;
         }
-        if (this.useAllPass) {
-            for (let i = 0; i < 4; i++) {
-                outWet = this.allPassFilters[i].process(outWet);
-            }
+
+        outWet /= FEEDBACK_COMB_FILTER_COUNT;
+
+        for (let i = 0; i < 4; i++) {
+            outWet = this.allPassFilters[i].process(outWet);
         }
 
-        // wet output is too bassy for my liking, apply a IIR high pass
-        let finalWet = outWet - this.highpassBuf;
-        this.highpassBuf = outWet - finalWet * this.highpass;
-
-        return val * (1 - this.wet) + (finalWet / FEEDBACK_COMB_FILTER_COUNT) * this.wet;
+        // return outWet;
+        return val * (1 - this.wet) + outWet * this.wet;
     }
 }
