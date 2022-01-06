@@ -268,14 +268,14 @@ async function _init(): Promise<void> {
     let outputCanvas = document.getElementById("output-canvas")!;
     toggleImGuiBtn.onclick = () => {
         if ((window as any).renderUi) {
-            toggleImGuiBtn.innerText = "Enable ImGui";
+            toggleImGuiBtn.innerText = "Enable Debugger";
             (window as any).renderUi = false;
 
             imguiCanvas.style.display = "none";
             outputCanvas.style.display = "block";
 
         } else {
-            toggleImGuiBtn.innerText = "Disable ImGui";
+            toggleImGuiBtn.innerText = "Disable Debugger";
             (window as any).renderUi = true;
 
             imguiCanvas.style.display = "block";
@@ -680,7 +680,7 @@ function DrawDebug() {
             ImGui.Text("");
             ImGui.Text(`PC: ${hexN(mgr.gb.cpu.pc, 4)}`);
 
-            ImGui.Text(`Disasm: ${disassemble(mgr.gb.cpu, 0, 0)}`);
+            ImGui.Text(`Disasm: ${disassemble(mgr.gb.cpu, mgr.gb.cpu.pc, 1)[0].disasm}`);
 
             ImGui.Checkbox("IME", v => v = mgr.gb.cpu.ime);
             ImGui.Text(`Halted Cycles: \n${mgr.gb.haltSkippedCycles}`);
@@ -711,6 +711,28 @@ function DrawDebug() {
             if (ImGui.Button("Reset")) reset();
             if (ImGui.Button("Run Frame")) mgr.gb.frame();
             if (ImGui.Button("Run Scanline")) mgr.gb.scanline();
+            if (!mgr.gb.cpu.enableLogging) {
+                if (ImGui.Button("Start Logging")) {
+                    mgr.gb.cpu.enableLogging = true;
+                }
+            } else {
+                if (ImGui.Button("Stop Logging & Download")) {
+                    mgr.gb.cpu.enableLogging = false;
+                    
+                    let element = document.createElement('a');
+                    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(mgr.gb.cpu.log));
+                    element.setAttribute('download', "OptimeGB.log");
+                    
+                    element.style.display = 'none';
+                    document.body.appendChild(element);
+                    
+                    element.click();
+                    
+                    document.body.removeChild(element);
+                    
+                    mgr.gb.cpu.log = "";
+                }
+            }
             ImGui.Checkbox("Skip Boot ROM", (v = mgr.skipBootrom) => mgr.skipBootrom = v);
 
             ImGui.NextColumn();
@@ -801,10 +823,10 @@ function DrawDisassembly() {
 
         let lines = (ImGui.GetWindowHeight() / 17) - 7;
 
-        let disasm = disassemble(mgr.gb.cpu, lines, 0);
+        let disasm = disassemble(mgr.gb.cpu, mgr.gb.cpu.pc, lines);
         for (let i = 0; i < disasm.length; i++) {
             let line = disasm[i];
-            if (ImGui.Selectable(line.disasm)) {
+            if (ImGui.Selectable(line.meta + " " + line.disasm)) {
                 // Toggle breakpoint when clicking
                 let breakpointed = mgr.gb.cpu.breakpoints[line.addr];
                 if (breakpointed) {

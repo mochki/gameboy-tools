@@ -2,9 +2,10 @@ import { InterruptId } from './../interrupts';
 import { Bus } from "../bus";
 import { GameBoy } from "../gameboy";
 import { bitTest as bitTest, bitSet, bitSetValue, bitReset } from "../util/bits";
-import { hexN, hex } from "../util/misc";
+import { hexN, hex, bin } from "../util/misc";
 import { LD_BC_U16, LD_DE_U16, LD_HL_U16, LD_SP_U16, LD_A_iU16, LD_iU16_A, LD_iU16_SP, JP, JP_NZ, JP_Z, JP_NC, JP_C, CALL, CALL_C, CALL_NC, CALL_Z, CALL_NZ, LD_A_iFF00plusU8, LD_iFF00plusU8_A, LD_iHL_U8, LD_HL_SPplusE8, ADD_SP_E8, AND_A_U8, OR_A_U8, XOR_A_U8, CP_A_U8, JR, JR_NZ, JR_Z, JR_NC, JR_C, ADD_A_U8, ADC_A_U8, SUB_A_U8, SBC_A_U8, LD_SP_HL, PUSH_BC, PUSH_DE, PUSH_HL, PUSH_AF, POP_BC, POP_DE, POP_HL, POP_AF, INC_BC, INC_DE, INC_HL, INC_SP, DEC_BC, DEC_DE, DEC_HL, DEC_SP, CPL, RETI, DAA, NOP, LD_iBC_A, LD_iDE_A, LD_iHLinc_A, LD_iHLdec_A, LD_A_iBC, LD_A_iDE, LD_A_iHLinc, LD_A_iHLdec, LD_A_iFF00plusC, LD_iFF00plusC_A, DI, EI, RLCA, RRCA, RRA, RLA, HALT, SCF, CCF, RET, RET_C, RET_NC, RET_Z, RET_NZ, ADD_HL_BC, ADD_HL_DE, ADD_HL_HL, ADD_HL_SP, JP_HL, STOP } from './opcodes/unprefixed';
 import { LD_B_U8, LD_C_U8, LD_D_U8, LD_E_U8, LD_H_U8, LD_L_U8, LD_A_U8, INC_B, INC_C, INC_D, INC_E, INC_H, INC_L, INC_iHL, INC_A, DEC_B, DEC_C, DEC_D, DEC_E, DEC_H, DEC_L, DEC_iHL, DEC_A, LD_B_B, LD_B_C, LD_B_D, LD_B_E, LD_B_H, LD_B_L, LD_B_iHL, LD_B_A, LD_C_B, LD_C_C, LD_C_D, LD_C_E, LD_C_H, LD_C_L, LD_C_iHL, LD_C_A, LD_D_B, LD_D_C, LD_D_D, LD_D_E, LD_D_H, LD_D_L, LD_D_iHL, LD_D_A, LD_E_B, LD_E_C, LD_E_D, LD_E_E, LD_E_H, LD_E_L, LD_E_iHL, LD_E_A, LD_H_B, LD_H_C, LD_H_D, LD_H_E, LD_H_H, LD_H_L, LD_H_iHL, LD_H_A, LD_L_B, LD_L_C, LD_L_D, LD_L_E, LD_L_H, LD_L_L, LD_L_iHL, LD_L_A, LD_iHL_B, LD_iHL_C, LD_iHL_D, LD_iHL_E, LD_iHL_H, LD_iHL_L, LD_iHL_iHL, LD_iHL_A, LD_A_B, LD_A_C, LD_A_D, LD_A_E, LD_A_H, LD_A_L, LD_A_iHL, LD_A_A, ADD_A_B, ADD_A_C, ADD_A_D, ADD_A_E, ADD_A_H, ADD_A_L, ADD_A_iHL, ADD_A_A, ADC_A_B, ADC_A_C, ADC_A_D, ADC_A_E, ADC_A_H, ADC_A_L, ADC_A_iHL, ADC_A_A, SUB_A_B, SUB_A_C, SUB_A_D, SUB_A_E, SUB_A_H, SUB_A_L, SUB_A_iHL, SUB_A_A, SBC_A_B, SBC_A_C, SBC_A_D, SBC_A_E, SBC_A_H, SBC_A_L, SBC_A_iHL, SBC_A_A, AND_A_B, AND_A_C, AND_A_D, AND_A_E, AND_A_H, AND_A_L, AND_A_iHL, AND_A_A, XOR_A_B, XOR_A_C, XOR_A_D, XOR_A_E, XOR_A_H, XOR_A_L, XOR_A_iHL, XOR_A_A, OR_A_B, OR_A_C, OR_A_D, OR_A_E, OR_A_H, OR_A_L, OR_A_iHL, OR_A_A, CP_A_B, CP_A_C, CP_A_D, CP_A_E, CP_A_H, CP_A_L, CP_A_iHL, CP_A_A, RST_0, RST_8, RST_16, RST_24, RST_32, RST_40, RST_48, RST_56, RLC_B, RLC_C, RLC_D, RLC_E, RLC_H, RLC_L, RLC_iHL, RLC_A, RRC_B, RRC_C, RRC_D, RRC_E, RRC_H, RRC_L, RRC_iHL, RRC_A, RL_B, RL_C, RL_D, RL_E, RL_H, RL_L, RL_iHL, RL_A, RR_B, RR_C, RR_D, RR_E, RR_H, RR_L, RR_iHL, RR_A, SLA_B, SLA_C, SLA_D, SLA_E, SLA_H, SLA_L, SLA_iHL, SLA_A, SRA_B, SRA_C, SRA_D, SRA_E, SRA_H, SRA_L, SRA_iHL, SRA_A, SWAP_B, SWAP_C, SWAP_D, SWAP_E, SWAP_H, SWAP_L, SWAP_iHL, SWAP_A, SRL_B, SRL_C, SRL_D, SRL_E, SRL_H, SRL_L, SRL_iHL, SRL_A, BIT_B_0, BIT_C_0, BIT_D_0, BIT_E_0, BIT_H_0, BIT_L_0, BIT_iHL_0, BIT_A_0, BIT_B_1, BIT_C_1, BIT_D_1, BIT_E_1, BIT_H_1, BIT_L_1, BIT_iHL_1, BIT_A_1, BIT_B_2, BIT_C_2, BIT_D_2, BIT_E_2, BIT_H_2, BIT_L_2, BIT_iHL_2, BIT_A_2, BIT_B_3, BIT_C_3, BIT_D_3, BIT_E_3, BIT_H_3, BIT_L_3, BIT_iHL_3, BIT_A_3, BIT_B_4, BIT_C_4, BIT_D_4, BIT_E_4, BIT_H_4, BIT_L_4, BIT_iHL_4, BIT_A_4, BIT_B_5, BIT_C_5, BIT_D_5, BIT_E_5, BIT_H_5, BIT_L_5, BIT_iHL_5, BIT_A_5, BIT_B_6, BIT_C_6, BIT_D_6, BIT_E_6, BIT_H_6, BIT_L_6, BIT_iHL_6, BIT_A_6, BIT_B_7, BIT_C_7, BIT_D_7, BIT_E_7, BIT_H_7, BIT_L_7, BIT_iHL_7, BIT_A_7, RES_B_0, RES_C_0, RES_D_0, RES_E_0, RES_H_0, RES_L_0, RES_iHL_0, RES_A_0, RES_B_1, RES_C_1, RES_D_1, RES_E_1, RES_H_1, RES_L_1, RES_iHL_1, RES_A_1, RES_B_2, RES_C_2, RES_D_2, RES_E_2, RES_H_2, RES_L_2, RES_iHL_2, RES_A_2, RES_B_3, RES_C_3, RES_D_3, RES_E_3, RES_H_3, RES_L_3, RES_iHL_3, RES_A_3, RES_B_4, RES_C_4, RES_D_4, RES_E_4, RES_H_4, RES_L_4, RES_iHL_4, RES_A_4, RES_B_5, RES_C_5, RES_D_5, RES_E_5, RES_H_5, RES_L_5, RES_iHL_5, RES_A_5, RES_B_6, RES_C_6, RES_D_6, RES_E_6, RES_H_6, RES_L_6, RES_iHL_6, RES_A_6, RES_B_7, RES_C_7, RES_D_7, RES_E_7, RES_H_7, RES_L_7, RES_iHL_7, RES_A_7, SET_B_0, SET_C_0, SET_D_0, SET_E_0, SET_H_0, SET_L_0, SET_iHL_0, SET_A_0, SET_B_1, SET_C_1, SET_D_1, SET_E_1, SET_H_1, SET_L_1, SET_iHL_1, SET_A_1, SET_B_2, SET_C_2, SET_D_2, SET_E_2, SET_H_2, SET_L_2, SET_iHL_2, SET_A_2, SET_B_3, SET_C_3, SET_D_3, SET_E_3, SET_H_3, SET_L_3, SET_iHL_3, SET_A_3, SET_B_4, SET_C_4, SET_D_4, SET_E_4, SET_H_4, SET_L_4, SET_iHL_4, SET_A_4, SET_B_5, SET_C_5, SET_D_5, SET_E_5, SET_H_5, SET_L_5, SET_iHL_5, SET_A_5, SET_B_6, SET_C_6, SET_D_6, SET_E_6, SET_H_6, SET_L_6, SET_iHL_6, SET_A_6, SET_B_7, SET_C_7, SET_D_7, SET_E_7, SET_H_7, SET_L_7, SET_iHL_7, SET_A_7 } from './opcodes/generated_code';
+import { disassemble } from '../disassembler';
 
 // function boundsCheck8(i: number): void {
 //     if ((i & ~0xFF) != 0) throw "Bounds error 8-bit";
@@ -149,7 +150,15 @@ export class CPU {
 
     instructionsExecuted = 0;
 
+    enableLogging = false;
+    log = "";
+
     execute(): number {
+        if (this.enableLogging) {
+            this.log +=
+                `AF:${hexN(this.getAf(), 4)} BC:${hexN(this.getBc(), 4)} DE:${hexN(this.getDe(), 4)} HL:${hexN(this.getHl(), 4)} PC:${hexN(this.pc, 4)} LY:${hexN(this.gb.ppu.ly, 2)} IE:${bin(this.ie, 8)} IF:${bin(this.if, 8)} ${disassemble(this, this.pc, 1)[0].disasm}\n`;
+        }
+
         this.instructionsExecuted++;
         // boundsCheck16(this.pc);
         // boundsCheck8(this.b);
@@ -217,18 +226,23 @@ export class CPU {
 
         if (!fromHalt) this.tick(2);
         if (this.ie & this.if & InterruptId.Vblank) {
+            if (this.enableLogging) this.log += "-- DISPATCH Vblank INTERRUPT --\n";
             this.clearInterrupt(InterruptId.Vblank);
             vector = VBLANK_VECTOR;
         } else if (this.ie & this.if & InterruptId.Stat) {
+            if (this.enableLogging) this.log += "-- DISPATCH Stat INTERRUPT --\n";
             this.clearInterrupt(InterruptId.Stat);
             vector = STAT_VECTOR;
         } else if (this.ie & this.if & InterruptId.Timer) {
+            if (this.enableLogging) this.log += "-- DISPATCH Timer INTERRUPT --\n";
             this.clearInterrupt(InterruptId.Timer);
             vector = TIMER_VECTOR;
         } else if (this.ie & this.if & InterruptId.Serial) {
+            if (this.enableLogging) this.log += "-- DISPATCH Serial INTERRUPT --\n";
             this.clearInterrupt(InterruptId.Serial);
             vector = SERIAL_VECTOR;
         } else if (this.ie & this.if & InterruptId.Joypad) {
+            if (this.enableLogging) this.log += "-- DISPATCH Joypad INTERRUPT --\n";
             this.clearInterrupt(InterruptId.Joypad);
             vector = JOYPAD_VECTOR;
         }

@@ -36,6 +36,14 @@ export function hexN_LC(i: any, digits: number) {
     return pad(i.toString(16), digits, '0');
 }
 
+export function bin(i: any, digits: number) {
+    return `0b${pad(i.toString(2), digits, '0').toUpperCase()}`;
+}
+
+export function binN(i: any, digits: number) {
+    return pad(i.toString(2), digits, '0').toUpperCase();
+}
+
 export function pad(n: string, width: number, z: string) {
     z = z || '0';
     n = n + '';
