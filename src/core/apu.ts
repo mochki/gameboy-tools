@@ -80,7 +80,8 @@ const channelSampleRate = SAMPLE_RATE / 1;
 const cyclesPerSample = 4194304 / channelSampleRate;
 let channelCyclesPerSample = 4194304 / channelSampleRate;
 const outputSampleRate = SAMPLE_RATE;
-export const REVERB_WET = 0.20;
+export const REVERB_WET = 0.05;
+export const REVERB_DECAY = 0.5;
 
 export function setPitchScaler(scaler: number) {
     channelCyclesPerSample = scaler * cyclesPerSample;
@@ -293,8 +294,8 @@ export class APU {
 
         this.blipBufL = new BlipBufLanzcos(16, true, 4);
         this.blipBufR = new BlipBufLanzcos(16, true, 4);
-        this.reverbL = new Freeverb(outputSampleRate, REVERB_WET, 0.5, 0);
-        this.reverbR = new Freeverb(outputSampleRate, REVERB_WET, 0.5, 1);
+        this.reverbL = new Freeverb(outputSampleRate, REVERB_WET, REVERB_DECAY, 0);
+        this.reverbR = new Freeverb(outputSampleRate, REVERB_WET, REVERB_DECAY, 1);
         this.downloader = new WavDownloader(outputSampleRate, "");
     }
 

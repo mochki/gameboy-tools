@@ -10,7 +10,7 @@ export class Freeverb {
     allPassFiltersIntermediate: AllPassFilter[];
     allPassFiltersIntermediate2: AllPassFilter[];
 
-    wet = 0.5;
+    wet: number;
 
     // Feedback comb filter
     feedbackBuffer: Float64Array[];
@@ -24,7 +24,6 @@ export class Freeverb {
 
     constructor(sampleRate: number, wet: number, decay: number, sampleOffset: number) {
         this.setDecay(decay);
-        this.highpass = Math.pow(0.95, 44100 / sampleRate);
         this.wet = wet;
         // Values found in https://ccrma.stanford.edu/~jos/pasp/Freeverb.html
         // I assume I have to scale them from 44100 hz?
