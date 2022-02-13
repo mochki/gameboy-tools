@@ -11,12 +11,11 @@ export class AllPassFilter {
         this.buffer = new Float64Array(bufferSize);
         this.feedback = feedback;
     }
-
+    
     process(val: number): number {
         let bufferOut = this.buffer[this.bufferPos];
-        let output = -val + bufferOut;
         this.buffer[this.bufferPos] = val + bufferOut * this.feedback;
         if (++this.bufferPos >= this.buffer.length) this.bufferPos = 0;
-        return output;
+        return bufferOut - val;
     }
 }

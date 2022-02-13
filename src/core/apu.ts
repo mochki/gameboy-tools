@@ -3,7 +3,7 @@ import { GameBoy } from "./gameboy";
 import { SchedulerId, Scheduler } from "./scheduler";
 import { AudioPlayer, SAMPLE_RATE } from "./audioplayer";
 import { WavDownloader } from "./util/wavdownloader";
-import { BlipBufLanzcos } from "./dsp/blip_buf_lanzcos";
+import { BlipBuf } from "./dsp/blip_buf";
 import { Freeverb } from "./dsp/freeverb";
 
 /* Optime GB SoundStream format
@@ -292,22 +292,26 @@ export class APU {
         this.gb = gb;
         this.scheduler = scheduler;
 
-        this.blipBufL = new BlipBufLanzcos(16, true, 4);
-        this.blipBufR = new BlipBufLanzcos(16, true, 4);
+        // I had a bug in blipbuf that set the frequency ceiling to only 2 / Pi
+        // of what it was supposed to be, but I liked how it didn't destroy
+        // my ears so I'm keeping it like that.
+        this.blipBufL = new BlipBuf(16, true, 4, 2 / Math.PI);
+        this.blipBufR = new BlipBuf(16, true, 4, 2 / Math.PI);
         this.reverbL = new Freeverb(outputSampleRate, REVERB_WET, REVERB_DECAY, 0);
         this.reverbR = new Freeverb(outputSampleRate, REVERB_WET, REVERB_DECAY, 1);
         this.downloader = new WavDownloader(outputSampleRate, "");
     }
 
+    resamplerEnabled = true;
+
     setResamplerEnabled(enabled: boolean) {
-        this.blipBufL.setKernelSize(16, true, enabled);
-        this.blipBufR.setKernelSize(16, true, enabled);
+        this.resamplerEnabled = enabled;
     }
 
     debugEnables = new Array(4).fill(true);
 
-    blipBufL: BlipBufLanzcos;
-    blipBufR: BlipBufLanzcos;
+    blipBufL: BlipBuf;
+    blipBufR: BlipBuf;
     reverbL: Freeverb;
     reverbR: Freeverb;
     reverbCrossMix = 0.1;
@@ -321,7 +325,7 @@ export class APU {
     portamento = false;
 
     updateFrequencyPeriod(ch: Channel, newFrequencyPeriod: number) {
-        if (ch.frequencyPeriod != newFrequencyPeriod ) {
+        if (ch.frequencyPeriod != newFrequencyPeriod) {
             // if (ch.id == 0) console.log(`ch:${ch.id} old:${ch.frequencyPeriod} new:${newFrequencyPeriod}`)
             ch.frequencyPeriodLastChanged = this.gb.constantRateTicks;
             ch.lastFrequencyPeriod = ch.frequencyPeriod;
@@ -419,11 +423,11 @@ export class APU {
         }
 
         if (this.debugEnables[ch.id]) {
-            this.blipBufL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), outL / 4);
-            this.blipBufR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), outR / 4);
+            this.blipBufL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), outL / 4, this.resamplerEnabled);
+            this.blipBufR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), outR / 4, this.resamplerEnabled);
         } else {
-            this.blipBufL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0);
-            this.blipBufR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0);
+            this.blipBufL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, this.resamplerEnabled);
+            this.blipBufR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, this.resamplerEnabled);
         }
     }
 
@@ -530,13 +534,22 @@ export class APU {
                 let ticksSinceChange = this.gb.constantRateTicks - ch.frequencyPeriodLastChanged;
                 let slideTime = 4194304 * 0.05;
                 if (ticksSinceChange < slideTime) {
-                    period = Math.round(ch.lastFrequencyPeriod + (ticksSinceChange / slideTime) * (ch.frequencyPeriod - ch.lastFrequencyPeriod));
+                    period = ch.lastFrequencyPeriod + (ticksSinceChange / slideTime) * (ch.frequencyPeriod - ch.lastFrequencyPeriod);
                     if (period == 0) return;
                 }
             }
 
-            if (this.transposeSemitones != 0 && ch.id != 3) {
-                period = Math.round(period * (2 ** (-this.transposeSemitones / 12)));
+            if (ch.id != 3) {
+                if (this.transposeSemitones != 0) {
+                    period *= 2 ** (-this.transposeSemitones / 12);
+
+                }
+
+                // if (this.perfectTuning) {
+                // let hz = 4194304 / period;
+                // let note = Math.round(Math.log2(hz / 440) * 12);
+                // period = 4194304 / (440 * (2 ** (note / 12)));
+                // }
             }
 
             let time = ch.time + ch.frequencyTimer;
