@@ -667,8 +667,8 @@ let runEmulator = false;
 function DrawDebug() {
     if (ImGui.Begin("Optime GB")) {
         if (mgr.romLoaded) {
-            ImGui.Text("Welcome to a new generation of Optime GB.");
-            ImGui.Separator();
+            // ImGui.Text("Welcome to a new generation of Optime GB.");
+            // ImGui.Separator();
             ImGui.Columns(4);
 
             ImGui.Text(`AF: ${hexN(mgr.gb.cpu.getAf(), 4)}`);
@@ -718,18 +718,18 @@ function DrawDebug() {
             } else {
                 if (ImGui.Button("Stop Logging & Download")) {
                     mgr.gb.cpu.enableLogging = false;
-                    
+
                     let element = document.createElement('a');
                     element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(mgr.gb.cpu.log));
                     element.setAttribute('download', "OptimeGB.log");
-                    
+
                     element.style.display = 'none';
                     document.body.appendChild(element);
-                    
+
                     element.click();
-                    
+
                     document.body.removeChild(element);
-                    
+
                     mgr.gb.cpu.log = "";
                 }
             }
@@ -1246,12 +1246,12 @@ function DrawSoundVisualizer() {
         drawPulseBox(gb.apu.ch1.duty, 64 / pulse1Hz, pulse1Active ? gb.apu.ch1.volume / 15 : 0);
         let pulse1Note = noteFromFrequency(pulse1Hz);
         let pulse1CentsOff = centsOffFromPitch(pulse1Hz, pulse1Note);
-        ImGui.Text(`Pitch: ${pulse1Hz} hz`);
-        ImGui.Text(`Value: ${gb.apu.ch1.currentVal * gb.apu.ch1.volume}`);
+        // ImGui.Text(`Pitch: ${pulse1Hz} hz`);
+        // ImGui.Text(`Value: ${gb.apu.ch1.currentVal * gb.apu.ch1.volume}`);
         // ImGui.Text(`Volume: ${gb.apu.ch1.volume}`);
         // ImGui.Text(`Volume Init: ${gb.apu.ch1.envelopeInitial}`);
-        ImGui.Text(`Envelope Period: ${gb.apu.ch1.envelopePeriod}`);
-        ImGui.Text(`Note: ${noteNameFromFrequency(pulse1Hz)}${octaveFromFrequency(pulse1Hz)} ${(pulse1CentsOff < 0 ? "" : "+") + pulse1CentsOff}`);
+        // ImGui.Text(`Envelope Period: ${gb.apu.ch1.envelopePeriod}`);
+        // ImGui.Text(`Note: ${noteNameFromFrequency(pulse1Hz)}${octaveFromFrequency(pulse1Hz)} ${(pulse1CentsOff < 0 ? "" : "+") + pulse1CentsOff}`);
 
         ImGui.Separator();
 
@@ -1261,24 +1261,24 @@ function DrawSoundVisualizer() {
         drawPulseBox(gb.apu.ch2.duty, 64 / pulse2Hz, pulse2Active ? gb.apu.ch2.volume / 15 : 0);
         let pulse2Note = noteFromFrequency(pulse2Hz);
         let pulse2CentsOff = centsOffFromPitch(pulse2Hz, pulse2Note);
-        ImGui.Text(`Pitch: ${pulse2Hz} hz`);
-        ImGui.Text(`Value: ${gb.apu.ch2.currentVal * gb.apu.ch2.volume}`);
+        // ImGui.Text(`Pitch: ${pulse2Hz} hz`);
+        // ImGui.Text(`Value: ${gb.apu.ch2.currentVal * gb.apu.ch2.volume}`);
         // ImGui.Text(`Volume: ${gb.apu.ch2.volume}`);
         // ImGui.Text(`Volume Init: ${gb.apu.ch2.envelopeInitial}`);
-        ImGui.Text(`Envelope Period: ${gb.apu.ch2.envelopePeriod}`);
-        ImGui.Text(`Note: ${noteNameFromFrequency(pulse2Hz)}${octaveFromFrequency(pulse2Hz)} ${(pulse2CentsOff < 0 ? "" : "+") + pulse2CentsOff}`);
+        // ImGui.Text(`Envelope Period: ${gb.apu.ch2.envelopePeriod}`);
+        // ImGui.Text(`Note: ${noteNameFromFrequency(pulse2Hz)}${octaveFromFrequency(pulse2Hz)} ${(pulse2CentsOff < 0 ? "" : "+") + pulse2CentsOff}`);
 
         ImGui.Separator();
 
         ImGui.Checkbox('Wave', (v = gb.apu.debugEnables[2]) => (gb.apu.debugEnables[2] = v));
         let waveHz = 65536 / (2048 - gb.apu.ch3.frequency);
-        let waveActive = gb.apu.ch3.enabled && gb.apu.ch3.dacEnabled && (gb.apu.ch3.enableL || gb.apu.ch3.enableR) && gb.apu.ch3.volumeCode != 0;
-        drawWaveBox(gb.apu.ch3.waveTable, 64 / waveHz, waveActive ? gb.apu.ch3.volumeShift : 0);
+        let waveActive = gb.apu.ch3.enabled && gb.apu.ch3.dacEnabled && (gb.apu.ch3.enableL || gb.apu.ch3.enableR);
+        drawWaveBox(gb.apu.ch3.waveTable, 64 / waveHz, waveActive ? waveShiftCodes[gb.apu.ch3.volumeCode] : 4);
         let waveNote = noteFromFrequency(waveHz);
         let waveCentsOff = centsOffFromPitch(waveHz, waveNote);
-        ImGui.Text(`Pitch: ${waveHz} hz`);
-        ImGui.Text(`Value: ${gb.apu.ch3.currentVal >> gb.apu.ch3.volume}`);
-        ImGui.Text(`Note: ${noteNameFromFrequency(waveHz)}${octaveFromFrequency(waveHz)} ${(waveCentsOff < 0 ? "" : "+") + waveCentsOff}`);
+        // ImGui.Text(`Pitch: ${waveHz} hz`);
+        // ImGui.Text(`Value: ${gb.apu.ch3.currentVal >> gb.apu.ch3.volume}`);
+        // ImGui.Text(`Note: ${noteNameFromFrequency(waveHz)}${octaveFromFrequency(waveHz)} ${(waveCentsOff < 0 ? "" : "+") + waveCentsOff}`);
 
         ImGui.Separator();
 
@@ -1287,7 +1287,7 @@ function DrawSoundVisualizer() {
         let noiseHz = 524288 / noiseDivisors[gb.apu.ch4.divisorCode] / 2 ^ (gb.apu.ch4.frequencyShift + 1);
         let noiseActive = gb.apu.ch4.enabled && gb.apu.ch4.dacEnabled && (gb.apu.ch4.enableL || gb.apu.ch4.enableR);
         drawNoiseBox(gb.apu.ch4.sevenBit ? noise7Array : noise15Array, 0.025, noiseActive ? gb.apu.ch4.volume / 15 : 0, gb.apu.ch4.lfsr);
-        ImGui.Text(`Value: ${gb.apu.ch4.currentVal * gb.apu.ch4.volume}`);
+        // ImGui.Text(`Value: ${gb.apu.ch4.currentVal * gb.apu.ch4.volume}`);
         ImGui.End();
     }
 }

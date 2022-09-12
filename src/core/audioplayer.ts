@@ -89,6 +89,7 @@ export class AudioPlayer {
 
         if (this.audioSec <= this.ctx.currentTime + 0.02) {
             // Reset time if close to buffer underrun
+            console.log('AudioPlayer: reset time');
             this.audioSec = this.ctx.currentTime + 0.06;
         }
         bufferSource.buffer = buffer;

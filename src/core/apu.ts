@@ -5,6 +5,20 @@ import { AudioPlayer, SAMPLE_RATE } from "./audioplayer";
 import { WavDownloader } from "./util/wavdownloader";
 import { BlipBuf } from "./dsp/blip_buf";
 import { Freeverb } from "./dsp/freeverb";
+import { hexN } from "./util/misc";
+
+function downloadText(filename: string, text: string) {
+    var element = document.createElement('a');
+    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+    element.setAttribute('download', filename);
+
+    element.style.display = 'none';
+    document.body.appendChild(element);
+
+    element.click();
+
+    document.body.removeChild(element);
+}
 
 /* Optime GB SoundStream format
 
@@ -292,11 +306,7 @@ export class APU {
         this.gb = gb;
         this.scheduler = scheduler;
 
-        // I had a bug in blipbuf that set the frequency ceiling to only 2 / Pi
-        // of what it was supposed to be, but I liked how it didn't destroy
-        // my ears so I'm keeping it like that.
-        this.blipBufL = new BlipBuf(16, true, 4, 2 / Math.PI);
-        this.blipBufR = new BlipBuf(16, true, 4, 2 / Math.PI);
+        this.blipBuf = new BlipBuf(4, true, 4, 1);
         this.reverbL = new Freeverb(outputSampleRate, REVERB_WET, REVERB_DECAY, 0);
         this.reverbR = new Freeverb(outputSampleRate, REVERB_WET, REVERB_DECAY, 1);
         this.downloader = new WavDownloader(outputSampleRate, "");
@@ -310,8 +320,7 @@ export class APU {
 
     debugEnables = new Array(4).fill(true);
 
-    blipBufL: BlipBuf;
-    blipBufR: BlipBuf;
+    blipBuf: BlipBuf;
     reverbL: Freeverb;
     reverbR: Freeverb;
     reverbCrossMix = 0.1;
@@ -323,6 +332,22 @@ export class APU {
 
     transposeSemitones = 0;
     portamento = false;
+
+    loggingStartCycles = 0;
+    writeLog = "";
+    enableWriteLogging = false;
+    startLoggingWrites() {
+        this.enableWriteLogging = true;
+        this.loggingStartCycles = this.scheduler.currentTicks;
+    }
+
+    stopLoggingWrites() {
+        this.enableWriteLogging = false;
+
+        downloadText("OptimeGB_Audio_Write_Log.txt", this.writeLog);
+
+        this.writeLog = "";
+    }
 
     updateFrequencyPeriod(ch: Channel, newFrequencyPeriod: number) {
         if (ch.frequencyPeriod != newFrequencyPeriod) {
@@ -348,8 +373,10 @@ export class APU {
         while (this.sampleTimer >= 4194304) {
             this.sampleTimer -= 4194304;
 
-            let outL = this.blipBufL.readOutSample();
-            let outR = this.blipBufR.readOutSample();
+            this.blipBuf.readOutSample();
+
+            let outL = this.blipBuf.currentValL * 0.5;
+            let outR = this.blipBuf.currentValR * 0.5;
 
             let finalL = outL - this.capacitorL;
             let finalR = outR - this.capacitorR;
@@ -423,11 +450,9 @@ export class APU {
         }
 
         if (this.debugEnables[ch.id]) {
-            this.blipBufL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), outL / 4, this.resamplerEnabled);
-            this.blipBufR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), outR / 4, this.resamplerEnabled);
+            this.blipBuf.setValue(ch.id, time * (SAMPLE_RATE / 4194304), outL / 4, outR / 4, this.resamplerEnabled);
         } else {
-            this.blipBufL.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, this.resamplerEnabled);
-            this.blipBufR.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, this.resamplerEnabled);
+            this.blipBuf.setValue(ch.id, time * (SAMPLE_RATE / 4194304), 0, 0, this.resamplerEnabled);
         }
     }
 
@@ -616,6 +641,10 @@ export class APU {
         return 0xFF;
     }
     writeHwio8(addr: number, val: number): void {
+        if (this.enableWriteLogging) {
+            this.writeLog += `${hexN(addr, 4)} ${hexN(val, 2)} ${this.scheduler.currentTicks - this.loggingStartCycles}\n`;
+        }
+
         if (this.enabled) {
             if (addr >= 0xFF10 && addr <= 0xFF26) {
                 let index = addr - 0xFF10;

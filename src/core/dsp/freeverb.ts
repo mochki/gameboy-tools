@@ -3,7 +3,7 @@
 
 import { AllPassFilter } from "./all_pass_filter";
 
-const FEEDBACK_COMB_FILTER_COUNT = 16;
+const FEEDBACK_COMB_FILTER_COUNT = 8;
 
 export class Freeverb {
     allPassFilters: AllPassFilter[];
@@ -38,12 +38,12 @@ export class Freeverb {
         for (let i = 0; i < FEEDBACK_COMB_FILTER_COUNT; i++) {
             // https://www.desmos.com/calculator/jmjsblwacr
             this.feedbackLength[i] = Math.floor((96 * ((i / FEEDBACK_COMB_FILTER_COUNT) ** 2) + 1116) * (sampleRate / 44100) + sampleOffset);
-            this.allPassFiltersIntermediate[i] = new AllPassFilter(Math.floor(224 * (sampleRate / 44100)), 0.5); 
-            this.allPassFiltersIntermediate2[i] = new AllPassFilter(Math.floor(443 * (sampleRate / 44100)), 0.5); 
+            this.allPassFiltersIntermediate[i] = new AllPassFilter(Math.floor(224 * (sampleRate / 44100)), 0.5);
+            this.allPassFiltersIntermediate2[i] = new AllPassFilter(Math.floor(443 * (sampleRate / 44100)), 0.5);
             this.feedbackBuffer[i] = new Float64Array(this.feedbackLength[i]);
         }
 
-        
+
         // original Freeverb delays
         // this.feedbackLength[0] = Math.floor(1157 * (sampleRate / 44100));
         // this.feedbackLength[1] = Math.floor(1617 * (sampleRate / 44100));
@@ -83,14 +83,16 @@ export class Freeverb {
             if (++this.feedbackBufferPos[i] >= this.feedbackLength[i]) this.feedbackBufferPos[i] = 0;
             let delayLineOut = this.feedbackBuffer[i][this.feedbackBufferPos[i]];
 
-            // TODO: maybe lowpass makes it sound better?
-            this.feedbackLowpassBuffer[i] = delayLineOut;
+            const rate = 0.6;
+            let filtered = rate * delayLineOut + (1.0 - rate) * this.feedbackLowpassBuffer[i];
+
+            this.feedbackLowpassBuffer[i] = filtered;
 
             delayLineOut = this.allPassFiltersIntermediate[i].process(delayLineOut);
             outWet += this.allPassFiltersIntermediate2[i].process(delayLineOut);
         }
 
-        outWet /= FEEDBACK_COMB_FILTER_COUNT;
+        outWet /= (FEEDBACK_COMB_FILTER_COUNT * 2);
 
         for (let i = 0; i < 4; i++) {
             outWet = this.allPassFilters[i].process(outWet);
