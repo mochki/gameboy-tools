@@ -1,6 +1,5 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import neu from './tools/neu'
 import './global.module.css'
 import App from './App'
 
@@ -11,5 +10,3 @@ root.render(
     <App />
   </React.StrictMode>
 )
-
-neu.init()
