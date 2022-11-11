@@ -17,7 +17,7 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "BROWSER=none react-scripts start",
+    "start": "concurrently --names \"Client,Neu\" -c \"bgBlue.bold,bgMagenta.bold\"  \"BROWSER=none react-scripts start\" \"sleep 10 && neu run --frontend-lib-dev -- --window-enable-inspector\"",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
@@ -36,6 +36,7 @@
     ]
   },
   "devDependencies": {
+    "concurrently": "^7.5.0",
     "prettier": "^2.7.1"
   }
 }
