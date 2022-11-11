@@ -7,7 +7,13 @@
   "enableServer": true,
   "enableNativeAPI": true,
   "nativeAllowList": [
-    "app.*"
+    "app.*",
+    "clipboard.*",
+    "os.*",
+    "events.*",
+    "storage.*",
+    "filesystem.*",
+    "window.*"
   ],
   "modes": {
     "window": {

@@ -67,8 +67,8 @@ declare global {
         getPath: () => Promise<void> // ", { name: e });
       }
       storage: {
-        setData: () => Promise<void> // ", { key: e, data: t });
-        getData: () => Promise<void> // ", { key: e });
+        setData: (key: string, data: any) => Promise<void> // ", { key: e, data: t });
+        getData: (key: string) => Promise<void> // ", { key: e });
       }
       updater: {
         checkForUpdates: () => Promise<void>
@@ -96,7 +96,7 @@ declare global {
         setDraggableRegion: () => Promise<void>
         unsetDraggableRegion: () => Promise<void>
         setAlwaysOnTop: () => Promise<void> // ", { onTop: e });
-        create: () => Promise<void>
+        create: (url: string, config: any) => Promise<void>
       }
     }
   }
