@@ -1,9 +1,0 @@
-{
-    "files.exclude": {
-        "src/core/**/*.js": true,
-        "src/frontend/**/*.js": true
-    },
-    "git.autoRepositoryDetection": false,
-    "git.detectSubmodules": false,
-    "git.ignoreSubmodules": true
-}
