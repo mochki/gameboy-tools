@@ -29,10 +29,10 @@
   },
   "browserslist": {
     "production": [
-      "last 1 chrome version"
+      "last 2 chrome versions"
     ],
     "development": [
-      "last 1 chrome version"
+      "last 2 chrome versions"
     ]
   },
   "devDependencies": {
